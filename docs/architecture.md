@@ -49,8 +49,9 @@ vrgen/
     prep/                  # ← vrpad aigc/prep 原样：budget prompt scale
     round/                 # ← vrpad aigc/round 原样：assets gate ledger pipeline task
     manual.py              # ★新增：手动注册后端（本地文件 → 同格式台账）
-    jobs.py                # ★重写：job(=case名) 分组与 brief 草稿
-                           #   （替代 vrpad aigc/case.py 的"自己找 *_pad.json"逻辑，改显式入参）
+    jobs.py                # ★重写：job(=case名) 分组与 prompt-vars 草稿
+                           #   （提示词可变块+模板选择，替代 vrpad 的 brief 术语；
+                           #    并替代 aigc/case.py 的"自己找 *_pad.json"逻辑，改显式入参）
   config/default.toml      # 平台参数：模型/模式/分辨率档/超时/登录态路径
   templates/               # 提示词模板：360闭环（vrpad 迁入）、人物重绘（新增）
   runs/                    # 台账树（服务自有数据，gitignore）

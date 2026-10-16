@@ -58,7 +58,9 @@ round = "dusk-a9fb11bc"
 - `target_aspect` 不在 case 里——它是平台 bucket 参数，进 vrstudio 项目配置。
 - `[viewport]/[inner]/[frames]` 是**草稿**（可变）；`clip.json` 是**契约**（冻结）。
   改范围 = 改草稿重新 extract = 新版本目录，两者分离避免 pick 迭代造成版本爆炸。
-- 提示词草稿（theme/style）在 vrgen 侧按 job（=case 名）保存，case 不知道提示词的存在。
+- prompt-vars（提示词可变块：theme/style，外加模板选择）在 vrgen 侧按 job（=case 名）
+  保存为 `runs/<job>/prompt-vars.toml`，case 不知道提示词的存在。
+  **术语**：不用 vrpad 的 "brief"——避免与 vrpatch 网页选区草稿（viewport/inner）混淆。
 
 ## 3. case 目录
 
@@ -96,19 +98,24 @@ vrgen peek <task-id>                       # 零额度查平台侧状态
 
 退出码：`0` 成功 / `2` 参数或配置错 / `1` 运行失败（台账里有完整现场）。
 
-## 5. 台账格式（runs/<job>/<轮次key>/）
+`--template` 只需在 job 首次 submit 时指定，之后记入该 job 的 prompt-vars 草稿；
+`--set` 每轮覆盖草稿中的对应变量，只改要改的。
 
-沿用 vrpad run.json 五件套，两条流程同构：
+## 5. 台账格式（runs/<job>/）
+
+沿用 vrpad run.json 五件套，两条流程同构；job 级另有一份可变草稿：
 
 ```
-runs/<job>/<轮次key>/
-  run.json            # 台账：stage/params/prompt/assets/task_id/result/gate/notes
-  prompt.txt          # 实际发出的提示词
-  command.txt         # 实际发出的 argv
-  progress.log        # 过程叙事（含等待轮询），每次调用追加
-  mglc.log            # 外部调用的 argv/返回码/错误消息
-  upload_<w>x<h>.mp4  # 缩档后真正上传的（仅 mglc 后端）
-  result.mp4          # 生成/注册的结果
+runs/<job>/
+  prompt-vars.toml      # job 级草稿：template 选择 + theme/style 可变块（vrgen 侧唯一可写的"当前值"）
+  <轮次key>/
+    run.json            # 台账：stage/params/prompt/assets/task_id/result/gate/notes
+    prompt.txt          # 实际发出的提示词（模板展开后）
+    command.txt         # 实际发出的 argv
+    progress.log        # 过程叙事（含等待轮询），每次调用追加
+    mglc.log            # 外部调用的 argv/返回码/错误消息
+    upload_<w>x<h>.mp4  # 缩档后真正上传的（仅 mglc 后端）
+    result.mp4          # 生成/注册的结果
 ```
 
 关键机制（随 vrpad aigc/round 迁入）：task_id 防重发（断点续跑从台账断点继续）、
