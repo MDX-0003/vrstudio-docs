@@ -42,7 +42,14 @@
   （M3 已交付，web 将直接调用）。测试 196 绿。
 - [x] web 技术栈对比文档（决策 11）：`docs/web-stack.md`，推荐路线 A（沿用
   Starlette + jinja2 + 原生 JS），预留升 HTMX 的让步通道，否决前后端分离
-- [ ] web 骨架迁入，按 architecture.md §3 页面流逐页接两条流程（软向导）
+- [x] web 骨架迁入与软向导（2026-10-16）：`src/vrstudio/web/`（app/tasks/render ← vrpatch
+  迁入并接统一 case 模型；`serve` 命令落地，`--host 0.0.0.0` 支持局域网）。页面：case
+  列表 + 向导（软向导门控判据全在服务端）；pick 交互原样迁入（点击定视口/拖框 inner/
+  摇杆/逐帧）；generate 页轮次列表 + mglc.log tail；对比页同步播放 + 滑动分割线。
+  patch 流程已浏览器验收（合成素材：建 case → pick → 队列抽取 → register → adopt →
+  merge → out/ 成片对比，全程不离开浏览器）；fullredraw 向导页已实现（pad/recompose
+  入队），待真素材验收。web 单测 14 个，总计 210 绿。
+- [ ] fullredraw 向导页真素材浏览器验收（与 M1 配额解决后的真实 submit 一并做）
 - 验收：两条流程各跑通一个真实 case，全程不离开浏览器
 
 ## M5 收尾
