@@ -35,8 +35,13 @@
 
 ## M4 patch 流程 + web 控制台
 
-- [ ] pick/extract/merge/restore 接入统一 case 模型（ai-clip 注册改调 `vrgen register`）
-- [ ] web 骨架迁入，按 architecture.md §3 页面流逐页接两条流程
+- [x] patch 后端接线（2026-10-16）：统一 case 草稿 API（`set_draft`/`draft_ready`）、
+  `vrstudio extract name --case`（草稿冻结进 extracts/，老式 case.toml 入口保留）、
+  `vrstudio merge --case`（源哈希守卫 + extracts/<current> 自动定位 + out/ 默认落点；
+  自动 restore/scalefit 本就内置于 merge）；ai-clip 注册即 `generate register/adopt`
+  （M3 已交付，web 将直接调用）。测试 196 绿。
+- [ ] web 技术栈对比文档（决策 11，先论证再动工）
+- [ ] web 骨架迁入，按 architecture.md §3 页面流逐页接两条流程（软向导）
 - 验收：两条流程各跑通一个真实 case，全程不离开浏览器
 
 ## M5 收尾
