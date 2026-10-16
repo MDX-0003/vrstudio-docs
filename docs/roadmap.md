@@ -40,7 +40,8 @@
   `vrstudio merge --case`（源哈希守卫 + extracts/<current> 自动定位 + out/ 默认落点；
   自动 restore/scalefit 本就内置于 merge）；ai-clip 注册即 `generate register/adopt`
   （M3 已交付，web 将直接调用）。测试 196 绿。
-- [ ] web 技术栈对比文档（决策 11，先论证再动工）
+- [x] web 技术栈对比文档（决策 11）：`docs/web-stack.md`，推荐路线 A（沿用
+  Starlette + jinja2 + 原生 JS），预留升 HTMX 的让步通道，否决前后端分离
 - [ ] web 骨架迁入，按 architecture.md §3 页面流逐页接两条流程（软向导）
 - 验收：两条流程各跑通一个真实 case，全程不离开浏览器
 

@@ -48,4 +48,5 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 | `docs/architecture.md` | 总架构、模块树、拷贝映射表、默认决策 |
 | `docs/case-model.md` | case.toml 格式、vrgen CLI 契约、台账格式（两仓库的唯一接口权威） |
 | `docs/decisions.md` | 决策记录（已拍板 + 待确认默认） |
+| `docs/web-stack.md` | web 控制台技术栈三路线对比（决策 11 的论证） |
 | `docs/roadmap.md` | 实施里程碑与验收标准 |
