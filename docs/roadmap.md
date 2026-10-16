@@ -11,24 +11,27 @@
 
 ## M1 vrgen 最小可用
 
-- [ ] 迁入 vrpad `aigc/platform|prep|round`（原样），重写 `jobs.py` + `cli.py`
+- [ ] 迁入 vrpad `aigc/platform|prep|round`（原样），重写 `jobs.py` + `cli.py` 的 submit
 - [ ] `vrgen submit --job t --input x.mp4 --mask m.png` 完成一次真实 mglc 调用并落台账
-- [ ] `vrgen register --file` 手动后端写同构台账
+- [x] `vrgen register --file` 手动后端写同构台账（M3 提前交付：`manual.py` 内容寻址注册 + run.json 契约 + `jobs.py` prompt-vars 自适应）
 - [ ] 断点续跑：submit 中断后重发不重复扣额度（task_id 防重发回归测试）
 - 验收：用 fullredraw 的输入包（pad 画布 + mask）真实出一轮结果
 
-## M2 vrstudio 契约搬运
+## M2 vrstudio 契约搬运（2026-10-16 完成，e2032f1）
 
-- [ ] `patch/`（vrpatch 核心库）、`redraw/`（vrpad 核心库）原样迁入，测试随迁
-- [ ] `media/` 合并（三档编码 profile），旧像素基线测试（maxdiff==0、恒等式）全绿
-- [ ] 分层 config + progress 合并
-- 验收：随迁测试全绿；对同一素材，新仓库 CLI 输出与旧仓库逐字节一致（或差异可解释为编码 profile 文档化语义）
+- [x] `patch/`（vrpatch 核心库）、`redraw/`（vrpad 核心库）原样迁入，测试随迁（test_aigc 除外——属 vrgen；test_web_* 除外——属 M4）
+- [x] `media/` 合并（videoio/binres ← vrpad，ffmpeg.py ← vrpatch；三档 profile 文档化于 media/__init__）
+- [x] 分层 config（去 [aigc] 段）+ progress 合并（vrpatch 系改名 PhaseLog/PhaseRateMeter）
+- 验收达成：随迁测试 170 个全绿。逐字节一致由 M3 的 ship_01 复现代偿——同源同配置下
+  接缝指标与 vrpad 历史成片逐位一致（wrap 0.8928 / percentile 81.2 / worst 9.1598）。
 
-## M3 generate 接线（first end-to-end）
+## M3 generate 接线（2026-10-16 完成，vrgen c07b327 + vrstudio 4d1452c）
 
-- [ ] `cli/case.py`（new/list/show）+ `cli/generate.py`（组装输入包 → subprocess 调 vrgen → adopt 落 case）
-- [ ] fullredraw 全流程 CLI 跑通：case → pad → generate → adopt → recompose → out/
-- 验收：复现 vrpad 的 ship_01 案例（同源视频、同 brief，出一版成片，接缝指标达闸门）
+- [x] `cli/case.py`（new/list/show）+ 统一 case 模型库 `src/vrstudio/case.py` + `cli/generate.py`（输入包解析 → vrgen CLI 子进程 → adopt 落账）
+- [x] fullredraw 全流程 CLI 跑通：case → pad → register/submit → adopt → recompose → out/
+- 验收达成：合成素材 e2e（pytest，比例错的返回件也重组回源尺寸）+ ship_01 真实复现
+  （同源 ship_ue.mp4，register vrpad 历史返回件，recompose 后 wrap/worst/帧数与历史
+  报告逐位一致）。注意：submit 走 mglc 属 M1，本次验收以 manual 后端完成。
 
 ## M4 patch 流程 + web 控制台
 

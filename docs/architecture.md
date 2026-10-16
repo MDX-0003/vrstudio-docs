@@ -114,10 +114,10 @@ vrpatch 的 ai-clip 注册端点改为调 `vrgen register`；extract/merge 仍 s
 | vrpatch `ai_clip.json` 注册路径 | vrgen `manual.py` | 语义升级为台账记录 |
 | 两边知识文档（geometry-contract、projection-contract、aigc-handoff-prompt 等） | 各自所属仓库 docs/ | 随迁 |
 
-## 5. 脚手架现状（M0，本次交付）
+## 5. 实施现状
 
-- 两仓库已 `git init`（main 分支）、uv 工程（Python 3.11，src layout）、pytest + ruff、
-  GitHub Actions CI（test + lint，windows/ubuntu 矩阵）。
-- CLI 骨架已按契约声明全部子命令（stub，退出码 2 + 指向 `docs/case-model.md`），
-  冒烟测试断言命令面完整。
+- **M0 脚手架**（完成）：两仓库 git init（main）、uv 工程（3.11 + src layout）、pytest + ruff、GitHub Actions CI（windows/ubuntu 矩阵）。
+- **M2 契约搬运**（完成，vrstudio e2032f1）：`redraw/` ← vrpad、`patch/` ← vrpatch、`media/` 合并、CLI 装配（迁入命令 9 个 + 新增 case/generate + serve stub），随迁测试 170 绿。
+- **M3 generate 接线**（完成，vrgen c07b327 + vrstudio 4d1452c）：vrgen manual 后端全链路（register/status/result，17 测试）；vrstudio 统一 case 模型 + generate 三命令；合成 e2e + ship_01 真实复现（指标与 vrpad 历史逐位一致），共 186 测试绿。
+- **待办**：M1（mglc 平台链路：submit/login/models/peek）、M4（patch 流程接统一 case + web 控制台）、M5（README 交接规范 + 旧仓库归档）。
 - 无 CD：本地工具无部署物；CI 的 test job 即提交门禁。
