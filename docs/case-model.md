@@ -99,7 +99,29 @@ vrgen status --job <名> [--watch]          # 轮询；--watch 阻塞到终态
 vrgen register --job <名> --file <本地路径>            # 手动后端：写同格式台账
 vrgen result --job <名> --round <key> --out <路径>     # 导出结果（adopt 时调用）
 vrgen peek <task-id>                       # 零额度查平台侧状态
+vrgen prompt show --job <名> [--template <id>] [--workdir <dir>]   # 读提示词模板+变量草稿
+vrgen prompt save --job <名> [--set k=v]… [--unset k]… [--template <id>] [--workdir <dir>]
 ```
+
+### prompt 子命令（web 提示词编辑界面的数据源，决策 18）
+
+两个命令都输出**单个 JSON 对象**（`ensure_ascii`，机器可读；调用方 `json.loads` 解析）：
+
+```json
+{"template": "360-closure",        // 生效模板 id：草稿 > --template > 配置默认；都没有则 null
+ "available": ["360-closure"],     // templates/ 下全部可选模板
+ "template_text": "…",             // 模板正文原样（含 {占位符}）
+ "placeholders": ["canvas_w", "theme"],  // 模板正文引用的全部 {键}
+ "geometry_keys": ["canvas_w"],    // submit 时由几何自动填充的只读键
+ "vars": {"theme": "黄昏"}}         // prompt-vars.toml [vars] 当前值
+```
+
+- `show`：只读。模板解析顺序 `--template` > 草稿 > 配置默认；找不到模板时退出码 2 并列出 `available`。
+- `save`：写草稿并回显保存后的同一 JSON。`--set` 新增或覆盖（这里是草稿编辑器，
+  **允许新键**，与 submit `--set` 只认已有键不同）；`--unset` 删除键，模板正文引用的键
+  拒绝删除（退出码 2 列出哪些删不了）；`--template` 切换模板（必须存在于 templates/）。
+- 变量的展示与增删规则（web 侧消费）：模板引用的非几何键（如 theme/style）永远展示、
+  不可删除、值可改；草稿里的自定义键可改可删；`geometry_keys` 是只读占位符，页面只提示不出现输入框。
 
 退出码：`0` 成功 / `2` 参数或配置错 / `1` 运行失败（台账里有完整现场）。
 
