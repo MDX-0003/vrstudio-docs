@@ -82,6 +82,7 @@ vrstudio/
     media/                 # ★合并：vrpad videoio/binres + vrpatch media.py
       ffmpeg.py            #    发现（bin/ > PATH）+ probe
       writer.py            #    统一帧泵 + 显式编码 profile（lossless444 / ai14 / delivery）
+    case.py               # ★新增：case.toml 读写/校验的唯一权威（CLI / generate / web 三方共用）
     config.py              # ← vrpad 分层 toml（default + 本机覆盖 + --set）
     progress.py            # 日志/RateMeter（两边合并为一份）
     web/                   # ← vrpatch web 骨架扩展：app tasks render templates static

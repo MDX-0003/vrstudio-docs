@@ -36,6 +36,9 @@ height = 500
 start = 24
 end = 168
 
+[extract]               # 当前生效的抽取版本（web extract 时写入）
+current = "20260923T073001"   # → extracts/<时间戳>/；generate 与 merge 都以它为准
+
 [adopt]                 # vrgen 台账里被采用的轮次；采用时结果已拷入本 case
 round = "dusk-c3a41f90"
 ```
@@ -58,6 +61,8 @@ round = "dusk-a9fb11bc"
 - `target_aspect` 不在 case 里——它是平台 bucket 参数，进 vrstudio 项目配置。
 - `[viewport]/[inner]/[frames]` 是**草稿**（可变）；`clip.json` 是**契约**（冻结）。
   改范围 = 改草稿重新 extract = 新版本目录，两者分离避免 pick 迭代造成版本爆炸。
+- `[extract] current` 是草稿→契约的"当前生效"指针：generate 与 merge 都认它，
+  不采用"最新时间戳"这种在手工复制目录时会出错的隐式约定（vrpatch 先例）。
 - prompt-vars（提示词可变块：theme/style，外加模板选择）在 vrgen 侧按 job（=case 名）
   保存为 `runs/<job>/prompt-vars.toml`，case 不知道提示词的存在。
   **术语**：不用 vrpad 的 "brief"——避免与 vrpatch 网页选区草稿（viewport/inner）混淆。
@@ -98,8 +103,12 @@ vrgen peek <task-id>                       # 零额度查平台侧状态
 
 退出码：`0` 成功 / `2` 参数或配置错 / `1` 运行失败（台账里有完整现场）。
 
-`--template` 只需在 job 首次 submit 时指定，之后记入该 job 的 prompt-vars 草稿；
-`--set` 每轮覆盖草稿中的对应变量，只改要改的。
+`--template` 只需在 job 首次 submit 时指定，之后记入该 job 的 prompt-vars 草稿。
+
+`--set <键>=<值>`（可多次）的键集合**自适应于草稿的 `[vars]`**：在 toml 里新增字段后
+立即可用，实现里不允许出现逐变量的固定分支；未知键以退出码 2 失败并列出该 job 的
+可用键（fail loud，不静默忽略）。`--set` 是本次调用的临时覆盖，不写回草稿；生效值
+由台账留档（command.txt 记 argv、prompt.txt 记展开结果）。
 
 ## 5. 台账格式（runs/<job>/）
 
