@@ -56,17 +56,31 @@ sha256 = "…"            # 可选：pad 之后源不再被读，manifest 已含
 round = "dusk-a9fb11bc"
 ```
 
-### flow = "gen"（简单生成：源视频直接送生成，前后不加流程）
+### flow = "gen"（多素材生成：素材自带，模式由 generation.toml 决定）
 
 ```toml
 flow = "gen"
 
-[source]
-path = "../sources/Simple_Anima_Test.mp4"
-sha256 = "…"            # 每次 submit 都重读源并上传，创建时钉死身份
+[[assets]]                     # 有序数组；顺序决定 @VideoN / @ImageN 编号
+id = "v1"                      # case 内唯一；前端、文件名校验与台账映射都认它
+kind = "video"                 # video | image
+path = "assets/v1_main.mp4"    # 相对 case 目录；case 自带文件
+role = "edit_master"           # edit_master | motion_ref | scene_ref | subject_ref
+sha256 = "…"                   # 可选；添加时计算，提交前校验
 
-# [gen]                 # 预留：参考图功能，当前未实现
-# reference_images = []
+[[assets]]
+id = "v2"
+kind = "video"
+path = "assets/v2_motion_ref.mp4"
+role = "motion_ref"
+sha256 = "…"
+
+[[assets]]
+id = "i1"
+kind = "image"
+path = "assets/i1_character.png"
+role = "subject_ref"
+sha256 = "…"
 
 [adopt]
 round = "dusk-3c1a4b2d"
@@ -82,12 +96,38 @@ round = "dusk-3c1a4b2d"
 - prompt-vars（提示词可变块：theme/style，外加模板选择）在 vrgen 侧按 job（=case 名）
   保存为 `runs/<job>/prompt-vars.toml`，case 不知道提示词的存在。
   **术语**：不用 vrpad 的 "brief"——避免与 vrpatch 网页选区草稿（viewport/inner）混淆。
-- flow = gen 的 case 只有源视频一段静态事实：generate 直接把 `[source] path` 上传，
-  画布尺寸与源尺寸都取源视频的实际像素；没有 mask、pad 产物或抽取版本。
-- `[gen] reference_images` 是给未来参考图功能预留的字段：值是一个本地图片路径列表。
-  当前 vrstudio 只读写并原样保存，`generate` 发现列表非空时明确报"参考图还没接入"，
-  不会静默忽略。未来接入时由 vrgen submit 增加 `--ref-image`，逐个配 SD 素材 id
-  以 mglc `--image` / `--asset-id` 发出（videoEdit 的 refImageValidator 允许最多 30 张）。
+- gen 的 `[source]` 已取消：源视频只是第一条素材。新建 gen case 时可以给 `--source`，
+  vrstudio 把它复制进 `assets/` 并记为 `v1`、`role = "edit_master"`；不给源视频时
+  建出来是空素材列表，由素材步骤补齐。
+- 旧 gen case（只有 `[source]`）在 `load` 时自动迁移：源视频复制进
+  `cases/<name>/assets/v1_<原文件名>`，写成一条 `[assets]`（`role = "edit_master"`），
+  哈希保留，`[source]` 段删除。迁移失败（源不存在/复制失败）时报错并保持原文件。
+- 旧 `[gen] reference_images` 同样迁移为 `kind = "image"`、`role = "subject_ref"` 的素材；
+  不再作为独立字段读写。
+- 模式**不在 case.toml**。唯一权威是 `runs/<job>/generation.toml` 的 `mode`；新建 gen
+  case 时由 `vrstudio case new --mode` 或网页创建面板立即写入，之后通过
+  `vrgen params show` 读回、`params save` 切换。
+- 素材 `id` 按类型独立递增：视频 `v1`、`v2`…，图片 `i1`、`i2`…；删除后不复用。
+- `kind` 只允许 `video` / `image`；本期不支持音频。
+- `role` 由用户手动选择，不按顺序推断；空角色是未完成状态，提交前必须补齐。
+- 数值限制（格式、时长、帧率、像素、体积、数量上限）只在 vrgen 提交前校验；
+  vrstudio 前端不重复实现。视频与超限图片在 vrgen 内缩放到限额内再上传。
+
+### gen 素材角色与模式矩阵
+
+| 模式 | 视频 | 图片 | 数量与顺序 |
+|---|---|---|---|
+| `videoEdit` | 恰好 1 个，`role = "edit_master"` | 只能 `subject_ref` | 视频必须排第一条 |
+| `allMediaRef` | 至少 1 个；角色 `edit_master` / `motion_ref` / `scene_ref` | `subject_ref` / `scene_ref` | 至多 1 个 `edit_master`；若存在，必须排第一条视频 |
+| `videoExtend` | 恰好 1 个，`role = "edit_master"` | 只能 `subject_ref` | 视频必须排第一条 |
+
+- 三种模式都要求至少 1 个视频素材；audio 不在本期范围。
+- 视频数量上限取 `refVideoValidator.maxCount`，图片数量上限取
+  `refImageValidator.maxCount`，同时不超过模式自身的 `maxCount`。
+- 母版（提示词几何与上传基准）取第一条 `edit_master` 视频；`allMediaRef` 没有
+  `edit_master` 时取第一条视频。其余视频各自缩放到限额内并保持各自比例。
+- 时长：`videoEdit` / `videoExtend` 取母版时长，`allMediaRef` 取最长视频时长；
+  显式 `--duration` 仍然优先。
 
 ## 3. case 目录
 
@@ -108,16 +148,31 @@ cases/<名>/
   result.mp4                     # 被采用的那轮结果
   out/<轮次key>.mp4 + _recompose.json
   # --- flow = gen ---
-  result.mp4                     # 被采用的那轮结果（源视频不复制，直接上传）
-  # [gen] reference_images 里的图片原地引用，不复制
+  assets/                        # 素材副本（case 自带，不依赖外部路径）
+    v1_main.mp4
+    v2_motion_ref.mp4
+    i1_character.png
+  result.mp4                     # 被采用的那轮结果
 ```
 
 ## 4. vrgen CLI 契约
 
+case 创建入口（vrstudio）：
+
+```
+vrstudio case new <名> --flow patch|fullredraw|gen [--source <视频>] [--mode <模式>]
+  # patch/fullredraw：--source 必填，--mode 禁止
+  # gen：--mode 必填；--source 可选。给了源视频就复制为 assets/v1（edit_master）。
+  #      case 写盘后立即以子进程调 vrgen params save --job <名> --mode <模式>；
+  #      写模式失败时 case 保留，命令以退出码 2 结束并提示重试。
+```
+
 ```
 vrgen login [--check]                      # 登录态管理（透传 mglc）
 vrgen models [--refresh]                   # 平台模型清单
-vrgen submit --job <名> --input <视频> --mask <mask> \
+vrgen submit --job <名> \
+           ( --input <视频> [--mask <mask>] | --refs <素材清单.json> ) \
+           [--canvas WxH] [--source WxH] \
            [--template <id>] [--set theme=…,style=…] \
            [--model-id 37] [--mode videoEdit] [--resolution 1080p] \
            [--duration <秒>] [--num <1..4>] [--aspect-ratio 21:9] \
@@ -129,10 +184,40 @@ vrgen result --job <名> --round <key> --out <路径>     # 导出结果（adopt
 vrgen peek <task-id>                       # 零额度查平台侧状态
 vrgen prompt show --job <名> [--template <id>] [--workdir <dir>]   # 读提示词模板+变量草稿
 vrgen prompt save --job <名> [--set k=v]… [--unset k]… [--template <id>] [--workdir <dir>]
-vrgen params show --job <名> --input <视频> --canvas WxH --source WxH [--aspect-ratio auto] [--workdir <dir>]
-vrgen params save --job <名> --resolution <480p|720p|1080p> --scale <auto|full|half> [--session-id <id>] [--project-id <id>] [--episode <n>] [--workdir <dir>]
+vrgen params show --job <名> [--input <视频>] [--canvas WxH] [--source WxH] [--aspect-ratio auto] [--workdir <dir>]
+vrgen params save --job <名> [--resolution <480p|720p|1080p>] [--scale <auto|full|half>] [--mode <模式>] [--aspect-ratio <auto|W:H>] [--session-id <id>] [--project-id <id>] [--episode <n>] [--workdir <dir>]
 vrgen sessions list [--project-id <id>] [--episode <n>]   # 只读：项目/剧集/会话树，JSON 输出
 ```
+
+### `--refs` 素材清单（gen 多素材入口）
+
+`vrgen submit` 的两种输入互斥：
+
+- `--input` + `--mask`：patch / fullredraw 的单视频入口，行为不变。
+- `--refs`：gen 的多素材入口；不再传 `--input` / `--mask`。`--canvas` / `--source`
+  可以省略，由母版视频的实际尺寸推导。
+
+`--refs` 是一个 JSON 文件：
+
+```json
+{
+  "assets": [
+    {"id": "v1", "kind": "video", "path": "E:\\VRAIGC\\vrstudio\\cases\\demo\\assets\\v1_main.mp4", "role": "edit_master", "sha256": "…"},
+    {"id": "v2", "kind": "video", "path": "E:\\VRAIGC\\vrstudio\\cases\\demo\\assets\\v2_motion_ref.mp4", "role": "motion_ref"},
+    {"id": "i1", "kind": "image", "path": "E:\\VRAIGC\\vrstudio\\cases\\demo\\assets\\i1_character.png", "role": "subject_ref"}
+  ]
+}
+```
+
+- `path` 可以是绝对路径，也可以相对 JSON 文件所在目录；`sha256` 可选，给了就校验。
+- `id` 在清单内唯一；`kind` 只允许 `video` / `image`；`role` 只允许四个受控词。
+- 顺序就是提示词 `@VideoN` / `@ImageN` 的编号顺序；vrgen 按角色矩阵校验。
+- vrgen 在轮次目录里保存一份 `refs.json` 现场，之后断点续跑以它为准。
+- `--canvas` / `--source` 省略时，gen 取母版视频的实际像素（母版 = 第一条
+  `edit_master`，没有则第一条视频）；显式给出时仍按显式值。
+- 视频与超限图片各自缩放到模型限额内；缩放件按素材 id 命名并记入台账。
+- `selftest`：`vrgen submit --refs … --dry-run` 只做本地半场，不发请求不花钱，
+  用于检查素材清单、角色矩阵、提示词与 argv。
 
 ### 生成参数（web 生成页的数据源，决策 20）
 
@@ -175,20 +260,36 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
              "session_id": 0, "project_id": 0, "episode": 0},
  "modes": [{"value": "videoEdit", "label": "VideoEdit · 结构锁定编辑（动作跟随输入）",
             "takes_video": true, "ratios": [], "max_count": 50,
+            "max_videos": 10, "max_images": 30, "video_required": true,
+            "roles": {"video": ["edit_master"],
+                      "image": ["subject_ref"]},
             "duration": {"type": ""}},
            {"value": "allMediaRef", "label": "AllMediaRef · 多素材参考（可重新生成动作）",
             "takes_video": true, "ratios": ["auto", "16:9", "21:9"], "max_count": 50,
+            "max_videos": 10, "max_images": 30, "video_required": true,
+            "roles": {"video": ["edit_master", "motion_ref", "scene_ref"],
+                      "image": ["subject_ref", "scene_ref"]},
             "duration": {"type": "range", "min": 4, "max": 30}}],
  "fixed": {"model_id": 37, "duration_s": 8, "num": 1},
  "saved": true}
 ```
 
 - `output` 是平台输出档位及标称宽高；`input` 是当前 case 的输入文件在三种 `scale` 下的实际宽高，`ok/reason` 由平台模型的像素/体积限制计算。
-- `modes` 是从模型能力里筛出的、接受输入视频的模式；页面用它填充模式下拉框，不在前端写死。
+- `input` / `canvas` / `source` 都可省略。省略 `--input` 时（例如新建 gen case 后还没有素材），
+  `output` 与 `input` 返回空数组，页面只使用 `modes` 与 `current`；素材补齐后再次调用
+  即恢复完整结果。省略 `--input` 时若显式给了 `--canvas`/`--source`，只用于计算 `output`。
+- `modes` 是模型能力里筛出的、本期支持的模式（`videoEdit` / `allMediaRef` / `videoExtend`）；
+  页面用它填充模式下拉框，不在前端写死。`max_videos` / `max_images` 取对应
+  validator 的 `maxCount`，`roles` 与 `video_required` 是本地角色矩阵的只读回显。
 - `current` 优先读 `runs/<job>/generation.toml`，没有则回退配置默认值；`saved` 表示草稿是否存在。`current` 里的 `session_id` 是项目生成会话（0 表示个人额度）。
 - `current.mode` 是本次提交使用的模式；`current.aspect_ratio` 是解析后的比例。没有比例选项的模式显示 `auto`，页面写“跟随输入”；`allMediaRef` 这类有比例列表的模式从列表里选择。
 - 项目额度的接法：`mglc project list` 拿项目 ID，`mglc episode list --project-id <id>` 拿剧集序号，`mglc session list --project-id <id> --episode <n>` 拿 `sessionId`；把 `sessionId` 写进 `generation.toml`（`params save --session-id`）后，所有 submit 都走项目额度。不传 `--session-id` 时 `params save` 保留已有会话。层级、额度行为与失败边界详见 `docs/sessions.md`。
-- `params save` 接受 `480p|720p|1080p`、`auto|full|half`、任意模式名与 `auto` 或 `W:H` 比例，写 `runs/<job>/generation.toml`，回显 `{"resolution": …, "scale": …, "mode": …, "aspect_ratio": …, "session_id": …, "project_id": …, "episode": …}`。模式是否被模型支持由 submit 阶段的模型能力校验负责。
+- `params save` 的 `--resolution` / `--scale` 可省略；省略时保留 `generation.toml` 已有值，
+  没有草稿时回退配置默认值。新建 gen case 只传 `--mode`，其余字段等素材选好后再写。
+  接受 `480p|720p|1080p`、`auto|full|half`、任意模式名与 `auto` 或 `W:H` 比例，写
+  `runs/<job>/generation.toml`，回显 `{"resolution": …, "scale": …, "mode": …, "aspect_ratio": …,
+  "session_id": …, "project_id": …, "episode": …}`。模式是否被模型支持由 submit 阶段的
+  模型能力校验负责；`vrstudio case new` 在创建时只接受本期三种模式。
 - submit 的取值优先级：命令行显式参数 > `generation.toml` > `config/default.toml`。`--scale` 的 quarter/显式 WxH 仍保留在 config 里给内部调试；CLI `--scale`、`params save` 与前端只接受 `auto|full|half`。
 
 ### sessions 子命令（前端会话选择器的数据源）
@@ -211,11 +312,12 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
 两个命令都输出**单个 JSON 对象**（`ensure_ascii`，机器可读；调用方 `json.loads` 解析）：
 
 ```json
-{"template": "360-closure",        // 生效模板 id：草稿 > --template > 配置默认；都没有则 null
- "available": ["360-closure", "gen-edit"],  // templates/ 下全部可选模板
+{"template": "gen-multi",          // 生效模板 id：草稿 > --template > 配置默认；都没有则 null
+ "available": ["360-closure", "gen-edit", "gen-multi"],  // templates/ 下全部可选模板
  "template_text": "…",             // 模板正文原样（含 {占位符}）
- "placeholders": ["canvas_w", "theme"],  // 模板正文引用的全部 {键}
+ "placeholders": ["canvas_w", "asset_list", "theme"],  // 模板正文引用的全部 {键}
  "geometry_keys": ["canvas_w"],    // submit 时由几何自动填充的只读键
+ "computed_keys": ["asset_list", "task_rule", "timeline_rule"],  // 由素材与模式自动填充的只读键
  "vars": {"theme": "黄昏"}}         // prompt-vars.toml [vars] 当前值
 ```
 
@@ -225,7 +327,24 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
   拒绝删除（退出码 2 列出哪些删不了）；`--template` 切换模板（必须存在于 templates/）。
 - 变量的展示与增删规则（web 侧消费）：模板引用的非几何键（如 theme/style/plot/action/
   allowed_changes）永远展示、不可删除、值可改；草稿里的自定义键可改可删；`geometry_keys`
-  是只读占位符，页面只提示不出现输入框。
+  与 `computed_keys` 是只读占位符，页面只提示不出现输入框。
+- `computed_keys` 是本次新增的契约字段：`asset_list`、`task_rule`、`timeline_rule` 由 vrgen
+  在 submit 时按素材顺序与当前模式生成，不允许写进 `prompt-vars.toml`。旧调用方不认识
+  这个字段时可以忽略它，不影响原有 `geometry_keys` 行为。
+
+### gen 多素材模板（templates/gen-multi.md）
+
+gen 流程统一使用 `gen-multi`（旧 `gen-edit` 保留，供历史轮次重放与对照）：
+
+- `{asset_list}`：按 case.toml 顺序生成，例如
+  `@Video1：编辑母版，负责时间轴、构图与动作基准。`、`@Video2：动作参考，只提供动作节奏与路径。`、
+  `@Image1：主体参考，只定义角色外观。`
+- `{task_rule}`：按模式生成任务句。`videoEdit` 是“只编辑母版中的指定主体”；`allMediaRef`
+  是“按文本分镜重新生成完整表演”；`videoExtend` 是“从母版结尾自然延长”。
+- `{timeline_rule}`：`videoEdit` 锁定动作顺序、起止时间、方向与画面位置；`allMediaRef`
+  允许重新编排节拍并写整数秒分镜；`videoExtend` 从母版结尾继续，不重演已有时段。
+- 其余用户变量（`subject` / `target` / `plot` / `preserve` / `allowed_changes` 等）仍然
+  由提示词面板维护，规则同前。
 
 退出码：`0` 成功 / `2` 参数或配置错 / `1` 运行失败（台账里有完整现场）。
 
@@ -250,9 +369,22 @@ runs/<job>/
     command.txt         # 实际发出的 argv
     progress.log        # 过程叙事（含等待轮询），每次调用追加
     mglc.log            # 外部调用的 argv/返回码/错误消息
-    upload_<w>x<h>.mp4  # 缩档后真正上传的（仅 mglc 后端）
+    refs.json           # gen 多素材：本次提交的素材清单现场（含 id/kind/role/path/hash）
+    upload_<w>x<h>.mp4  # patch/fullredraw：缩档后真正上传的视频（仅 mglc 后端）
+    upload_<id>_<w>x<h>.mp4 / .png   # gen：按素材 id 命名的缩放件
     result.mp4          # 生成/注册的结果
 ```
+
+gen 多素材的 run.json 字段扩展（其余字段与旧格式相同）：
+
+- `assets`：从 `{"video": 123, "image": 456}` 扩展为按素材 id 分组，例如
+  `{"video:v1": 123, "video:v2": 124, "image:i1": 456}`。patch/fullredraw 仍用
+  `"video"` / `"image"` 两个旧键，两种键集互不混用。
+- `params.refs`：本次提交的素材清单，每项含 `id`、`kind`、`role`、`path`、`sha256`、
+  `upload`（缩放件路径）、`width`、`height`；顺序与 `refs.json` 一致。
+- `params.master`：母版素材 id；`params.duration_source`：`master` 或 `longest`。
+- `upload` 仍记录母版上传件，供旧的通用闸门与人工查看；其余缩放件在 `params.refs`。
+- 断点续跑按 `assets` 里的 id 键验证素材；同一素材内容哈希相同则复用审核结果。
 
 关键机制（随 vrpad aigc/round 迁入）：task_id 防重发（断点续跑从台账断点继续）、
 换账号后素材自愈、gate 数字留档、models.json 清单 24h 缓存。
