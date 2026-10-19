@@ -170,18 +170,25 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
            {"value": "full", "width": 4668, "height": 2000, "ok": false,
             "reason": "9,336,000 px 超过上限 8,295,044"},
            {"value": "half", "width": 2334, "height": 1000, "ok": true, "reason": ""}],
- "current": {"resolution": "720p", "scale": "auto", "session_id": 0,
-             "project_id": 0, "episode": 0},
- "fixed": {"model_id": 37, "mode": "videoEdit", "aspect_ratio": "21:9",
-           "duration_s": 8, "num": 1},
+ "current": {"resolution": "720p", "scale": "auto",
+             "mode": "videoEdit", "aspect_ratio": "auto",
+             "session_id": 0, "project_id": 0, "episode": 0},
+ "modes": [{"value": "videoEdit", "label": "VideoEdit · 结构锁定编辑（动作跟随输入）",
+            "takes_video": true, "ratios": [], "max_count": 50,
+            "duration": {"type": ""}},
+           {"value": "allMediaRef", "label": "AllMediaRef · 多素材参考（可重新生成动作）",
+            "takes_video": true, "ratios": ["auto", "16:9", "21:9"], "max_count": 50,
+            "duration": {"type": "range", "min": 4, "max": 30}}],
+ "fixed": {"model_id": 37, "duration_s": 8, "num": 1},
  "saved": true}
 ```
 
 - `output` 是平台输出档位及标称宽高；`input` 是当前 case 的输入文件在三种 `scale` 下的实际宽高，`ok/reason` 由平台模型的像素/体积限制计算。
+- `modes` 是从模型能力里筛出的、接受输入视频的模式；页面用它填充模式下拉框，不在前端写死。
 - `current` 优先读 `runs/<job>/generation.toml`，没有则回退配置默认值；`saved` 表示草稿是否存在。`current` 里的 `session_id` 是项目生成会话（0 表示个人额度）。
+- `current.mode` 是本次提交使用的模式；`current.aspect_ratio` 是解析后的比例。没有比例选项的模式显示 `auto`，页面写“跟随输入”；`allMediaRef` 这类有比例列表的模式从列表里选择。
 - 项目额度的接法：`mglc project list` 拿项目 ID，`mglc episode list --project-id <id>` 拿剧集序号，`mglc session list --project-id <id> --episode <n>` 拿 `sessionId`；把 `sessionId` 写进 `generation.toml`（`params save --session-id`）后，所有 submit 都走项目额度。不传 `--session-id` 时 `params save` 保留已有会话。层级、额度行为与失败边界详见 `docs/sessions.md`。
-- `params show --aspect-ratio auto` 把 `fixed.aspect_ratio` 显示为 `auto`，页面据此写“跟随输入”；不传时沿用配置默认值。fullredraw 传 `21:9`，gen 传 `auto`。
-- `params save` 只接受 `480p|720p|1080p` 与 `auto|full|half`，写 `runs/<job>/generation.toml`，回显 `{"resolution": …, "scale": …, "session_id": …, "project_id": …, "episode": …}`。
+- `params save` 接受 `480p|720p|1080p`、`auto|full|half`、任意模式名与 `auto` 或 `W:H` 比例，写 `runs/<job>/generation.toml`，回显 `{"resolution": …, "scale": …, "mode": …, "aspect_ratio": …, "session_id": …, "project_id": …, "episode": …}`。模式是否被模型支持由 submit 阶段的模型能力校验负责。
 - submit 的取值优先级：命令行显式参数 > `generation.toml` > `config/default.toml`。`--scale` 的 quarter/显式 WxH 仍保留在 config 里给内部调试；CLI `--scale`、`params save` 与前端只接受 `auto|full|half`。
 
 ### sessions 子命令（前端会话选择器的数据源）
@@ -236,7 +243,7 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
 ```
 runs/<job>/
   prompt-vars.toml      # job 级草稿：template 选择 + 提示词可变块（vrgen 侧唯一可写的"当前值"）
-  generation.toml       # job 级草稿：resolution/scale/session_id/project_id/episode（决策 20/22）
+  generation.toml       # job 级草稿：mode/aspect_ratio/resolution/scale/session_id/project_id/episode（决策 20/22/23）
   <轮次key>/
     run.json            # 台账：stage/params/prompt/assets/task_id/result/gate/notes
     prompt.txt          # 实际发出的提示词（模板展开后）

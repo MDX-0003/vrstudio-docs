@@ -130,6 +130,6 @@ vrpatch 的 ai-clip 注册端点改为调 `vrgen register`；extract/merge 仍 s
 - **M1 平台链路**（代码完成，vrgen a35ee41）：mglc 登录/模型清单/提交/轮询/下载/零额度查询全部接入真实调用，断点续跑与防重发有回归测试；受配额限制，真实素材的一轮完整提交尚未验收。
 - **M4 web 控制台**（基本完成）：patch 流程已浏览器验收；fullredraw 向导页、提示词面板（决策 18）、360° 对比页与统一播放控制、单一 420 编码档（决策 19）、输出/输入分辨率下拉与生成参数草稿（决策 20）均已落地。剩余 fullredraw 真素材验收，与 M1 的真实提交一并做。
 - **gen 简单生成流程**（完成，决策 21/22）：case 只放源视频，向导只有生成一步；generate 直接把源视频作为输入包（canvas=source=源实际像素），模板 `gen-edit`，`adopt` 落 `case/result.mp4`。`--aspect-ratio auto` 让 videoEdit 跟随输入比例。参考图字段 `[gen] reference_images` 已预留，当前非空时明确拒绝。项目额度通过 `generation.toml` 的 `session_id` 传给 mglc，个人额度为 0 时也能用项目余额提交。
-- **当前测试规模**（2026-10-19 核对）：vrgen 81 个 + vrstudio 237 个（含 web 35 个），合计 318 个全绿；两仓库 `uv run ruff check .` 干净。
+- **当前测试规模**（2026-10-19 核对）：vrgen 83 个 + vrstudio 238 个（含 web 36 个），合计 321 个全绿；两仓库 `uv run ruff check .` 干净。
 - **待办**：M1/M4 的真实素材验收（需 mglc 配额）、决策 17 的多用户分层（已登记未实现）、M5（README 交接规范 + 旧仓库归档）。
 - 无 CD：本地工具无部署物；CI 的 test job 即提交门禁。

@@ -66,7 +66,9 @@
 - [x] 项目/剧集/会话选择器（2026-10-19，决策 22）：vrgen 新增 `sessions list` 只读命令，
   生成页三层联动下拉框，页面加载与刷新时重新获取会话树；选择结果写 `generation.toml`。
   方案与验收记录见 `docs/session-ui-plan.md`。
-- 当前测试规模：vrgen 81 个 + vrstudio 237 个（含 web 35 个），合计 318 个，全绿；
+- [x] 生成模式可选（2026-10-19，决策 23）：模式下拉框由 `vrgen params show` 的模型能力生成，
+  当前提供 videoEdit、allMediaRef、videoExtend；输出比例随模式联动，模式与比例写 `generation.toml`。
+- 当前测试规模：vrgen 83 个 + vrstudio 238 个（含 web 36 个），合计 321 个，全绿；
   `uv run ruff check .` 两仓库干净（2026-10-19 核对）。
 - [ ] fullredraw 向导页真素材浏览器验收（与 M1 配额解决后的真实 submit 一并做）
 - 验收：两条流程各跑通一个真实 case，全程不离开浏览器
