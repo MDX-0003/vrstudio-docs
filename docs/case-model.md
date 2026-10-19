@@ -121,7 +121,8 @@ vrgen submit --job <名> --input <视频> --mask <mask> \
            [--template <id>] [--set theme=…,style=…] \
            [--model-id 37] [--mode videoEdit] [--resolution 1080p] \
            [--duration <秒>] [--num <1..4>] [--aspect-ratio 21:9] \
-           [--scale auto|full|half] [--workdir <dir>]     # 断点续跑、task_id 防重发
+           [--scale auto|full|half] [--session-id <项目生成会话>] [--workdir <dir>]
+                                           # 断点续跑、task_id 防重发
 vrgen status --job <名> [--watch]          # 轮询；--watch 阻塞到终态
 vrgen register --job <名> --file <本地路径>            # 手动后端：写同格式台账
 vrgen result --job <名> --round <key> --out <路径>     # 导出结果（adopt 时调用）
@@ -129,7 +130,7 @@ vrgen peek <task-id>                       # 零额度查平台侧状态
 vrgen prompt show --job <名> [--template <id>] [--workdir <dir>]   # 读提示词模板+变量草稿
 vrgen prompt save --job <名> [--set k=v]… [--unset k]… [--template <id>] [--workdir <dir>]
 vrgen params show --job <名> --input <视频> --canvas WxH --source WxH [--aspect-ratio auto] [--workdir <dir>]
-vrgen params save --job <名> --resolution <480p|720p|1080p> --scale <auto|full|half> [--workdir <dir>]
+vrgen params save --job <名> --resolution <480p|720p|1080p> --scale <auto|full|half> [--session-id <id>] [--workdir <dir>]
 ```
 
 ### 生成参数（web 生成页的数据源，决策 20）
@@ -145,6 +146,7 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
 | `--num` | mglc `--num` | 生成数量 1..4；当前 vrgen 只取第一个结果，前端固定 1 |
 | `--aspect-ratio` | mglc `--aspect-ratio` | 输出比例；fullredraw 固定 21:9，gen 用 `auto` 表示不传该 flag（videoEdit 的输出比例跟随输入） |
 | `--scale` | **vrgen 自有** | 上传前的输入缩放：`auto`（限额内最大）/ `full`（画布原尺寸）/ `half`（画布一半）；没有对应的 mglc flag |
+| `--session-id` | mglc `--session-id` | 项目生成会话 ID（>0）；提交落在该项目下，计费走项目额度；0/不传 = 个人额度 |
 
 `--scale` 决定上传文件的实际像素，也就决定提示词里的 `{canvas_w}×{canvas_h}` 和冗余带列号；`--resolution` 只决定平台输出档位，**不会改变提示词里的输入像素数字**。
 
@@ -174,7 +176,8 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
 ```
 
 - `output` 是平台输出档位及标称宽高；`input` 是当前 case 的输入文件在三种 `scale` 下的实际宽高，`ok/reason` 由平台模型的像素/体积限制计算。
-- `current` 优先读 `runs/<job>/generation.toml`，没有则回退配置默认值；`saved` 表示草稿是否存在。
+- `current` 优先读 `runs/<job>/generation.toml`，没有则回退配置默认值；`saved` 表示草稿是否存在。`current` 里的 `session_id` 是项目生成会话（0 表示个人额度）。
+- 项目额度的接法：`mglc project list` 拿项目 ID，`mglc episode list --project-id <id>` 拿剧集序号，`mglc session list --project-id <id> --episode <n>` 拿 `sessionId`；把 `sessionId` 写进 `generation.toml`（`params save --session-id`）后，所有 submit 都走项目额度。不传 `--session-id` 时 `params save` 保留已有会话。
 - `params show --aspect-ratio auto` 把 `fixed.aspect_ratio` 显示为 `auto`，页面据此写“跟随输入”；不传时沿用配置默认值。fullredraw 传 `21:9`，gen 传 `auto`。
 - `params save` 只接受 `480p|720p|1080p` 与 `auto|full|half`，写 `runs/<job>/generation.toml`，回显 `{"resolution": …, "scale": …}`。
 - submit 的取值优先级：命令行显式参数 > `generation.toml` > `config/default.toml`。`--scale` 的 quarter/显式 WxH 仍保留在 config 里给内部调试；CLI `--scale`、`params save` 与前端只接受 `auto|full|half`。
@@ -216,7 +219,7 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
 ```
 runs/<job>/
   prompt-vars.toml      # job 级草稿：template 选择 + 提示词可变块（vrgen 侧唯一可写的"当前值"）
-  generation.toml       # job 级草稿：output resolution + input scale（决策 20）
+  generation.toml       # job 级草稿：output resolution + input scale + session_id（决策 20/22）
   <轮次key>/
     run.json            # 台账：stage/params/prompt/assets/task_id/result/gate/notes
     prompt.txt          # 实际发出的提示词（模板展开后）
