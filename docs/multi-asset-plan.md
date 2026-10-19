@@ -255,7 +255,7 @@ gen 不包含对比页。普通视频不能复用 360° ERP 对比器，本期�
 - 旧 `simple_gen_01` 的 case.toml 复制到临时目录后 `load` 迁移成功：
   生成 `assets/v1_Simple_Anima_Test.mp4` 与一条 `edit_master` 素材。
 
-测试规模：vrgen 95 个、vrstudio 253 个，合计 348 个全绿；两仓库
+测试规模：vrgen 95 个、vrstudio 257 个，合计 352 个全绿；两仓库
 `uv run ruff check .` 干净。
 
 未做：真实 `allMediaRef` 提交与采用（本期明确不消耗平台额度）；素材不合格
