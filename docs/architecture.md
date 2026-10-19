@@ -95,7 +95,7 @@ vrstudio/
 case 列表（flow 徽标）
   ├─ patch case:  pick(全景点击定视口/拖框定 inner/逐帧浏览) → extract → generate
   │               (vrgen 任务队列+日志 tail+轮次列表) → adopt → merge(进度) → 对比图
-  └─ fullredraw:  pad(几何预览) → generate → adopt → recompose(进度+闸门) → 对比图
+  └─ fullredraw:  pad(几何预览) → generate(输出/输入分辨率下拉) → adopt → recompose(进度+闸门) → 对比图
 ```
 
 vrpatch 的 ai-clip 注册端点改为调 `vrgen register`；extract/merge 仍 subprocess 跑 CLI。

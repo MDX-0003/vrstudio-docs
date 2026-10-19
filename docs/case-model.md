@@ -94,14 +94,64 @@ vrgen login [--check]                      # 登录态管理（透传 mglc）
 vrgen models [--refresh]                   # 平台模型清单
 vrgen submit --job <名> --input <视频> --mask <mask> \
            [--template <id>] [--set theme=…,style=…] \
-           [--resolution 1080p] [--workdir <dir>]     # 断点续跑、task_id 防重发
+           [--model-id 37] [--mode videoEdit] [--resolution 1080p] \
+           [--duration <秒>] [--num <1..4>] [--aspect-ratio 21:9] \
+           [--scale auto|full|half] [--workdir <dir>]     # 断点续跑、task_id 防重发
 vrgen status --job <名> [--watch]          # 轮询；--watch 阻塞到终态
 vrgen register --job <名> --file <本地路径>            # 手动后端：写同格式台账
 vrgen result --job <名> --round <key> --out <路径>     # 导出结果（adopt 时调用）
 vrgen peek <task-id>                       # 零额度查平台侧状态
 vrgen prompt show --job <名> [--template <id>] [--workdir <dir>]   # 读提示词模板+变量草稿
 vrgen prompt save --job <名> [--set k=v]… [--unset k]… [--template <id>] [--workdir <dir>]
+vrgen params show --job <名> --input <视频> --canvas WxH --source WxH [--workdir <dir>]
+vrgen params save --job <名> --resolution <480p|720p|1080p> --scale <auto|full|half> [--workdir <dir>]
 ```
+
+### 生成参数（web 生成页的数据源，决策 20）
+
+submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，不能自造同名语义：
+
+| vrgen 参数 | 来源 | 语义 |
+|---|---|---|
+| `--model-id` | mglc `--model-id` | 模型 ID；fullredraw 固定 37（Seedance 2.5） |
+| `--mode` | mglc `--type` | 生成模式；fullredraw 固定 `videoEdit` |
+| `--duration` | mglc `--duration` | 整数秒，CLI 必填；`videoEdit` 的时间轴由输入决定，默认按输入时长向上取整 |
+| `--resolution` | mglc `--resolution` | **输出档位**，480p / 720p / 1080p；不是输入文件尺寸 |
+| `--num` | mglc `--num` | 生成数量 1..4；当前 vrgen 只取第一个结果，前端固定 1 |
+| `--aspect-ratio` | mglc `--aspect-ratio` | 输出比例；fullredraw 固定 21:9 |
+| `--scale` | **vrgen 自有** | 上传前的输入缩放：`auto`（限额内最大）/ `full`（画布原尺寸）/ `half`（画布一半）；没有对应的 mglc flag |
+
+`--scale` 决定上传文件的实际像素，也就决定提示词里的 `{canvas_w}×{canvas_h}` 和冗余带列号；`--resolution` 只决定平台输出档位，**不会改变提示词里的输入像素数字**。
+
+21:9 下各输出档位的标称尺寸（页面展示用；最终以平台返回并写入 `run.json` 的 gate 为准）：
+
+| 档位 | 标称宽高 | 依据 |
+|---|---|---|
+| 480p | 992×432 | 平台公开像素表 |
+| 720p | 1470×630 | ship_01 实测返回 |
+| 1080p | 2206×946 | 平台公开像素表 |
+
+`params show` 输出单个 JSON 对象：
+
+```json
+{"job": "ship_01",
+ "output": [{"value": "480p", "width": 992, "height": 432},
+            {"value": "720p", "width": 1470, "height": 630},
+            {"value": "1080p", "width": 2206, "height": 946}],
+ "input": [{"value": "auto", "width": 4400, "height": 1884, "ok": true, "reason": ""},
+           {"value": "full", "width": 4668, "height": 2000, "ok": false,
+            "reason": "9,336,000 px 超过上限 8,295,044"},
+           {"value": "half", "width": 2334, "height": 1000, "ok": true, "reason": ""}],
+ "current": {"resolution": "720p", "scale": "auto"},
+ "fixed": {"model_id": 37, "mode": "videoEdit", "aspect_ratio": "21:9",
+           "duration_s": 8, "num": 1},
+ "saved": true}
+```
+
+- `output` 是平台输出档位及标称宽高；`input` 是当前 case 的输入文件在三种 `scale` 下的实际宽高，`ok/reason` 由平台模型的像素/体积限制计算。
+- `current` 优先读 `runs/<job>/generation.toml`，没有则回退配置默认值；`saved` 表示草稿是否存在。
+- `params save` 只接受 `480p|720p|1080p` 与 `auto|full|half`，写 `runs/<job>/generation.toml`，回显 `{"resolution": …, "scale": …}`。
+- submit 的取值优先级：命令行显式参数 > `generation.toml` > `config/default.toml`。`--scale` 的 quarter/显式 WxH 仍保留在 config 里给内部调试；CLI `--scale`、`params save` 与前端只接受 `auto|full|half`。
 
 ### prompt 子命令（web 提示词编辑界面的数据源，决策 18）
 
@@ -120,8 +170,9 @@ vrgen prompt save --job <名> [--set k=v]… [--unset k]… [--template <id>] [-
 - `save`：写草稿并回显保存后的同一 JSON。`--set` 新增或覆盖（这里是草稿编辑器，
   **允许新键**，与 submit `--set` 只认已有键不同）；`--unset` 删除键，模板正文引用的键
   拒绝删除（退出码 2 列出哪些删不了）；`--template` 切换模板（必须存在于 templates/）。
-- 变量的展示与增删规则（web 侧消费）：模板引用的非几何键（如 theme/style）永远展示、
-  不可删除、值可改；草稿里的自定义键可改可删；`geometry_keys` 是只读占位符，页面只提示不出现输入框。
+- 变量的展示与增删规则（web 侧消费）：模板引用的非几何键（如 theme/style/plot/action/
+  allowed_changes）永远展示、不可删除、值可改；草稿里的自定义键可改可删；`geometry_keys`
+  是只读占位符，页面只提示不出现输入框。
 
 退出码：`0` 成功 / `2` 参数或配置错 / `1` 运行失败（台账里有完整现场）。
 
@@ -138,7 +189,8 @@ vrgen prompt save --job <名> [--set k=v]… [--unset k]… [--template <id>] [-
 
 ```
 runs/<job>/
-  prompt-vars.toml      # job 级草稿：template 选择 + theme/style 可变块（vrgen 侧唯一可写的"当前值"）
+  prompt-vars.toml      # job 级草稿：template 选择 + 提示词可变块（vrgen 侧唯一可写的"当前值"）
+  generation.toml       # job 级草稿：output resolution + input scale（决策 20）
   <轮次key>/
     run.json            # 台账：stage/params/prompt/assets/task_id/result/gate/notes
     prompt.txt          # 实际发出的提示词（模板展开后）
