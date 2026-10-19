@@ -1,6 +1,6 @@
 # case 与多素材模型方案
 
-本文记录“新建 case 不再依赖单个视频、首个步骤选定多个素材”的改造方案。它针对当前 `simple_gen_01` 这类“从单个视频出发”的 case 模型；多素材生成、参考图和模式切换需要新的数据结构与页面流程。状态：方案已确认，待实施。
+本文记录“新建 case 不再依赖单个视频、首个步骤选定多个素材”的改造方案。它针对当前 `simple_gen_01` 这类“从单个视频出发”的 case 模型；多素材生成、参考图和模式切换需要新的数据结构与页面流程。状态：已实施（2026-10-19），免额度验收通过；真实 allMediaRef 提交待额度。
 
 ## 1. 问题来源
 
@@ -221,3 +221,43 @@ gen 不包含对比页。普通视频不能复用 360° ERP 对比器，本期�
 - `docs/sessions.md`：项目会话与额度。
 - `docs/prompt-rules.md`：多素材在提示词里的角色声明规则。
 - `docs/video-edit-motion-issue.md`：VideoEdit 动作问题与 A/B 路线。
+
+## 10. 实施与验收记录（2026-10-19）
+
+已落地的契约与代码：
+
+- `case.toml`：gen 改为有序 `[[assets]]`，不再写 `[source]`；素材复制进 `assets/`，
+  记录相对路径与哈希。旧 gen case 在 `load` 时自动迁移并落盘。
+- `vrstudio case new`：gen 的 `--mode` 必填，创建后调 `vrgen params save` 写模式；
+  `--source` 可选，给了就复制为 `v1/edit_master`。
+- `vrgen submit --refs`：素材清单 JSON；gen 不传 `--input`/`--mask`，canvas/source
+  可省略。角色矩阵、数量上限、视频/图片限额在 vrgen 提交前校验；每段视频独立缩放，
+  超限图片也缩放后上传。
+- 台账：`assets` 使用 `video:v1`/`image:i1` 分组键；`params.refs` 记录素材顺序、
+  角色与缩放件；轮次目录保存 `refs.json`。
+- 提示词：新增 `templates/gen-multi.md`，`asset_list`/`task_rule`/`timeline_rule`
+  由模式与素材顺序生成；`prompt show` 新增 `computed_keys`。
+- 前端：新建面板支持 gen 无视频创建；向导拆成 Jinja partials 与
+  common/assets/params/prompt/tasks/wizard 六个脚本；素材步骤支持本地多选、
+  手动角色、拖动/按钮排序、删除与缩略图；生成页新增免额度“检查提交命令”
+  （`generate submit --check`，内部执行 `vrgen submit --dry-run`）。
+
+浏览器验收（临时 cases 目录，未消耗额度）：
+
+- 新建无视频 gen case `multi-demo`，模式 `allMediaRef`，素材步骤添加 2 个视频
+  （其中一个先设为编辑母版并排到第一）与 1 张图片，角色分别为
+  `edit_master` / `motion_ref` / `subject_ref`。
+- 素材不合格时（256×128、10fps、0.8s 的视频），“检查提交命令”任务失败，
+  页面直接显示 `FAIL pixels / FAIL fps / FAIL duration` 与 `vrgen: 素材 v1 不合约`。
+- 换成两个合格视频后，检查任务成功；`prompt.txt` 依次出现 `@Video1` /
+  `@Video2` / `@Image1`，mglc argv 含两条 `--video`+`--video-asset-id` 与
+  一条 `--image`+`--asset-id`。
+- 旧 `simple_gen_01` 的 case.toml 复制到临时目录后 `load` 迁移成功：
+  生成 `assets/v1_Simple_Anima_Test.mp4` 与一条 `edit_master` 素材。
+
+测试规模：vrgen 95 个、vrstudio 252 个，合计 347 个全绿；两仓库
+`uv run ruff check .` 干净。
+
+未做：真实 `allMediaRef` 提交与采用（本期明确不消耗平台额度）；素材不合格
+的拒绝路径已用 dry-run 验证，但 SD 合规素材登记与真实任务轮询仍待下一轮额度。
+
