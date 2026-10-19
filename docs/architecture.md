@@ -32,16 +32,17 @@
         │                                                │
       out/ 成片                                       out/ 成片
 
-   gen（简单生成）：源视频 ──输入包──▶ vrgen → adopt → case/result.mp4
-                    （没有 pad/extract/recompose/merge 等前后步骤）
+   gen（多素材生成）：assets/ 素材清单 ──refs.json──▶ vrgen → adopt → case/result.mp4
+                    （素材 → 生成两步；没有 pad/extract/recompose/merge 等前后步骤）
 
    共享底座(vrstudio): media/(ffmpeg 发现+probe+统一帧泵, 单一 H.264 420 delivery 档)
      · 分层 config · progress 日志
    契约原样冻结: clip.json(单段) · _pad.json · index_map 唯一时间重采样 · 像素基线测试
 ```
 
-**正交性**：三条流程互斥（一个 case 只选一条），vrgen 对它们看到的是同一种东西——
-一段视频 + 一张 mask + 一份提示词 + 分辨率档。差异全部由 vrstudio 在"组装输入包"时消解。
+**正交性**：三条流程互斥（一个 case 只选一条）。patch/fullredraw 给 vrgen 的是
+一段视频 + 一张 mask；gen 给的是一份有序素材清单（视频/图片 + 角色）。两者都归一到
+同一份 `InputPackage`，差异全部由 vrstudio 在"组装输入包"时消解。
 
 ## 2. vrgen 模块树（目标态）
 
@@ -102,8 +103,9 @@ case 列表（flow 徽标）
   ├─ patch case:  pick(全景点击定视口/拖框定 inner/逐帧浏览) → extract → generate
   │               (vrgen 任务队列+日志 tail+轮次列表) → adopt → merge(进度) → 对比图
   ├─ fullredraw:  pad(几何预览) → generate(输出/输入分辨率下拉) → adopt → recompose(进度+闸门) → 对比图
-  └─ gen:         generate(提示词+输出/输入分辨率+Session 列表与选用) → adopt
-                  （只有生成一步；参考图入口预留，当前不出现）
+  └─ gen:         素材(多选/角色/排序/删除/缩略图) → generate(模式/比例/分辨率/
+                  提示词/Session/免额度检查) → adopt
+                  （没有对比页；patch/fullredraw 的单视频入口保持不变）
 ```
 
 vrpatch 的 ai-clip 注册端点改为调 `vrgen register`；extract/merge 仍 subprocess 跑 CLI。
@@ -129,7 +131,8 @@ vrpatch 的 ai-clip 注册端点改为调 `vrgen register`；extract/merge 仍 s
 - **M3 generate 接线**（完成，vrgen c07b327 + vrstudio 4d1452c）：vrgen manual 后端全链路（register/status/result，17 测试）；vrstudio 统一 case 模型 + generate 三命令；合成 e2e + ship_01 真实复现（指标与 vrpad 历史逐位一致），共 186 测试绿。
 - **M1 平台链路**（代码完成，vrgen a35ee41）：mglc 登录/模型清单/提交/轮询/下载/零额度查询全部接入真实调用，断点续跑与防重发有回归测试；受配额限制，真实素材的一轮完整提交尚未验收。
 - **M4 web 控制台**（基本完成）：patch 流程已浏览器验收；fullredraw 向导页、提示词面板（决策 18）、360° 对比页与统一播放控制、单一 420 编码档（决策 19）、输出/输入分辨率下拉与生成参数草稿（决策 20）均已落地。剩余 fullredraw 真素材验收，与 M1 的真实提交一并做。
-- **gen 简单生成流程**（完成，决策 21/22）：case 只放源视频，向导只有生成一步；generate 直接把源视频作为输入包（canvas=source=源实际像素），模板 `gen-edit`，`adopt` 落 `case/result.mp4`。`--aspect-ratio auto` 让 videoEdit 跟随输入比例。参考图字段 `[gen] reference_images` 已预留，当前非空时明确拒绝。项目额度通过 `generation.toml` 的 `session_id` 传给 mglc，个人额度为 0 时也能用项目余额提交。
-- **当前测试规模**（2026-10-19 核对）：vrgen 83 个 + vrstudio 238 个（含 web 36 个），合计 321 个全绿；两仓库 `uv run ruff check .` 干净。
+- **gen 简单生成流程**（完成，决策 21/22）：最初的单源视频版本把源视频直接作为输入包（canvas=source=源实际像素），模板 `gen-edit`，`adopt` 落 `case/result.mp4`；项目额度通过 `generation.toml` 的 `session_id` 传给 mglc。
+- **gen 多素材**（完成，决策 24/25）：case 改为有序 `[[assets]]`（视频/图片 + 角色 + 哈希），新建时选模式且不再要求源视频；旧 gen case 读取时自动迁移。向导拆成 `素材 → 生成` 两步，素材复制进 `cases/<name>/assets/`。vrgen 新增 `submit --refs`：角色矩阵与限额校验、每段视频独立缩放、台账按 `video:v1`/`image:i1` 分组；提示词模板换成 `gen-multi`，素材清单与模式语义由 `asset_list`/`task_rule`/`timeline_rule` 自动生成。生成页提供免额度 `--check`（真正执行 `vrgen submit --dry-run`）。真实 allMediaRef 提交待额度。
+- **当前测试规模**（2026-10-19 核对）：vrgen 95 个 + vrstudio 253 个（含 web 42 个），合计 348 个全绿；两仓库 `uv run ruff check .` 干净。
 - **待办**：M1/M4 的真实素材验收（需 mglc 配额）、决策 17 的多用户分层（已登记未实现）、M5（README 交接规范 + 旧仓库归档）。
 - 无 CD：本地工具无部署物；CI 的 test job 即提交门禁。
