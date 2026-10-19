@@ -75,9 +75,10 @@ session_id = 2060150528006080
 
 vrgen 与 vrstudio 的边界只走 CLI 契约。vrstudio 的 web 生成页提交时调用 `vrstudio generate submit`，不读取也不传递会话 ID；vrgen 在自己的 `generation.toml` 草稿里取到会话 ID，再拼进 mglc 命令。因此：
 
-- web 前端代码里没有任何硬编码的会话 ID。
-- 每个 job 的会话是独立配置的。新建另一个 case 不会继承 `simple_gen_01` 的会话。
-- 当前 web 页面没有项目、剧集、会话选择器；修改分辨率或输入缩放时，`params save` 保留已有会话，不会把它清掉。
+- 前端代码里没有硬编码的会话 ID；会话 ID 只存在 job 的 `generation.toml` 里。
+- 当前 web 生成页已经提供项目、剧集、会话三层联动下拉框；打开或刷新页面时重新获取会话树，选中会话后把三项写入 `generation.toml`（见 `docs/session-ui-plan.md`）。
+- 每个 job 的会话独立配置。新建另一个 case 不会继承 `simple_gen_01` 的会话。
+- 修改分辨率或输入缩放时，`params save` 保留已有会话，不会把它清掉。
 
 ## 6. 失败模式与边界
 

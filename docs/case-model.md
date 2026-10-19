@@ -170,7 +170,8 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
            {"value": "full", "width": 4668, "height": 2000, "ok": false,
             "reason": "9,336,000 px 超过上限 8,295,044"},
            {"value": "half", "width": 2334, "height": 1000, "ok": true, "reason": ""}],
- "current": {"resolution": "720p", "scale": "auto"},
+ "current": {"resolution": "720p", "scale": "auto", "session_id": 0,
+             "project_id": 0, "episode": 0},
  "fixed": {"model_id": 37, "mode": "videoEdit", "aspect_ratio": "21:9",
            "duration_s": 8, "num": 1},
  "saved": true}
