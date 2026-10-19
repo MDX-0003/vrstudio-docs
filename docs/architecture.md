@@ -81,7 +81,7 @@ vrstudio/
       registration.py  recompose_core.py  verify_core.py  framefit.py
     media/                 # ★合并：vrpad videoio/binres + vrpatch media.py
       ffmpeg.py            #    发现（bin/ > PATH）+ probe
-      writer.py            #    统一帧泵 + 显式编码 profile（lossless444 / ai14 / delivery）
+      videoio.py           #    统一帧泵（bgr24 流式；输出恒为 H.264 8-bit yuv420p）
     case.py               # ★新增：case.toml 读写/校验的唯一权威（CLI / generate / web 三方共用）
     config.py              # ← vrpad 分层 toml（default + 本机覆盖 + --set）
     progress.py            # 日志/RateMeter（两边合并为一份）

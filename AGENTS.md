@@ -27,7 +27,8 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
    投影只在 `vrstudio/patch/projection`；全景几何只在 `vrstudio/redraw/geometry`；
    画布↔源映射只在 `_pad.json` manifest。别处不得复制这些规则。
 4. **像素基线**：几何/编码相关改动必须 pytest 全绿（含随迁的恒等式与 maxdiff==0 基线测试）
-   才能提交。编码语义以 `vrstudio/media` 的显式 profile 为准（lossless444 / ai14 / delivery）。
+   才能提交。编码语义以 `vrstudio/media` 的显式 profile 为准（决策 19 起全流程只有
+   H.264 8-bit yuv420p delivery 一档；像素基线测试自行钉 crf 0）。
 5. **流式逐帧**：视频处理一帧一帧过，禁止整片驻留内存（6K/8K 素材是硬约束）；
    禁止模块级可变缓存。
 6. **提交门禁**：提交前 `uv run pytest` 全绿 + `uv run ruff check .` 干净。
