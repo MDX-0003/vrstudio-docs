@@ -56,6 +56,22 @@ sha256 = "…"            # 可选：pad 之后源不再被读，manifest 已含
 round = "dusk-a9fb11bc"
 ```
 
+### flow = "gen"（简单生成：源视频直接送生成，前后不加流程）
+
+```toml
+flow = "gen"
+
+[source]
+path = "../sources/Simple_Anima_Test.mp4"
+sha256 = "…"            # 每次 submit 都重读源并上传，创建时钉死身份
+
+# [gen]                 # 预留：参考图功能，当前未实现
+# reference_images = []
+
+[adopt]
+round = "dusk-3c1a4b2d"
+```
+
 设计说明：
 
 - `target_aspect` 不在 case 里——它是平台 bucket 参数，进 vrstudio 项目配置。
@@ -66,6 +82,12 @@ round = "dusk-a9fb11bc"
 - prompt-vars（提示词可变块：theme/style，外加模板选择）在 vrgen 侧按 job（=case 名）
   保存为 `runs/<job>/prompt-vars.toml`，case 不知道提示词的存在。
   **术语**：不用 vrpad 的 "brief"——避免与 vrpatch 网页选区草稿（viewport/inner）混淆。
+- flow = gen 的 case 只有源视频一段静态事实：generate 直接把 `[source] path` 上传，
+  画布尺寸与源尺寸都取源视频的实际像素；没有 mask、pad 产物或抽取版本。
+- `[gen] reference_images` 是给未来参考图功能预留的字段：值是一个本地图片路径列表。
+  当前 vrstudio 只读写并原样保存，`generate` 发现列表非空时明确报"参考图还没接入"，
+  不会静默忽略。未来接入时由 vrgen submit 增加 `--ref-image`，逐个配 SD 素材 id
+  以 mglc `--image` / `--asset-id` 发出（videoEdit 的 refImageValidator 允许最多 30 张）。
 
 ## 3. case 目录
 
@@ -85,6 +107,9 @@ cases/<名>/
   seedance_input_pad.json        # recompose 唯一几何权威（契约原样）
   result.mp4                     # 被采用的那轮结果
   out/<轮次key>.mp4 + _recompose.json
+  # --- flow = gen ---
+  result.mp4                     # 被采用的那轮结果（源视频不复制，直接上传）
+  # [gen] reference_images 里的图片原地引用，不复制
 ```
 
 ## 4. vrgen CLI 契约
@@ -103,7 +128,7 @@ vrgen result --job <名> --round <key> --out <路径>     # 导出结果（adopt
 vrgen peek <task-id>                       # 零额度查平台侧状态
 vrgen prompt show --job <名> [--template <id>] [--workdir <dir>]   # 读提示词模板+变量草稿
 vrgen prompt save --job <名> [--set k=v]… [--unset k]… [--template <id>] [--workdir <dir>]
-vrgen params show --job <名> --input <视频> --canvas WxH --source WxH [--workdir <dir>]
+vrgen params show --job <名> --input <视频> --canvas WxH --source WxH [--aspect-ratio auto] [--workdir <dir>]
 vrgen params save --job <名> --resolution <480p|720p|1080p> --scale <auto|full|half> [--workdir <dir>]
 ```
 
@@ -118,7 +143,7 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
 | `--duration` | mglc `--duration` | 整数秒，CLI 必填；`videoEdit` 的时间轴由输入决定，默认按输入时长向上取整 |
 | `--resolution` | mglc `--resolution` | **输出档位**，480p / 720p / 1080p；不是输入文件尺寸 |
 | `--num` | mglc `--num` | 生成数量 1..4；当前 vrgen 只取第一个结果，前端固定 1 |
-| `--aspect-ratio` | mglc `--aspect-ratio` | 输出比例；fullredraw 固定 21:9 |
+| `--aspect-ratio` | mglc `--aspect-ratio` | 输出比例；fullredraw 固定 21:9，gen 用 `auto` 表示不传该 flag（videoEdit 的输出比例跟随输入） |
 | `--scale` | **vrgen 自有** | 上传前的输入缩放：`auto`（限额内最大）/ `full`（画布原尺寸）/ `half`（画布一半）；没有对应的 mglc flag |
 
 `--scale` 决定上传文件的实际像素，也就决定提示词里的 `{canvas_w}×{canvas_h}` 和冗余带列号；`--resolution` 只决定平台输出档位，**不会改变提示词里的输入像素数字**。
@@ -150,6 +175,7 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
 
 - `output` 是平台输出档位及标称宽高；`input` 是当前 case 的输入文件在三种 `scale` 下的实际宽高，`ok/reason` 由平台模型的像素/体积限制计算。
 - `current` 优先读 `runs/<job>/generation.toml`，没有则回退配置默认值；`saved` 表示草稿是否存在。
+- `params show --aspect-ratio auto` 把 `fixed.aspect_ratio` 显示为 `auto`，页面据此写“跟随输入”；不传时沿用配置默认值。fullredraw 传 `21:9`，gen 传 `auto`。
 - `params save` 只接受 `480p|720p|1080p` 与 `auto|full|half`，写 `runs/<job>/generation.toml`，回显 `{"resolution": …, "scale": …}`。
 - submit 的取值优先级：命令行显式参数 > `generation.toml` > `config/default.toml`。`--scale` 的 quarter/显式 WxH 仍保留在 config 里给内部调试；CLI `--scale`、`params save` 与前端只接受 `auto|full|half`。
 
@@ -159,7 +185,7 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
 
 ```json
 {"template": "360-closure",        // 生效模板 id：草稿 > --template > 配置默认；都没有则 null
- "available": ["360-closure"],     // templates/ 下全部可选模板
+ "available": ["360-closure", "gen-edit"],  // templates/ 下全部可选模板
  "template_text": "…",             // 模板正文原样（含 {占位符}）
  "placeholders": ["canvas_w", "theme"],  // 模板正文引用的全部 {键}
  "geometry_keys": ["canvas_w"],    // submit 时由几何自动填充的只读键

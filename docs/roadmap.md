@@ -9,13 +9,14 @@
 - [x] CLI 骨架按契约声明全部子命令（stub），冒烟测试断言命令面
 - [x] `uv sync --extra dev` 可装、`uv run pytest` 全绿、首提交完成
 
-## M1 vrgen 最小可用
+## M1 vrgen 最小可用（代码完成，真实额度下的一轮提交待验收）
 
-- [ ] 迁入 vrpad `aigc/platform|prep|round`（原样），重写 `jobs.py` + `cli.py` 的 submit
+- [x] 迁入 vrpad `aigc/platform|prep|round`（原样），重写 `jobs.py` + `cli.py` 的 submit（a35ee41）
 - [ ] `vrgen submit --job t --input x.mp4 --mask m.png` 完成一次真实 mglc 调用并落台账
+  —— 调用链已真实化并有回归覆盖；受配额限制，真实素材的一轮完整提交还没跑过
 - [x] `vrgen register --file` 手动后端写同构台账（M3 提前交付：`manual.py` 内容寻址注册 + run.json 契约 + `jobs.py` prompt-vars 自适应）
-- [ ] 断点续跑：submit 中断后重发不重复扣额度（task_id 防重发回归测试）
-- 验收：用 fullredraw 的输入包（pad 画布 + mask）真实出一轮结果
+- [x] 断点续跑：submit 中断后重发不重复扣额度（a35ee41，task_id 防重发回归测试）
+- 验收：用 fullredraw 的输入包（pad 画布 + mask）真实出一轮结果（与 M4 的 fullredraw 验收合并进行）
 
 ## M2 vrstudio 契约搬运（2026-10-16 完成，e2032f1）
 
@@ -49,6 +50,18 @@
   patch 流程已浏览器验收（合成素材：建 case → pick → 队列抽取 → register → adopt →
   merge → out/ 成片对比，全程不离开浏览器）；fullredraw 向导页已实现（pad/recompose
   入队），待真素材验收。web 单测 14 个，总计 210 绿。
+- [x] M4 后续迭代（2026-10-16 至 2026-10-19，依次落地）：
+  - 提示词面板：模板正文只读 + 变量即改即存 + 自定义增删（995e700，决策 18）
+  - 对比页改 360° 全景观看（erp360.js 双路共视角）与统一进度条/播放键（5954505）
+  - 编码统一为浏览器可播的 H.264 420，废弃 444 与播放时转码（eddce06，决策 19）
+  - 生成页输出/输入分辨率下拉并透传 submit 参数（e85828a，决策 20）
+  - 文件信息显示仓库内相对路径、生成步骤拆分生成/采用两组（cdb7cdb、b42e4b9）
+  - 任务栏每行带提交时间、历史扩到 10 条并分节（995e700）
+- [x] gen 简单生成流程（2026-10-19，决策 21）：新增 `flow = "gen"`，向导只有生成一步；
+  源视频直接上传，模板 `gen-edit`，采用结果落 `case/result.mp4`；参考图字段已预留。
+- [ ] gen 流程用 Simple_Anima_Test.mp4 做浏览器操作与 1080p 真实提交验收。
+- 当前测试规模：vrgen 74 个 + vrstudio 232 个（含 web 31 个），合计 306 个，全绿；
+  `uv run ruff check .` 两仓库干净（2026-10-19 核对）。
 - [ ] fullredraw 向导页真素材浏览器验收（与 M1 配额解决后的真实 submit 一并做）
 - 验收：两条流程各跑通一个真实 case，全程不离开浏览器
 
