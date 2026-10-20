@@ -165,32 +165,36 @@
 - **两个区块**：「流程产物（派生 · 只读）」列源视频与当前 clip / pad 产物；「文件素材（`[[assets]]`）」列三视图、抽取原始帧、重绘定稿帧等，支持增删、角色、排序。
 - **提交集勾选与模式感知校验**：勾选若干文件素材作为本次提交。可选项与错误提示按模式动态调整——videoEdit 不需要勾选（自动用流程视频），fullredraw 的生成页只有 videoEdit 一种模式、可选素材仅 subject_ref 类、无工作台入口；firstLastFrame 要求恰好 1 张 first_frame + 1 张 last_frame，工作台输入用的原始帧与三视图默认不可选入；allMediaRef 按角色矩阵校验。前端校验只做引导，权威校验仍在 vrgen 提交前执行（沿用 multi-asset-plan 的"校验只在 vrgen"原则）。
 - **提示词联动**：勾选变化时重算 asset_list，把素材变量值里的 `@VideoN` / `@ImageN` 标记按旧编号到新编号的映射自动改写，并实时预览渲染后的完整提示词；变量值可在侧边栏与提示词面板实时填写（复用 prompt show/save 草稿机制）。引用了已被移除素材的标记不自动删除，标红警告由用户处理。
-- **持久化**：提交集（选中素材 id 与角色覆盖）作为 job 级生成参数草稿持久化，与 generation.toml 同级，字段实施时定；未显式选择时按模式取默认集（firstLastFrame 默认选最新定稿的一对帧）。vrstudio 侧生成时只把勾选素材写进 refs JSON——refs JSON 本就支持任意子集，vrgen 无需改动。
+- **持久化**：提交集存为 case.toml 的可选段 `[submit] selected`（素材 id 子集，2026-10-20 审查定案；理由见 `firstlast-dev-plan.md` WP0-1）。不存角色覆盖：提交时沿用素材自身角色，临时改角色用素材卡片的角色下拉。未显式选择时按模式取默认集——firstLastFrame 仅当恰有一对 first_frame/last_frame 时默认选之，多于一对要求手动选择（不按"最新定稿"取，mtime 在复制目录后会变）。vrstudio 侧生成时只把勾选素材写进 refs JSON——refs JSON 本就支持任意子集，vrgen 无需认识 `[submit]`。
 
 ### 8.5 已识别的实施隐患：成片与几何契约的对齐
 
-videoEdit 时代的成片跟随输入视频几何，merge 按此假设回贴；firstLastFrame 的成片比例跟随首尾图、分辨率为 480p/720p/1080p 档，与 clip 画布可能不一致（例如 clip 1920×1052 对 1080p 档 1920×1080）。对策从源头做起，用户已同意按原文记录（"截取图片的分辨率始终按原始视频的分辨率，这点我是同意的"）：
+videoEdit 时代的成片跟随输入视频几何，merge 按此假设回贴；firstLastFrame 的成片比例跟随首尾图、分辨率为 480p/720p/1080p 档，与 clip 画布可能不一致（例如 clip 1920×1052 对 1080p 档 1920×1080）。2026-10-20 讨论定案：**首期把整条链固定为 16:9，从源头消除比例差，不在生成后裁切。**
 
-- 抽取的原始帧始终按被抽帧视频的原始分辨率导出（patch 的 clip 分辨率；工具外部取帧同理按其源视频分辨率），不预缩放。
-- 工作台输出的定稿帧按几何出图：patch 按本 case 的 clip 契约裁切或定制宽高，使成片与契约的偏差只剩分辨率档位差，由 merge 既有的归一逻辑处理；gen 整幅帧没有外部几何契约，按帧自身比例出图，成片分辨率受档位限制——整幅 360 展开图的清晰度取舍已在 §8.1 路线分流中记录。
-
-实施前需检查 merge 对"结果尺寸 ≠ clip 尺寸"的现有行为并补测试。
+- 全链路 16:9：patch viewport 宽高比 16:9、规范像素 1920×1080；gen 图片步 `--ratio 16:9`；firstLastFrame `--resolution 1080p`；merge 目标 1920×1080。正常路径是 identity，比例一致时只允许等比缩放。
+- patch 的 16:9 约束只约束 firstLastFrame；历史非 16:9 case 继续用 videoEdit，不迁移、不自动裁切；要试首尾帧就重新选区并 extract 新版本（见 `firstlast-dev-plan.md` WP0.5、R8）。
+- 抽取的原始帧始终按被抽帧视频的原始分辨率导出（patch 的 clip 分辨率；工具外部取帧同理按其源视频分辨率），不预缩放。首期 clip 是 16:9，所以原始帧天然 16:9。
+- 工作台定稿帧：patch 的 `--ratio` 由 viewport 推导、gen 固定 16:9；首帧与尾帧必须同模型、同 ratio、同 resolution，落素材时断言同宽高。`--resolution` 默认取模型最高档（专业图片-2.5 与 Seedream 4.5 当前都是 4K），允许下调；§4 的 2K 是首次网页验证时的设置，不是默认值。图片模型的绝对像素尺寸不要求等于 clip——merge 只读取视频成片，图片只要比例一致即可；4K 提高关键帧精度，不改变 1080p 成片档位。
+  - `mglc image generate` 只有 `--ratio` 与 `--resolution`，CLI 侧没有自定义宽高参数，所以"定制宽高"不可行；首期只取 16:9，不承诺任意比例。
+  - 同一对 first_frame/last_frame 必须同宽高，否则 firstLastFrame 可能拒绝或输出比例漂移；不一致时直接报错重出图，不自动裁切。
+- merge 的现有行为已核查：AI 成片是 `cv2.resize(raw, target_size)` 硬拉伸（`composite.py` 的 `align_ai_clip`、`cli/merge.py` 的 `AiFrameSource`），宽高比不一致会变形。首期改为：比例一致只做等比缩放；比例不一致直接报错，不静默拉伸。中心裁切仅作为历史非 16:9 或外部导入视频的显式兜底（`--allow-crop`），firstLastFrame 正常路径不触发（见 `firstlast-dev-plan.md` WP4）。
+- 待实测：firstLastFrame 在 16:9 + 1080p 下的实际输出宽高。若平台返回 1920×1080，identity 成立；若为同比例其它尺寸，按实际尺寸调整规范像素或接受一次等比缩放；若返回非 16:9，暂停真实提交并回到设计（R7）。
 
 ### 8.6 契约变更清单（按 AGENTS 硬规则 1，先改 docs/case-model.md）
 
 - `[[assets]]` 通用化（三流程）与角色词表扩展（first_frame / last_frame / mid_frame / 原始帧角色）；源视频与流程产物保持派生，不进 assets。
-- 提交集草稿字段进 job 级生成参数；gen 提交行为从"全部素材"改为"提交集过滤"（仅 vrstudio 侧变化）。
-- firstLastFrame 模式进 MODE_ROLES：恰好 2 张图片（首+尾）、无视频；时长为 CLI 参数（前端 4–30s 下拉，显式值 > 最长视频时长 > 纯图片默认 4，见 firstlast-dev-plan.md WP0）。
+- 提交集存为 case.toml 的可选段 `[submit] selected`（不存角色覆盖）；gen 提交行为从"全部素材"改为"提交集过滤"（仅 vrstudio 侧变化，vrgen 不改）。
+- firstLastFrame 模式进 MODE_ROLES：恰好 2 张图片（首+尾）、无视频；时长为 CLI 参数（前端 4–30s 下拉，显式值 > 最长视频时长 > 纯图片默认 4，见 firstlast-dev-plan.md WP0）。首期几何固定 16:9：patch viewport 必须 16:9（规范 1920×1080），gen 图片固定 16:9；非 16:9 的 patch case 不进入该模式（WP0.5）。
 - vrgen 新增图片生成任务类型：进台账、走项目会话额度；图片模型无需 SD 合规登记，视频 firstLastFrame 的首尾图是否需要登记在 CLI 侧待验证。
-- 时长不做 generation.toml 持久化；`--duration` 是唯一入口（用户 2026-10-20 拍板："默认4，有视频就设置成视频长度max"），解析顺序为显式值 > 最长视频时长 > 4，显式值按模式 duration 范围校验。
+- 时长不做 generation.toml 持久化：`--duration` 是唯一入口（用户 2026-10-20 拍板："默认4，有视频就设置成视频长度max"），解析顺序为显式值 > 最长视频时长 > 4，显式值按模式 duration 范围校验；实际采用值只记在轮次台账 `params.duration_s`，不保存"下次还用它"的偏好。
 - vrstudio generate 为 patch 增加走 `--refs` 的提交分支（现仅 gen 走 refs；fullredraw 不加，互斥）。
 
 ### 8.7 实施阶段建议
 
-1. vrgen 后端先行：firstLastFrame 模式、图片任务类型、duration 持久化（不依赖 web，可用 CLI 验证）。
+1. vrgen 后端先行：firstLastFrame 模式、图片任务类型、时长规则收敛（不依赖 web，可用 CLI 验证）。
 2. case 模型：assets 通用化与角色词表（两侧镜像同步）。
 3. web：gen 与 patch 生成页素材侧边栏（含提交集与提示词联动）、关键帧工作台（gen 上传入口 + patch 抽帧便利入口）、patch 的 firstLastFrame 模式变体。
-4. 几何对齐：抽帧按原始分辨率导出；工作台出图按 case 几何裁切；merge/recompose 对非匹配尺寸成片的行为检查与测试。
+4. 几何对齐：首期全链路固定 16:9（patch viewport 16:9、gen 图片 16:9、firstLastFrame 1080p、merge 目标 1920×1080）；抽帧按原始分辨率导出、工作台不裁切；merge 比例一致只做等比缩放，比例不一致报错，中心裁切仅对历史/外部导入视频显式启用（见 `firstlast-dev-plan.md` WP0.5、WP4）。
 
 
 ## 9. 证据与出处
