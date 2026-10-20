@@ -33,7 +33,7 @@
       out/ 成片                                       out/ 成片
 
    gen（多素材生成）：assets/ 素材清单 ──refs.json──▶ vrgen → adopt → case/result.mp4
-                    （素材 → 生成两步；没有 pad/extract/recompose/merge 等前后步骤）
+                    （素材并入生成页侧边栏；没有 pad/extract/recompose/merge 等前后步骤）
 
    共享底座(vrstudio): media/(ffmpeg 发现+probe+统一帧泵, 单一 H.264 420 delivery 档)
      · 分层 config · progress 日志
@@ -133,6 +133,7 @@ vrpatch 的 ai-clip 注册端点改为调 `vrgen register`；extract/merge 仍 s
 - **M4 web 控制台**（基本完成）：patch 流程已浏览器验收；fullredraw 向导页、提示词面板（决策 18）、360° 对比页与统一播放控制、单一 420 编码档（决策 19）、输出/输入分辨率下拉与生成参数草稿（决策 20）均已落地。剩余 fullredraw 真素材验收，与 M1 的真实提交一并做。
 - **gen 简单生成流程**（完成，决策 21/22）：最初的单源视频版本把源视频直接作为输入包（canvas=source=源实际像素），模板 `gen-edit`，`adopt` 落 `case/result.mp4`；项目额度通过 `generation.toml` 的 `session_id` 传给 mglc。
 - **gen 多素材**（完成，决策 24/25）：case 改为有序 `[[assets]]`（视频/图片 + 角色 + 哈希），新建时选模式且不再要求源视频；旧 gen case 读取时自动迁移。向导拆成 `素材 → 生成` 两步，素材复制进 `cases/<name>/assets/`。vrgen 新增 `submit --refs`：角色矩阵与限额校验、每段视频独立缩放、台账按 `video:v1`/`image:i1` 分组；提示词模板换成 `gen-multi`，素材清单与模式语义由 `asset_list`/`task_rule`/`timeline_rule` 自动生成。生成页提供免额度 `--check`（真正执行 `vrgen submit --dry-run`）。真实 allMediaRef 提交待额度。
+- **首尾帧管线**（2026-10-20 批准，WP0 文档已完成，代码待实施，决策 26）：`[[assets]]` 从 gen 专用扩展为三条流程通用；gen 与 patch 生成页增加素材侧边栏，patch 另有关键帧工作台与 firstLastFrame 模式；首期全链路固定 16:9。vrgen 侧将新增 firstLastFrame 模式、`image submit` 与任务种类注册表。设计与计划见 `docs/first-last-frame-pipeline.md`、`docs/firstlast-dev-plan.md`。
 - **当前测试规模**（2026-10-19 核对）：vrgen 95 个 + vrstudio 258 个（含 web 44 个），合计 353 个全绿；两仓库 `uv run ruff check .` 干净。
 - **待办**：M1/M4 的真实素材验收（需 mglc 配额）、决策 17 的多用户分层（已登记未实现）、M5（README 交接规范 + 旧仓库归档）。
 - 无 CD：本地工具无部署物；CI 的 test job 即提交门禁。

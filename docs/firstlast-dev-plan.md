@@ -1,6 +1,6 @@
 # 首尾帧管线开发计划（WP0–WP4）
 
-本文是 `docs/first-last-frame-pipeline.md` §8 定稿设计的实施计划：每个工作包给出实现目标、代码切入点（文件、函数、现行行为与目标行为）、pytest 验收方案与免额度验证命令。状态：2026-10-20 按审查结论修订，并增加全链路 16:9 几何基线（见 §修订记录），待用户批准后开工；凡消耗平台额度的步骤都单独标注"需批准"。实施顺序 WP0 → WP0.5 → WP1 → WP2 → WP3 → WP4，WP1/WP2 可并行，WP3 依赖 WP1 的契约与 WP2 的图片任务，WP4 收尾。
+本文是 `docs/first-last-frame-pipeline.md` §8 定稿设计的实施计划：每个工作包给出实现目标、代码切入点（文件、函数、现行行为与目标行为）、pytest 验收方案与免额度验证命令。状态：2026-10-20 按审查结论修订，并增加全链路 16:9 几何基线（见 §修订记录）；同日用户批准整体方案，WP0 契约文档已完成，代码按 WP0.5 → WP1 → WP2 → WP3 → WP4 推进；凡消耗平台额度的步骤都单独标注"需批准"。实施顺序 WP0 → WP0.5 → WP1 → WP2 → WP3 → WP4，WP1/WP2 可并行，WP3 依赖 WP1 的契约与 WP2 的图片任务，WP4 收尾。
 
 依据与范围：
 
@@ -52,7 +52,7 @@
 4. 首尾图合规性待验证点声明：mglc `video generate` 的 `--first-image`/`--last-image` 在 CLI 帮助中无对应 asset-id 参数，首期按"直接传路径不登记"实现；若平台在真实提交时拒绝，回落方案与结论记入台账并在本文档更新（见 §风险表 R1）。
 5. `docs/case-model.md` §2 表格下方"三种模式都要求至少 1 个视频素材"改为按模式表述（videoEdit/videoExtend 恰好 1 视频；allMediaRef 至少 1 素材、视频可为 0；firstLastFrame 恰好 2 图片、0 视频）；母版与时长说明同步改成 WP0-2 的回退链与三条时长规则。同时声明首期几何基线：firstLastFrame 仅接受 16:9 的 patch viewport（规范像素 1920×1080）与 16:9 的 gen 图片；非 16:9 的 patch case 继续用 videoEdit，切 firstLastFrame 时提交前报参数错（WP0.5）。
 
-验收：用户评审确认本节条目；两侧代码不得先于本提交动工。
+验收：2026-10-20 用户批准本节条目；`docs/case-model.md` 已在 WP0 中修改，两侧代码从 WP1 起可以动工。
 
 ## WP0.5：全链路几何基线（首期固定 16:9）
 
@@ -365,7 +365,8 @@ vrgen image submit --job <case> --model-id 44 --ratio 16:9 --resolution 4K --num
 
 ## 提交切分与门禁
 
-1. 根仓库：`docs: 立项首尾帧管线契约变更`（WP0）。
+1. 根仓库：`docs: 立项首尾帧管线契约变更`（WP0，已完成）。
 2. vrgen：`vrgen: 接入 firstLastFrame 模式与时长规则收敛`（WP1）；`vrgen: 增加任务种类注册表与图片生成`（WP2）。
 3. vrstudio：`vrstudio: 素材列表通用化与提交集`（WP3a+3b）；`vrstudio: 首尾帧工作台与素材侧边栏`（WP3c+3d+3e）；`vrstudio: 成片几何归一对齐`（WP4-1/2）。
 4. 每笔提交前：对应仓库 `uv run pytest` 全绿 + `uv run ruff check .` 干净；WP3 起另跑 WP4-3 的三条免额度 `--check` 回归。
+5. 实施过程中按小步提交：每个可独立验证的小步完成并跑通对应 pytest 后，立即在对应仓库做一次本地 commit，不把多个工作包攒成一次提交；是否推送与是否整理历史由用户决定。
