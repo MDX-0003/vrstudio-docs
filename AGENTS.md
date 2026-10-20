@@ -54,5 +54,7 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 | `docs/prompt-rules.md` | Seedance 提示词规则（编辑模式、参考模式、角色替换） |
 | `docs/video-edit-motion-issue.md` | VideoEdit 动作锁定问题与解决路线（审查稿） |
 | `docs/multi-asset-plan.md` | case 无视频创建与多素材模型方案（审查稿） |
+| `docs/first-last-frame-pipeline.md` | 首尾帧两段式生成方案：图片关键帧 + firstLastFrame，含工具链接入设计（定稿） |
+| `docs/firstlast-dev-plan.md` | 首尾帧管线开发计划：WP0–WP4 工作包、切入点与 pytest 验收（待批） |
 | `docs/web-stack.md` | web 控制台技术栈三路线对比（决策 11 的论证） |
 | `docs/roadmap.md` | 实施里程碑与验收标准 |

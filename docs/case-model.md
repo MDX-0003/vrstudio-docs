@@ -65,7 +65,7 @@ flow = "gen"
 id = "v1"                      # case 内唯一；前端、文件名校验与台账映射都认它
 kind = "video"                 # video | image
 path = "assets/v1_main.mp4"    # 相对 case 目录；case 自带文件
-role = "edit_master"           # edit_master | motion_ref | scene_ref | subject_ref
+role = "edit_master"           # edit_master | motion_ref | space_ref | scene_ref | subject_ref
 sha256 = "…"                   # 可选；添加时计算，提交前校验
 
 [[assets]]
@@ -118,8 +118,10 @@ round = "dusk-3c1a4b2d"
 | 模式 | 视频 | 图片 | 数量与顺序 |
 |---|---|---|---|
 | `videoEdit` | 恰好 1 个，`role = "edit_master"` | 只能 `subject_ref` | 视频必须排第一条 |
-| `allMediaRef` | 至少 1 个；角色 `edit_master` / `motion_ref` / `scene_ref` | `subject_ref` / `scene_ref` | 至多 1 个 `edit_master`；若存在，必须排第一条视频 |
+| `allMediaRef` | 至少 1 个；角色 `edit_master` / `motion_ref` / `space_ref` / `scene_ref` | `subject_ref` / `space_ref` / `scene_ref` | 至多 1 个 `edit_master`；若存在，必须排第一条视频 |
 | `videoExtend` | 恰好 1 个，`role = "edit_master"` | 只能 `subject_ref` | 视频必须排第一条 |
+
+`space_ref` 与 `motion_ref` 的分工是“空间”和“身体动作”的分工：`space_ref` 只提供机位、构图、起点与终点位置，不提供人物动作；`motion_ref` 提供动作节奏与路径。白模视频只锁空间时用 `space_ref`，需要继承动作节奏时用 `motion_ref`。
 
 - 三种模式都要求至少 1 个视频素材；audio 不在本期范围。
 - 视频数量上限取 `refVideoValidator.maxCount`，图片数量上限取
@@ -182,12 +184,16 @@ vrgen status --job <名> [--watch]          # 轮询；--watch 阻塞到终态
 vrgen register --job <名> --file <本地路径>            # 手动后端：写同格式台账
 vrgen result --job <名> --round <key> --out <路径>     # 导出结果（adopt 时调用）
 vrgen peek <task-id>                       # 零额度查平台侧状态
-vrgen prompt show --job <名> [--template <id>] [--workdir <dir>]   # 读提示词模板+变量草稿
-vrgen prompt save --job <名> [--set k=v]… [--unset k]… [--template <id>] [--workdir <dir>]
+vrgen prompt show --job <名> [--template <id>] [--refs <json>] [--mode <模式>] \
+                 [--canvas WxH] [--source WxH] [--workdir <dir>]   # 读模板+草稿；可回展开正文
+vrgen prompt save --job <名> [--set k=v]… [--unset k]… [--template <id>] \
+                 [--refs <json>] [--mode <模式>] [--canvas WxH] [--source WxH] [--workdir <dir>]
 vrgen params show --job <名> [--input <视频>] [--canvas WxH] [--source WxH] [--aspect-ratio auto] [--workdir <dir>]
 vrgen params save --job <名> [--resolution <480p|720p|1080p>] [--scale <auto|full|half>] [--mode <模式>] [--aspect-ratio <auto|W:H>] [--session-id <id>] [--project-id <id>] [--episode <n>] [--workdir <dir>]
 vrgen sessions list [--project-id <id>] [--episode <n>]   # 只读：项目/剧集/会话树，JSON 输出
 ```
+
+`prompt show` 与 `prompt save` 在提供 `--refs` / `--mode` / `--canvas` / `--source` 时，会额外返回 `rendered`（展开后的完整提示词）和 `render_error`（缺哪个占位符）。展开只读，不建轮次、不碰平台；前端提示词面板默认显示 `rendered`，模板骨架可切换查看。
 
 ### `--refs` 素材清单（gen 多素材入口）
 
@@ -267,8 +273,8 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
            {"value": "allMediaRef", "label": "AllMediaRef · 多素材参考（可重新生成动作）",
             "takes_video": true, "ratios": ["auto", "16:9", "21:9"], "max_count": 50,
             "max_videos": 10, "max_images": 30, "video_required": true,
-            "roles": {"video": ["edit_master", "motion_ref", "scene_ref"],
-                      "image": ["subject_ref", "scene_ref"]},
+            "roles": {"video": ["edit_master", "motion_ref", "space_ref", "scene_ref"],
+                      "image": ["subject_ref", "space_ref", "scene_ref"]},
             "duration": {"type": "range", "min": 4, "max": 30}}],
  "fixed": {"model_id": 37, "duration_s": 8, "num": 1},
  "saved": true}
