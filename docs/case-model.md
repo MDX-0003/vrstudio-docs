@@ -4,9 +4,10 @@
 
 迁移状态：§2 的素材角色与校验、§4 的 `vrgen submit` 参数面与 `--refs` 清单、§5 的
 台账字段已按 `unified-submit-plan.md`（2026-10-21 立项）重写为统一提交契约；同日按
-决策 33 修订：提交集只认用户勾选，clip/pad 与文件素材同为候选、mask 自动附带、
-raw 帧仅工作台、没有 `derived` 标记，patch 的 extract 同时产出 clip 的首尾原始帧。两侧代码迁移完成前，现行实现仍按旧参数
-面运行，以本文为目标契约。
+决策 33/34 修订：提交集只认用户勾选，clip/pad 与文件素材同为候选、mask 自动附带、
+raw 帧仅工作台、没有 `derived` 标记，patch 的 extract 同时产出 clip 的首尾原始帧。
+vrgen 侧已于 2026-10-21 迁移完成（`submit` 只剩 `--refs`，本地半场一条路径，台账不再写
+`params.input`/`params.mask`）；vrstudio 侧按本文目标契约迁移。
 
 ## 1. 原则
 
@@ -196,7 +197,10 @@ cases/<名>/
     first_frame_raw.png          #   clip.mp4 首帧原始图（从 clip 读，不从源片抽）
     last_frame_raw.png           #   clip.mp4 末帧原始图（从 clip 读，不从源片抽）
     result.mp4                   #   被采用的那轮结果（adopt 时从 vrgen 拷入）
-  derived/                       # merge 产物 out_<版本>.mp4 + .merge.json + pick/ 预览缓存
+  derived/                       # 旧 merge 产物 out_<版本>.mp4 + .merge.json + pick/ 预览缓存
+  out/<版本>_space.mp4           # 空间合并（merge）产物：n_seg 帧中段
+  out/<版本>_frame.mp4           # 时间拼接（assemble）产物：整条源片等长
+                                 # 整片抽取只有 _space；下游按 _frame → _space 回退
   # --- flow = fullredraw ---
   seedance_input.mp4             # pad 画布（无损）
   seedance_input_mask.png
@@ -484,9 +488,12 @@ gen 多素材与图片轮次的 run.json 字段扩展（其余字段与旧格式
   `{"video:clip": 123, "image:mask": 456, "image:i1": 789}`。patch/fullredraw 的
   `"video"` / `"image"` 两个旧键退役，三流程统一为 `kind:id` 键。
 - `params.refs`：本次提交的资产清单，每项含 `id`、`kind`、`role`、`path`、`sha256`、
-  `upload`（缩放件路径）、`width`、`height`；顺序与 `refs.json` 一致。没有 `derived`
-  字段，流程产物与文件素材同构。
+  `upload`（缩放件路径）、`width`、`height`（上传件的实际宽高）；顺序与 `refs.json`
+  一致。没有 `derived` 字段，流程产物与文件素材同构。
   `firstLastFrame` 同样通过该字段记录首尾帧。
+- 统一清单后不再写 `params.input` / `params.mask`：母版与 mask 都从 `params.refs`
+  里取（`master` 给出母版 id，role=mask 的条目是 mask）。旧轮次的 run.json 仍可能
+  带这两个键，读取方按缺省处理。
 - `params.master`：母版素材 id（可能是图片）；`params.duration_source`：`master` | `longest` | `none`。
 - `run_key`：母版参数从“视频文件哈希”放宽为“任意参考素材”，否则纯图片轮次无法创建。
 - `status`：图片轮次带 img 标记；`result --index N` 按 `results` 取第 N 张，缺省第一张；旧轮次没有 `results` 时只取 `result`。

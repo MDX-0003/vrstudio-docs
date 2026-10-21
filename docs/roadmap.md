@@ -84,21 +84,24 @@
 - [ ] fullredraw 向导页真素材浏览器验收（与 M1 配额解决后的真实 submit 一并做）
 - 验收：两条流程各跑通一个真实 case，全程不离开浏览器
 
-## M6 生成提交统一化与 patch 时间拼接（2026-10-21 立项，待实施）
+## M6 生成提交统一化与 patch 时间拼接（2026-10-21 实施完成）
 
 - [x] 契约目标态：`docs/case-model.md` §2/§4/§5 已按统一提交重写，并按决策 33 改为
   「勾选即提交、没有默认集、clip/pad 为候选、mask 自动附带、raw 帧仅工作台、
   无 `derived` 标记」。
 - [x] patch 合并产物改名迁移脚本（`scripts/migrate_out_names.py`，决策 31）。
-- [ ] vrgen：合并 `_prepare_single`/`_prepare_gen`，`submit` 只保留 `--refs`，删除
-  `--input`/`--mask`，数量与格式校验切到模型详情 validator（决策 33）。
-- [ ] vrstudio：`extract` 产出 `first_frame_raw.png`/`last_frame_raw.png`；生成入口按
+- [x] vrgen：合并 `_prepare_single`/`_prepare_gen`，`submit` 只保留 `--refs`，删除
+  `--input`/`--mask`，数量与格式校验切到模型详情 validator（决策 33/34）。
+  台账删除 `params.input`/`params.mask`，轮次目录保存 `refs.json` 现场。
+- [x] vrstudio：`extract` 产出 `first_frame_raw.png`/`last_frame_raw.png`；生成入口按
   flow 装配候选清单；`[submit] selected` 无默认集；前端空选集与 firstLastFrame 首尾帧
   不足的门禁（决策 33）。
-- [ ] patch 时间拼接 WP1–WP4：`merge` 输出 `_space.mp4`，新增 `vrstudio assemble`
+- [x] patch 时间拼接 WP1–WP4：`merge` 输出 `_space.mp4`，新增 `vrstudio assemble`
   输出 `_frame.mp4`，web 两段连续队列，对比页按 `_frame` → `_space` 回退（决策 30–32）。
-- 验收：dacne（patch clip + 三视图，mask 自动附带）、gen、fullredraw 各一个现有 case 的免额度
-  dry-run 回归；真实提交仍受平台额度限制。
+- 验收：dacne（patch clip + 三视图，mask 自动附带）、ship_01（fullredraw）、
+  simple_gen_01（gen）的免额度 dry-run 全部走通；真实提交仍受平台额度限制。
+- 测试规模：vrgen 121 个 + vrstudio 315 个，全绿；`uv run ruff check .` 两仓库干净
+  （2026-10-21 核对）。
 
 ## M5 收尾
 

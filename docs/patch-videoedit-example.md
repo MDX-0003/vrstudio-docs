@@ -1,6 +1,6 @@
 # Patch + videoEdit：只重绘中间动作段的例子
 
-本文用一个具体例子说明 patch 流程如何只抽取源片中间的一段、选一个视角交给 videoEdit 重绘，以及位置和时间为什么能按抽取记录复现。这里记录的是当前实现的行为和一致性原理，不是操作手册的简写版；当前 `merge` 只输出中间段成片，整片时间拼接尚未实现，见 `docs/patch-time-assembly-plan.md`（草案）。
+本文用一个具体例子说明 patch 流程如何只抽取源片中间的一段、选一个视角交给 videoEdit 重绘，以及位置和时间为什么能按抽取记录复现。这里记录的是当前实现的行为和一致性原理，不是操作手册的简写版；`merge` 输出中间段 `_space.mp4`，`vrstudio assemble` 再把源片前缀、中段、后缀拼成整片 `_frame.mp4`。
 
 ## 例子设定
 
@@ -20,7 +20,8 @@
 4. videoEdit 提交。当前 clip 是整段 viewport 视频，模型看到的是这段 201 帧、带背景外圈的画面；在生成页勾选 clip（编辑母版）后提交；mask 作为编辑区域控制图由装配器自动附带，不参与勾选与编号，记录 inner，供 merge 融合使用。
 5. 采用结果。返回件落到 `extracts/<当前版本>/result.mp4`，adopt 指针写入 case。
 6. 运行 merge。merge 读源片、`clip.json` 和 `result.mp4`，重建 viewport 投影，把 AI 结果对齐到 clip 的帧数和 fps，只在 inner 区域融合，再把 viewport 反投影贴回 ERP 画布。
-7. 当前代码输出 `out/<抽取版本>.mp4`；新命名方案是 `out/<抽取版本>_space.mp4`。它是 201 帧、完整 ERP 画布（8000×4000），第 i 帧对应源片第 `100 + i` 帧，不是整条 600 帧视频。
+7. `merge` 输出 `out/<抽取版本>_space.mp4`。它是 201 帧、完整 ERP 画布（8000×4000），第 i 帧对应源片第 `100 + i` 帧，不是整条 600 帧视频。
+8. `vrstudio assemble` 以源片、`_space.mp4`、`clip.json` 为输入，校验帧数/fps/源片哈希后，把源片前缀（0–99）、中段（100–300）、后缀（301–599）写成 `out/<抽取版本>_frame.mp4`；输出保持源片帧数、fps 与音频。web 在 merge 成功后自动排这个任务，整片抽取则跳过。
 
 ## 位置一致性如何保证
 
