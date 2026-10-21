@@ -27,7 +27,7 @@
 1. 检测非整片抽取：用 `clip.json` 里冻结的 `frame_start/frame_end` 和源片实际帧数比较；整片抽取不触发时间拼接，保持现有空间合并输出。检测不用 case.toml 草稿，避免改了草稿但未重新抽取时误判。
 2. 空间合并保持独立 CLI：沿用当前 merge 的投影、inner 融合和 AI 时间对齐，输出 `out/<版本>_space.mp4`。
 3. 时间合并是独立 CLI `vrstudio assemble`：输入源片、`_space.mp4` 和 `clip.json`，把源片前缀、空间合并段、源片后缀按顺序写成 `out/<版本>_frame.mp4`；中段第 0 帧对应源片 `frame_start`，输出第 i 帧对应源片第 i 帧。
-4. 前端 merge 流程把 `_space.mp4` 路径作为 `assemble` 的输入参数；两步独立可跑，串联后自动完成。空间合并失败时不会进入时间合并。
+4. 前端把空间合并和时间合并作为两个连续队列任务：`merge` 成功后自动提交 `assemble`，把 `_space.mp4` 路径作为输入参数；两步独立日志、独立重试，空间合并失败时不会进入时间合并。
 5. 输出保持源片帧数和 fps，音频从源片复用；视频统一 H.264 8-bit yuv420p。
 6. 对比页优先读 `_frame.mp4`，读不到再读 `_space.mp4`；非整片且只有 `_space.mp4` 时标注“仅中间段”。
 
@@ -75,13 +75,14 @@
 - `clip.json` 的时间区间等于整片时，不调用 `assemble`，只保留 `_space.mp4`；这时 `_space.mp4` 本身就是整片长度。
 - 下游（对比页、输出选择）优先读 `out/<版本>_frame.mp4`；读不到再读 `out/<版本>_space.mp4`。整片抽取只有 `_space.mp4`，回退结果就是整片。
 - 非整片抽取如果只有 `_space.mp4` 没有 `_frame.mp4`，说明时间合并还没成功；页面可以展示 `_space.mp4` 供检查，但必须标注“仅中间段”，不能把它的时间轴当成整片。
-- 当前代码还写 `out/<版本>.mp4`；实施时改成 `_space.mp4`。历史 `<版本>.mp4` 不进入新回退链，旧 case 需要重新执行空间合并（和时间合并）生成新命名文件。
+- 当前代码还写 `out/<版本>.mp4`；实施时改成 `_space.mp4`。历史 `<版本>.mp4` 不进入新回退链，由一次性迁移脚本 `scripts/migrate_out_names.py` 改名为 `_space.mp4`；脚本默认 dry-run，`--apply` 才执行，只处理 patch case 且文件名能对上已记录抽取版本的文件，fullredraw 不动，目标已存在时跳过不覆盖。
+- 迁移脚本已经对现有 case 执行过一次：`web_demo` 的旧 `20261016-171617.mp4` 已改名为 `20261016-171617_space.mp4`；`ship_01` 是 fullredraw，未改。
 
 ## 工作包
 
-- WP0 决策：输出命名、`vrstudio assemble` 入口、整片跳过时间合并、下游 `_frame` → `_space` 回退已经确定；剩余前端串联方式和历史文件迁移。
+- WP0 决策：输出命名、`vrstudio assemble` 入口、整片跳过时间合并、下游 `_frame` → `_space` 回退、两个连续队列任务、历史文件迁移脚本都已确定。
 - WP1 CLI：空间合并输出改名为 `_space.mp4`；新增 `vrstudio assemble`，输入源片、`_space.mp4`、`clip.json`，先做帧数/fps/sha256 契约检查，再按源片前缀、段、后缀写出 `_frame.mp4` 和报告；整片区间直接跳过时间合并；不做帧率转换。
-- WP2 web：merge op 在空间合并成功后，用 `_space.mp4` 路径调用 `assemble`；两步独立可跑，串联后自动完成；合并页显示两个输出；对比页按 `_frame` → `_space` 回退，非整片只有 `_space` 时标注“仅中间段”。
+- WP2 web：merge op 在空间合并成功后，自动提交 `assemble` 任务，并传入 `_space.mp4` 路径；两个连续队列任务，各自日志、各自重试；合并页显示两个输出；对比页按 `_frame` → `_space` 回退，非整片只有 `_space` 时标注“仅中间段”。
 - WP3 测试：整片抽取不调用 assemble；非整片生成 `_space` 和 `_frame`；前缀/后缀像素一致；中段与 `_space` 一致；帧数/fps/音频；`frame_start=0` 或 `frame_end=末帧` 的单边情况；段帧数/fps 不匹配时失败；AI 返回件短/长/比例不一致时的错误路径；下游回退顺序。
 - WP4 文档：更新 `docs/patch-videoedit-example.md`、`docs/case-model.md` 的 merge 输出说明和用户教程。
 
@@ -93,10 +94,11 @@
 - 失败路径：源片 sha 不匹配、`clip.json` 缺失、中间段帧数/fps 不匹配、AI 返回件无法 restore 时，任务失败并给出具体日志路径，不静默输出半成品。
 - 编码门禁：pytest 全绿，crf 0 基线通过，ruff 干净。
 
-## 待确认
+## 已定事项
 
-- 前端串联：空间合并和时间合并是两个连续队列任务，还是一个任务内部顺序跑两个 CLI？两种都保持 CLI 独立，区别在页面任务列表和失败回滚。
-- 历史文件：旧 `out/<版本>.mp4` 不进入新回退链，旧 case 重新 merge 生成 `_space`/`_frame`；是否需要一次迁移脚本把旧文件改名为 `_space.mp4`，还是让用户重跑？
+- 空间合并和时间合并是两个连续队列任务；`merge` 成功后自动提交 `assemble`，失败时停在空间合并。
+- 历史 `out/<版本>.mp4` 由 `scripts/migrate_out_names.py` 改名为 `_space.mp4`；目标冲突跳过，不覆盖。
+- 当前没有待确认的产品决策；剩余是 CLI 参数、队列任务命名、对比页标注等实现细节。
 
 ## 风险
 
