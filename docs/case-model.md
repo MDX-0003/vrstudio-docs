@@ -2,6 +2,10 @@
 
 两仓库的唯一接口权威。任何字段或命令面的变更先改本文，再改两侧代码与测试。
 
+迁移状态：§2 的素材角色与校验、§4 的 `vrgen submit` 参数面与 `--refs` 清单、§5 的
+台账字段已按 `unified-submit-plan.md`（2026-10-21 立项）重写为统一提交契约；两侧
+代码迁移完成前，现行实现仍按旧参数面运行，以本文为目标契约。
+
 ## 1. 原则
 
 **case.toml 只放这个视频任务的静态事实。**
@@ -43,7 +47,7 @@ current = "20260923T073001"   # → extracts/<时间戳>/；generate 与 merge �
 round = "dusk-c3a41f90"
 ```
 
-patch 与 fullredraw 也可以有 `[[assets]]`（三视图、抽取的原始帧、重绘定稿帧等文件素材），格式与 gen 示例相同；源视频仍然只放在 `[source]`。`[submit]` 首期用于 gen 与 patch，fullredraw 的文件素材只读展示、不参与提交。
+patch 与 fullredraw 也可以有 `[[assets]]`（三视图、抽取的原始帧、重绘定稿帧等文件素材），格式与 gen 示例相同；源视频仍然只放在 `[source]`。三个流程的文件素材以同一套规则参与提交；流程产物（母版与 mask）不写进 `[[assets]]`，由提交装配器在提交时合成为派生条目（见 §4 `--refs` 清单）。
 
 ### flow = "fullredraw"（全景重绘：AI 重绘整个 360°）
 
@@ -94,8 +98,8 @@ round = "dusk-3c1a4b2d"
 设计说明：
 
 - `[[assets]]` 不再是 gen 专属：patch、fullredraw 也可以有文件素材列表（三视图、抽取的原始帧、重绘定稿帧等）。三条流程的既有段（patch 的 `[source]/[viewport]/[inner]/[frames]`、fullredraw 的 `[source]`、以及 `*_pad.json` manifest）不变。
-- 原始源视频与流程产物（clip、pad 产物、merge 成片）不写进 `[[assets]]`。它们在生成页作为只读的“派生条目”展示，避免与 `[source]` 的哈希契约形成双重真源。
-- 角色词表：`edit_master`、`motion_ref`、`space_ref`、`scene_ref`、`subject_ref`、`first_frame`（首帧定稿图）、`last_frame`（尾帧定稿图）、`mid_frame`（中间过渡帧，预留）、`first_frame_raw`、`last_frame_raw`（工作台输入底图，从视频抽取的原始帧）。角色由用户选择，不按顺序推断；空角色是未完成状态，提交前必须补齐。
+- 原始源视频与流程产物（clip、pad 产物、merge 成片）不写进 `[[assets]]`。它们在生成页作为只读的“派生条目”展示，提交时由装配器合成为清单里的派生条目（见 §4），避免与 `[source]` 的哈希契约形成双重真源。
+- 角色词表：`edit_master`、`motion_ref`、`space_ref`、`scene_ref`、`subject_ref`、`first_frame`（首帧定稿图）、`last_frame`（尾帧定稿图）、`mid_frame`（中间过渡帧，预留）、`first_frame_raw`、`last_frame_raw`（工作台输入底图，从视频抽取的原始帧）、`mask`（编辑区域标注图；只由提交装配器生成，不进 `[[assets]]`，见 §4）。用户素材的角色由用户选择，不按顺序推断；空角色是未完成状态，提交前必须补齐。
 - `[submit]` 是可选的提交集：`selected` 只存素材 id，不存角色覆盖；缺省表示按当前模式取默认集。写入只发生在 vrstudio，vrgen 只读 refs JSON，不认识这个字段。删除素材时同步从 `selected` 移除；重排不改 id，`selected` 不动。
 - `target_aspect` 不在 case 里——它是平台 bucket 参数，进 vrstudio 项目配置。
 - `[viewport]/[inner]/[frames]` 是**草稿**（可变）；`clip.json` 是**契约**（冻结）。
@@ -118,27 +122,49 @@ round = "dusk-3c1a4b2d"
   `vrgen params show` 读回、`params save` 切换。
 - 素材 `id` 按类型独立递增：视频 `v1`、`v2`…，图片 `i1`、`i2`…；删除后不复用。
 - `kind` 只允许 `video` / `image`；本期不支持音频。
-- `role` 的取值与各模式允许的角色见下方矩阵；角色由用户手动选择，不按顺序推断，空角色是未完成状态。
+- `role` 的取值见下方「素材角色与校验」；用户素材的角色由用户手动选择，不按顺序推断，空角色是未完成状态。数量、格式、时长等上限交给模型详情 validator 校验，本地不再维护按模式的角色数量矩阵。
 - 数值限制（格式、时长、帧率、像素、体积、数量上限）只在 vrgen 提交前校验；
   vrstudio 前端不重复实现。视频与超限图片在 vrgen 内缩放到限额内再上传。
 
-### 素材角色与模式矩阵
+### 素材角色与校验
 
-| 模式 | 视频 | 图片 | 数量与顺序 |
-|---|---|---|---|
-| `videoEdit` | 恰好 1 个，`role = "edit_master"` | 只能 `subject_ref` | 视频必须排第一条 |
-| `allMediaRef` | 0 个或多个；角色 `edit_master` / `motion_ref` / `space_ref` / `scene_ref` | `subject_ref` / `space_ref` / `scene_ref` / `first_frame` / `last_frame` / `mid_frame` / `first_frame_raw` / `last_frame_raw` | 至多 1 个 `edit_master`；若存在，必须排第一条视频；整体至少 1 个素材 |
-| `videoExtend` | 恰好 1 个，`role = "edit_master"` | 只能 `subject_ref` | 视频必须排第一条 |
-| `firstLastFrame` | 不允许（0 个） | 恰好 2 个：1 个 `first_frame` + 1 个 `last_frame` | `first_frame` 在前；不允许其他素材或角色 |
+角色只承载提示词里的职责声明，不再承载按模式的数量限制；数量、格式、时长、帧率、
+像素、体积的上限以模型详情的 validator 为唯一依据（`refVideoValidator` /
+`refImageValidator` / 模式 `maxCount`），提交前由 vrgen 校验，超限时按 validator
+返回的具体项报参数错。
+
+- 角色职责声明（进入提示词素材清单的固定文案）：
+  - `edit_master`：编辑母版，负责时间轴、构图与动作基准。
+  - `motion_ref`：动作参考，只提供动作节奏与路径。
+  - `space_ref`：空间参考，只提供机位、构图、起点与终点位置；不提供人物动作。
+  - `scene_ref`：场景参考，只提供构图、背景与光照。
+  - `subject_ref`：主体参考，只定义角色外观。
+  - `mask`：编辑区域标注，不作为画面内容参考。
+  - `first_frame` / `last_frame`：首帧/尾帧定稿图，锁定起点/终点构图与人物外观。
+  - `mid_frame`：中间过渡帧，仅在首尾间距过大时补充。
+  - `first_frame_raw` / `last_frame_raw`：工作台输入底图（原始抽取帧），只提供场景
+    与占位，不是生成素材。
 
 `space_ref` 与 `motion_ref` 的分工是“空间”和“身体动作”的分工：`space_ref` 只提供机位、构图、起点与终点位置，不提供人物动作；`motion_ref` 提供动作节奏与路径。白模视频只锁空间时用 `space_ref`，需要继承动作节奏时用 `motion_ref`。
 
-- `videoEdit` / `videoExtend` 恰好 1 个视频；`allMediaRef` 的视频可以是 0 个，但整体至少 1 个素材；`firstLastFrame` 不允许视频，只接受一对定稿帧。audio 不在本期范围。
-- 视频数量上限取 `refVideoValidator.maxCount`，图片数量上限取
-  `refImageValidator.maxCount`，同时不超过模式自身的 `maxCount`。
-- 母版（提示词几何与上传基准）的回退链依次是：第一条 `edit_master` 视频 → 第一条视频 → 第一条 `space_ref` 或 `scene_ref` 图片（二者同级，按清单顺序取第一个）→ 第一条 `first_frame` 图片 → 第一条图片。`firstLastFrame` 的母版是 `first_frame` 图片；母版为图片时，画布尺寸取图片宽高，不向平台上传视频。其余视频各自缩放到限额内并保持各自比例。
-- 时长：显式 `--duration` 优先；没有显式值时，`videoEdit` / `videoExtend` 取母版时长，`allMediaRef` 取最长视频时长，`firstLastFrame` 及纯图片提交取 4 秒。显式值按当前模式的 duration 范围校验（模型 37 的 `firstLastFrame` 为 4–30 秒）。时长不写进 `generation.toml`，实际采用值只记在轮次台账的 `params.duration_s`。
-- 首期几何基线：`firstLastFrame` 只接受 16:9 的 patch viewport（规范像素 1920×1080）与 16:9 的 gen 图片；非 16:9 的 patch case 继续用 `videoEdit`，切到 `firstLastFrame` 时在提交前报参数错。merge 目标为 1920×1080，正常路径是 identity；比例一致只做等比缩放，比例不一致直接报错，中心裁切只对历史或外部导入视频显式开启。
+- 通道映射只有两条规则，除此之外全部素材走 `--video` / `--image` 通道：
+  - `first_frame` 与 `last_frame` 各恰好 1 个时，映射到 mglc 的
+    `--first-image` / `--last-image`（`first_frame` 在前）；多于一个即报参数错。
+  - `mask` 条目走 `--image` 通道上传，缩放规则是强制缩放到画布尺寸，不按图片
+    预算 fit；mask 是派生条目，由装配器生成、与母版同源（§4）。
+- 母版（提示词几何与上传基准）的回退链依次是：第一条 `edit_master` 视频 → 第一条
+  视频 → 第一条 `space_ref` 或 `scene_ref` 图片（二者同级，按清单顺序取第一个）→
+  第一条 `first_frame` 图片 → 第一条图片。母版为图片时，画布尺寸取图片宽高。
+  显式给出 `--canvas`/`--source` 时以显式值为准（fullredraw 的画布来自 manifest）。
+- 时长：显式 `--duration` 优先；没有显式值时，`videoEdit` / `videoExtend` 取母版
+  时长，`allMediaRef` 取最长视频时长，`firstLastFrame` 及纯图片提交取 4 秒。显式值
+  按当前模式的 duration 范围校验（模型 37 的 `firstLastFrame` 为 4–30 秒）。时长
+  不写进 `generation.toml`，实际采用值只记在轮次台账的 `params.duration_s`。
+- 首期几何基线：`firstLastFrame` 只接受 16:9 的 patch viewport（规范像素
+  1920×1080）与 16:9 的 gen 图片；非 16:9 的 patch case 继续用 `videoEdit`，切到
+  `firstLastFrame` 时在提交前报参数错。merge 目标为 1920×1080，正常路径是
+  identity；比例一致只做等比缩放，比例不一致直接报错，中心裁切只对历史或外部
+  导入视频显式开启。
 
 ## 3. case 目录
 
@@ -181,14 +207,13 @@ vrstudio case new <名> --flow patch|fullredraw|gen [--source <视频>] [--mode 
 ```
 vrgen login [--check]                      # 登录态管理（透传 mglc）
 vrgen models [--refresh]                   # 平台模型清单
-vrgen submit --job <名> \
-           ( --input <视频> [--mask <mask>] | --refs <素材清单.json> ) \
+vrgen submit --job <名> --refs <提交资产清单.json> \
            [--canvas WxH] [--source WxH] \
            [--template <id>] [--set theme=…,style=…] \
            [--model-id 37] [--mode videoEdit] [--resolution 1080p] \
-           [--duration <秒>] [--num <1..4>] [--aspect-ratio 21:9] \
-           [--scale auto|full|half] [--session-id <项目生成会话>] [--workdir <dir>]
-                                           # 断点续跑、task_id 防重发
+           [--duration <秒>] [--num <1..4>] [--aspect-ratio auto|W:H] \
+           [--scale auto|full|half] [--session-id <项目生成会话>] [--workdir <dir>] [--dry-run]
+                                           # 三个流程共用的唯一提交入口；断点续跑、task_id 防重发
 vrgen image submit --job <名> --prompt <文本> --model-id <图片模型 id> \
            --image <路径> [--image <路径>]… \
            --ratio <16:9> --resolution <1K|2K|4K> [--num <1..4>] \
@@ -210,47 +235,47 @@ vrgen sessions list [--project-id <id>] [--episode <n>]   # 只读：项目/剧�
 
 `prompt show` 与 `prompt save` 在提供 `--refs` / `--mode` / `--canvas` / `--source` 时，会额外返回 `rendered`（展开后的完整提示词）和 `render_error`（缺哪个占位符）。展开只读，不建轮次、不碰平台；前端提示词面板默认显示 `rendered`，模板骨架可切换查看。
 
-### `--refs` 素材清单（gen 与 patch firstLastFrame 的多素材入口）
+### `--refs` 提交资产清单（三个流程共用的唯一提交入口）
 
-`vrgen submit` 的两种输入互斥：
+`vrgen submit` 只有一种输入：`--refs` 清单。旧 `--input` / `--mask` 参数与互斥校验
+删除；patch 与 fullredraw 的母版、mask 由 vrstudio 装配器合成为清单里的派生条目，
+gen 的母版来自素材列表。vrstudio 是清单的唯一生产者，vrgen 不读 case.toml。
 
-- `--input` + `--mask`：patch / fullredraw 的单视频入口，行为不变。
-- `--refs`：gen 的多素材入口，也用于 patch 的 `firstLastFrame`；不再传 `--input` / `--mask`。`--canvas` / `--source` 可以省略，由母版素材的实际尺寸推导。
-
-`--refs` 是一个 JSON 文件：
-
-```json
-{
-  "assets": [
-    {"id": "v1", "kind": "video", "path": "E:\\VRAIGC\\vrstudio\\cases\\demo\\assets\\v1_main.mp4", "role": "edit_master", "sha256": "…"},
-    {"id": "v2", "kind": "video", "path": "E:\\VRAIGC\\vrstudio\\cases\\demo\\assets\\v2_motion_ref.mp4", "role": "motion_ref"},
-    {"id": "i1", "kind": "image", "path": "E:\\VRAIGC\\vrstudio\\cases\\demo\\assets\\i1_character.png", "role": "subject_ref"}
-  ]
-}
-```
-
-`firstLastFrame` 的清单只含两张图片，顺序固定为首帧在前：
+清单是一个 JSON 文件，以 patch（母版 + mask + 三视图）为例：
 
 ```json
 {
   "assets": [
-    {"id": "i2", "kind": "image", "path": "E:\\VRAIGC\\vrstudio\\cases\\demo\\assets\\i2_first.png", "role": "first_frame"},
-    {"id": "i3", "kind": "image", "path": "E:\\VRAIGC\\vrstudio\\cases\\demo\\assets\\i3_last.png", "role": "last_frame"}
+    {"id": "xv1", "kind": "video", "path": "E:\\…\\cases\\dacne\\extracts\\20261021-140105\\clip.mp4", "role": "edit_master", "derived": true},
+    {"id": "xi1", "kind": "image", "path": "E:\\…\\cases\\dacne\\extracts\\20261021-140105\\clip_mask.png", "role": "mask", "derived": true},
+    {"id": "i1", "kind": "image", "path": "E:\\…\\cases\\dacne\\assets\\i1_dancer.jpg", "role": "subject_ref", "sha256": "…"}
   ]
 }
 ```
 
-- `path` 可以是绝对路径，也可以相对 JSON 文件所在目录；`sha256` 可选，给了就校验。
-- `id` 在清单内唯一；`kind` 只允许 `video` / `image`；`role` 取受控词表，具体允许值由模式矩阵决定。
-- 顺序就是提示词 `@VideoN` / `@ImageN` 的编号顺序；vrgen 按角色矩阵校验。refs 清单就是本次提交集，vrgen 不读 case.toml 的 `[submit]`。
-- `allMediaRef` 允许纯图片清单（0 视频）；`firstLastFrame` 必须恰好 2 张图片（1 个 `first_frame` + 1 个 `last_frame`）、0 视频，出现其他素材或角色即报参数错。
-- `firstLastFrame` 的两张图分别映射到 mglc 的 `--first-image` 与 `--last-image`（`first_frame` 在前），不产生 `--video` / `--image` / `--asset-id`，也不传 `--aspect-ratio`（输出比例跟随首尾图）。
+- 条目字段：`id`、`kind`（`video` | `image`）、`role`、`path`、可选 `sha256`
+  （给了就校验）、可选 `derived`（true 表示流程产物派生条目）。
+- `id` 在清单内唯一，前缀区分来源：用户素材是 `v1`、`v2`…（视频）与 `i1`、`i2`…
+  （图片）；派生条目是 `xv1`、`xi1`…（`x` 前缀，避免与用户素材的 id 分配冲突）。
+- 装配器固定的清单顺序是母版 → mask → 用户素材；编号规则是视频在前、图片在后，
+  按清单顺序得到 `@VideoN` / `@ImageN`，派生条目参与编号，声明顺序与 mglc argv
+  的 `--video` / `--image` 顺序逐一对齐（契约测试点）。
+- 路径可以是绝对路径，也可以相对 JSON 文件所在目录。`[submit] selected` 只引用
+  用户素材 id；派生条目始终参与提交，不受勾选影响。
+- 数量、格式、时长、帧率、像素、体积校验以模型详情 validator 为唯一依据，vrgen
+  按具体超限项报参数错；本地不维护按模式的角色数量矩阵（§2「素材角色与校验」）。
+- `firstLastFrame` 的清单只含两张图片、顺序固定为首帧在前，映射到
+  `--first-image` / `--last-image`（见 §2「素材角色与校验」）。
 - vrgen 在轮次目录里保存一份 `refs.json` 现场，之后断点续跑以它为准。
-- `--canvas` / `--source` 省略时，按母版回退链取尺寸（见 §2 素材角色与模式矩阵）；母版是图片时取图片宽高。显式给出时仍按显式值。
-- 视频与超限图片各自缩放到模型限额内；缩放件按素材 id 命名并记入台账。
-- `selftest`：`vrgen submit --refs … --dry-run` 只做本地半场，不发请求不花钱，
-  用于检查素材清单、角色矩阵、提示词与 argv。
-- 首尾图合规性首期按“直接传本地路径、不做 SD 合规素材登记”实现：CLI 的 `--first-image` / `--last-image` 没有对应的 asset-id 参数。若平台在真实提交时拒绝，按 `firstlast-dev-plan.md` 的 R1 回退，不在首期自建登记流程。
+- `--canvas` / `--source` 省略时，按母版回退链取尺寸；fullredraw 的装配器显式给出
+  画布与源尺寸，画布来自 manifest。
+- 视频与超限图片各自缩放到模型限额内；mask 强制缩放到画布尺寸；缩放件按素材 id
+  命名并记入台账。
+- `--dry-run` 只做本地半场，不发请求不花钱，用于检查清单、能力校验、提示词与
+  argv。
+- 首尾图合规性首期按“直接传本地路径、不做 SD 合规素材登记”实现：CLI 的
+  `--first-image` / `--last-image` 没有对应的 asset-id 参数。若平台在真实提交时
+  拒绝，按 `firstlast-dev-plan.md` 的 R1 回退，不在首期自建登记流程。
 
 ### 生成参数（web 生成页的数据源，决策 20）
 
@@ -302,23 +327,15 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
              "session_id": 0, "project_id": 0, "episode": 0},
  "modes": [{"value": "videoEdit", "label": "VideoEdit · 结构锁定编辑（动作跟随输入）",
             "takes_video": true, "ratios": [], "max_count": 50,
-            "max_videos": 10, "max_images": 30, "video_required": true,
-            "roles": {"video": ["edit_master"],
-                      "image": ["subject_ref"]},
+            "max_videos": 10, "max_images": 30,
             "duration": {"type": ""}},
            {"value": "allMediaRef", "label": "AllMediaRef · 多素材参考（可重新生成动作）",
             "takes_video": true, "ratios": ["auto", "16:9", "21:9"], "max_count": 50,
-            "max_videos": 10, "max_images": 30, "video_required": false,
-            "roles": {"video": ["edit_master", "motion_ref", "space_ref", "scene_ref"],
-                      "image": ["subject_ref", "space_ref", "scene_ref",
-                                "first_frame", "last_frame", "mid_frame",
-                                "first_frame_raw", "last_frame_raw"]},
+            "max_videos": 10, "max_images": 30,
             "duration": {"type": "range", "min": 4, "max": 30}},
            {"value": "firstLastFrame", "label": "FirstLastFrame · 首尾帧生视频",
             "takes_video": false, "ratios": [], "max_count": 2,
-            "max_videos": 0, "max_images": 2, "video_required": false,
-            "roles": {"video": [],
-                      "image": ["first_frame", "last_frame"]},
+            "max_videos": 0, "max_images": 2,
             "duration": {"type": "range", "min": 4, "max": 30}}],
  "fixed": {"model_id": 37, "duration_s": 8, "num": 1},
  "saved": true}
@@ -328,7 +345,7 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
 - `input` / `canvas` / `source` 都可省略。省略 `--input` 时（例如新建 gen case 后还没有素材），
   `output` 与 `input` 返回空数组，页面只使用 `modes` 与 `current`；素材补齐后再次调用
   即恢复完整结果。省略 `--input` 时若显式给了 `--canvas`/`--source`，只用于计算 `output`。
-- `modes` 是模型能力里筛出的、本期支持的模式（`videoEdit` / `allMediaRef` / `videoExtend` / `firstLastFrame`）；筛选不再要求模式“接受视频”，否则纯图片的 `firstLastFrame` 不会出现在列表里。页面用它填充模式下拉框，不在前端写死。`max_videos` / `max_images` 取对应 validator 的 `maxCount`；`takes_video=false` 时 `max_videos` 返回 0。`roles` 与 `video_required` 是本地角色矩阵的只读回显，`video_required` 的映射是 `videoEdit=true`、`videoExtend=true`、`allMediaRef=false`、`firstLastFrame=false`。
+- `modes` 是模型能力里筛出的、本期支持的模式（`videoEdit` / `allMediaRef` / `videoExtend` / `firstLastFrame`）；筛选不再要求模式“接受视频”，否则纯图片的 `firstLastFrame` 不会出现在列表里。页面用它填充模式下拉框，不在前端写死。`max_videos` / `max_images` 取对应 validator 的 `maxCount`；`takes_video=false` 时 `max_videos` 返回 0。角色选项不在 `modes` 里回显：本地模式矩阵已退役（§2「素材角色与校验」），前端从全局角色词表按素材种类渲染。
 - `params show` 的 `takes_video` 闸门只拦“传了 `--input` 却不接受视频”的情况：不传 `--input` 时，无论当前模式是什么都返回 `modes` 与 `current`。否则纯图片 case 一旦把当前模式存成 `firstLastFrame`，页面连模式列表和时长范围都读不到。
 - `current` 优先读 `runs/<job>/generation.toml`，没有则回退配置默认值；`saved` 表示草稿是否存在。`current` 里的 `session_id` 是项目生成会话（0 表示个人额度）。
 - `current.mode` 是本次提交使用的模式；`current.aspect_ratio` 是解析后的比例。没有比例选项的模式显示 `auto`，页面写“跟随输入”；`allMediaRef` 这类有比例列表的模式从列表里选择。
@@ -382,13 +399,17 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
   在 submit 时按素材顺序与当前模式生成，不允许写进 `prompt-vars.toml`。旧调用方不认识
   这个字段时可以忽略它，不影响原有 `geometry_keys` 行为。
 
-### gen 多素材模板（templates/gen-multi.md）
+### 素材清单与模式规则的计算键（templates/）
 
-gen 流程统一使用 `gen-multi`（旧 `gen-edit` 保留，供历史轮次重放与对照）：
+gen 流程统一使用 `gen-multi`（旧 `gen-edit` 保留，供历史轮次重放与对照）；
+`asset_list` 等计算键对全部模板开放，character-repaint 与 360-closure 增加素材
+清单段属于模板内容改动，机制不变：
 
-- `{asset_list}`：按 case.toml 顺序生成，例如
-  `@Video1：编辑母版，负责时间轴、构图与动作基准。`、`@Video2：动作参考，只提供动作节奏与路径。`、
-  `@Image1：主体参考，只定义角色外观。`
+- `{asset_list}`：按清单顺序生成，例如
+  `@Video1：编辑母版，负责时间轴、构图与动作基准。`、
+  `@Image1：编辑区域标注，不作为画面内容参考。`、
+  `@Image2：主体参考，只定义角色外观。`；派生条目（母版、mask）参与编号，
+  声明顺序与 mglc argv 的 `--video` / `--image` 顺序逐一对齐。
 - `{task_rule}`：按模式生成任务句。`videoEdit` 是“只编辑母版中的指定主体”；`allMediaRef`
   是“按文本分镜重新生成完整表演”；`videoExtend` 是“从母版结尾自然延长”。
 - `{timeline_rule}`：`videoEdit` 锁定动作顺序、起止时间、方向与画面位置；`allMediaRef`
@@ -419,9 +440,8 @@ runs/<job>/
     command.txt         # 实际发出的 argv
     progress.log        # 过程叙事（含等待轮询），每次调用追加
     mglc.log            # 外部调用的 argv/返回码/错误消息
-    refs.json           # gen 多素材：本次提交的素材清单现场（含 id/kind/role/path/hash）
-    upload_<w>x<h>.mp4  # patch/fullredraw：缩档后真正上传的视频（仅 mglc 后端）
-    upload_<id>_<w>x<h>.mp4 / .png   # gen：按素材 id 命名的缩放件
+    refs.json           # 本次提交的资产清单现场（含 id/kind/role/path/hash/derived；三流程共用）
+    upload_<id>_<w>x<h>.mp4 / .png   # 按素材 id 命名的缩放件（三流程统一；母版缩放件另记 run.json 的 upload 字段）
     result.mp4          # 生成/注册的结果
   img-<轮次key>/          # 图片轮次：label 固定为 img
     run.json            # params.kind="image"，results 列出全部候选
@@ -433,11 +453,12 @@ gen 多素材与图片轮次的 run.json 字段扩展（其余字段与旧格式
 - `params.kind`：`"video"` | `"image"`，缺省视为 `"video"`；`backend` 字段语义不变。轮次类型以它为准，读旧 run.json 缺字段时按 video 处理。
 - `results`：可选字符串数组，图片轮次的多候选结果文件清单（`result_1.png` … `result_N.png`）。视频轮次不写该字段，单值 `result` 语义不变。
 - `params.duration_s`：本次实际采用的时长（整数秒），是审计事实，不是偏好；不写 `generation.toml`。
-- `assets`：从 `{"video": 123, "image": 456}` 扩展为按素材 id 分组，例如
-  `{"video:v1": 123, "video:v2": 124, "image:i1": 456}`。patch/fullredraw 仍用
-  `"video"` / `"image"` 两个旧键，两种键集互不混用。
-- `params.refs`：本次提交的素材清单，每项含 `id`、`kind`、`role`、`path`、`sha256`、
-  `upload`（缩放件路径）、`width`、`height`；顺序与 `refs.json` 一致。`firstLastFrame` 同样通过该字段记录首尾帧。
+- `assets`：按素材 id 分组，例如
+  `{"video:xv1": 123, "image:xi1": 456, "image:i1": 789}`。patch/fullredraw 的
+  `"video"` / `"image"` 两个旧键退役，三流程统一为 `kind:id` 键。
+- `params.refs`：本次提交的资产清单，每项含 `id`、`kind`、`role`、`path`、`sha256`、
+  `derived`、`upload`（缩放件路径）、`width`、`height`；顺序与 `refs.json` 一致。
+  `firstLastFrame` 同样通过该字段记录首尾帧。
 - `params.master`：母版素材 id（可能是图片）；`params.duration_source`：`master` | `longest` | `none`。
 - `run_key`：母版参数从“视频文件哈希”放宽为“任意参考素材”，否则纯图片轮次无法创建。
 - `status`：图片轮次带 img 标记；`result --index N` 按 `results` 取第 N 张，缺省第一张；旧轮次没有 `results` 时只取 `result`。

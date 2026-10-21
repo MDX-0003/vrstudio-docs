@@ -36,6 +36,17 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 7. **数据不进 git**：`cases/`、`sources/`、`runs/`、`logs/`、`bin/` 全部 gitignore；
    仓库里只进代码、配置模板、文档、测试。
 
+## 设计原则（Review 按此把关，与硬规则同效）
+
+1. **能删就删**：接口、函数、参数能删就删；新增 CLI 参数、API 端点、配置键、
+   模板变量之前，先证明现有接口装不下这个需求。
+2. **共用优先**：两条执行路径出现重叠就合并成一条；只有共用会导致大量 if 分支
+   时才允许拆分，且拆分边界落在数据（装配产物）上，不落在机制上。
+3. **不为临时需求加长期成本**：为单个 case 或单次实验开的口子，合入前要回答
+   「其余流程是否也要跟着维护它」；答案是否就不许合入。
+4. **用机制替代禁令**：不靠禁止性校验挡需求；让错误状态无法构造，或在最底层
+   按真实原因报错（如平台 validator 返回具体哪一项超限）。
+
 ## 环境
 
 - Python 3.11，uv 管理：`uv sync --extra dev` 装环境，`uv run <cmd>` 执行。
@@ -54,6 +65,7 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 | `docs/prompt-rules.md` | Seedance 提示词规则（编辑模式、参考模式、角色替换） |
 | `docs/video-edit-motion-issue.md` | VideoEdit 动作锁定问题与解决路线（审查稿） |
 | `docs/multi-asset-plan.md` | case 无视频创建与多素材模型方案（审查稿） |
+| `docs/unified-submit-plan.md` | 生成提交统一化方案：三流程一条 prepare 路径、mask 进清单、四条限制退役（审查稿，待批） |
 | `docs/first-last-frame-pipeline.md` | 首尾帧两段式生成方案：图片关键帧 + firstLastFrame，含工具链接入设计（定稿） |
 | `docs/firstlast-dev-plan.md` | 首尾帧管线开发计划：WP0–WP4 工作包、切入点与 pytest 验收（待批） |
 | `docs/patch-videoedit-example.md` | 例子：只重绘中间动作段的 patch + videoEdit 流程，位置/时间一致性原理与段成片边界 |
