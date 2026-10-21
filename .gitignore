@@ -3,5 +3,9 @@
 /vrgen/
 /vrstudio/
 
+# 本地工具产物（浏览器调试记录、临时截图）
+.playwright-mcp/
+wizard-pick.png
+
 # 系统
 Thumbs.db
