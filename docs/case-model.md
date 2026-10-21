@@ -3,8 +3,10 @@
 两仓库的唯一接口权威。任何字段或命令面的变更先改本文，再改两侧代码与测试。
 
 迁移状态：§2 的素材角色与校验、§4 的 `vrgen submit` 参数面与 `--refs` 清单、§5 的
-台账字段已按 `unified-submit-plan.md`（2026-10-21 立项）重写为统一提交契约；两侧
-代码迁移完成前，现行实现仍按旧参数面运行，以本文为目标契约。
+台账字段已按 `unified-submit-plan.md`（2026-10-21 立项）重写为统一提交契约；同日按
+决策 33 修订：提交集只认用户勾选，clip/pad 与文件素材同为候选、mask 自动附带、
+raw 帧仅工作台、没有 `derived` 标记，patch 的 extract 同时产出 clip 的首尾原始帧。两侧代码迁移完成前，现行实现仍按旧参数
+面运行，以本文为目标契约。
 
 ## 1. 原则
 
@@ -47,7 +49,7 @@ current = "20260923T073001"   # → extracts/<时间戳>/；generate 与 merge �
 round = "dusk-c3a41f90"
 ```
 
-patch 与 fullredraw 也可以有 `[[assets]]`（三视图、抽取的原始帧、重绘定稿帧等文件素材），格式与 gen 示例相同；源视频仍然只放在 `[source]`。三个流程的文件素材以同一套规则参与提交；流程产物（母版与 mask）不写进 `[[assets]]`，由提交装配器在提交时合成为派生条目（见 §4 `--refs` 清单）。
+patch 与 fullredraw 也可以有 `[[assets]]`（三视图、重绘定稿帧等文件素材）和可选的 `[submit] selected`，格式与 gen 示例相同；源视频仍然只放在 `[source]`。流程产物不写进 `[[assets]]`，路径由 `[extract] current` 或 manifest 决定；其中 patch 的 `clip`、fullredraw 的 `pad` 是用户可勾选的候选，mask 是流程自动附带的控制图，首尾原始帧只进工作台输入区（见 §4 `--refs` 清单）。
 
 ### flow = "fullredraw"（全景重绘：AI 重绘整个 360°）
 
@@ -88,8 +90,8 @@ path = "assets/i1_character.png"
 role = "subject_ref"
 sha256 = "…"
 
-[submit]                       # 可选：本次提交的素材 id 子集
-selected = ["v1", "i1"]        # 只存 id，不存角色覆盖
+[submit]                       # 可选：本次提交的候选 id 列表；缺省为空集
+selected = ["v1", "i1"]        # 只存 id，不存角色覆盖；勾选才提交
 
 [adopt]
 round = "dusk-3c1a4b2d"
@@ -97,10 +99,10 @@ round = "dusk-3c1a4b2d"
 
 设计说明：
 
-- `[[assets]]` 不再是 gen 专属：patch、fullredraw 也可以有文件素材列表（三视图、抽取的原始帧、重绘定稿帧等）。三条流程的既有段（patch 的 `[source]/[viewport]/[inner]/[frames]`、fullredraw 的 `[source]`、以及 `*_pad.json` manifest）不变。
-- 原始源视频与流程产物（clip、pad 产物、merge 成片）不写进 `[[assets]]`。它们在生成页作为只读的“派生条目”展示，提交时由装配器合成为清单里的派生条目（见 §4），避免与 `[source]` 的哈希契约形成双重真源。
-- 角色词表：`edit_master`、`motion_ref`、`space_ref`、`scene_ref`、`subject_ref`、`first_frame`（首帧定稿图）、`last_frame`（尾帧定稿图）、`mid_frame`（中间过渡帧，预留）、`first_frame_raw`、`last_frame_raw`（工作台输入底图，从视频抽取的原始帧）、`mask`（编辑区域标注图；只由提交装配器生成，不进 `[[assets]]`，见 §4）。用户素材的角色由用户选择，不按顺序推断；空角色是未完成状态，提交前必须补齐。
-- `[submit]` 是可选的提交集：`selected` 只存素材 id，不存角色覆盖；缺省表示按当前模式取默认集。写入只发生在 vrstudio，vrgen 只读 refs JSON，不认识这个字段。删除素材时同步从 `selected` 移除；重排不改 id，`selected` 不动。
+- `[[assets]]` 不再是 gen 专属：patch、fullredraw 也可以有文件素材列表（三视图、重绘定稿帧等）。三条流程的既有段（patch 的 `[source]/[viewport]/[inner]/[frames]`、fullredraw 的 `[source]`、以及 `*_pad.json` manifest）不变。
+- 原始源视频与流程产物（patch 的 clip/mask/首尾原始帧、fullredraw 的 pad/mask）不写进 `[[assets]]`，路径由 `[extract] current` 或 manifest 决定，避免与 `[source]` 的哈希契约形成双重真源。其中 clip/pad 作为可勾选候选；mask 由装配器自动附带，不作为用户素材；首尾原始帧只作工作台输入。提交契约不区分来源，也没有 `derived` 标记。merge 成片是流程输出，不作为生成提交候选。
+- 角色词表：`edit_master`、`motion_ref`、`space_ref`、`scene_ref`、`subject_ref`、`first_frame`（首帧定稿图）、`last_frame`（尾帧定稿图）、`mid_frame`（中间过渡帧，预留）、`first_frame_raw`、`last_frame_raw`（工作台输入底图，由 patch 的 extract 从 clip 首尾导出）、`mask`（编辑区域标注图；由 patch/fullredraw 的流程产物提供，装配器自动附带，不作为用户候选，也不参与 `@ImageN` 编号）。用户素材的角色由用户选择，不按顺序推断；空角色是未完成状态，提交前必须补齐。
+- `[submit]` 是可选的提交集：`selected` 就是本次提交的用户素材 id 列表，只存 id，不存角色覆盖；没有默认集，缺省等于空集，勾选才提交。clip/pad 用固定 id 也可以出现在 `selected` 里；mask 不写进 `selected`，由装配器在提交时自动追加。写入只发生在 vrstudio，vrgen 只读 refs JSON，不认识这个字段。删除素材时同步从 `selected` 移除；重排不改 id，`selected` 不动。旧 case 没有这个字段时按空集处理，升级后首次打开需要重新勾选一次。
 - `target_aspect` 不在 case 里——它是平台 bucket 参数，进 vrstudio 项目配置。
 - `[viewport]/[inner]/[frames]` 是**草稿**（可变）；`clip.json` 是**契约**（冻结）。
   改范围 = 改草稿重新 extract = 新版本目录，两者分离避免 pick 迭代造成版本爆炸。
@@ -131,7 +133,12 @@ round = "dusk-3c1a4b2d"
 角色只承载提示词里的职责声明，不再承载按模式的数量限制；数量、格式、时长、帧率、
 像素、体积的上限以模型详情的 validator 为唯一依据（`refVideoValidator` /
 `refImageValidator` / 模式 `maxCount`），提交前由 vrgen 校验，超限时按 validator
-返回的具体项报参数错。
+返回的具体项报参数错。本地只保留四条平台接不住的语义规则：firstLastFrame 恰好一张
+首帧加一张尾帧、至多一个 `edit_master` 且必须是第一条视频、`mask` 只能是图片、
+`first_frame_raw`/`last_frame_raw` 不能进入 `--refs` 清单。模型详情缓存
+（`runs/<job>/models.json`）缺失、过期或刷新失败时直接报配置错，提示先运行
+`vrgen models --refresh`；需要模型能力的命令（submit、params show、prompt show）
+一律按此报错，不在本地回退内置限额，也不静默放行。
 
 - 角色职责声明（进入提示词素材清单的固定文案）：
   - `edit_master`：编辑母版，负责时间轴、构图与动作基准。
@@ -142,16 +149,22 @@ round = "dusk-3c1a4b2d"
   - `mask`：编辑区域标注，不作为画面内容参考。
   - `first_frame` / `last_frame`：首帧/尾帧定稿图，锁定起点/终点构图与人物外观。
   - `mid_frame`：中间过渡帧，仅在首尾间距过大时补充。
-  - `first_frame_raw` / `last_frame_raw`：工作台输入底图（原始抽取帧），只提供场景
-    与占位，不是生成素材。
+  - `first_frame_raw` / `last_frame_raw`：工作台输入底图（原始抽取帧），由 patch 的
+    extract 从 clip 首尾导出，只提供场景与占位。它们只在关键帧工作台输入区出现，
+    不是提交候选；`--refs` 清单拒绝 `*_raw` 角色，因此不能靠手动勾选或直接调 CLI
+    把它们当首尾帧提交。
 
 `space_ref` 与 `motion_ref` 的分工是“空间”和“身体动作”的分工：`space_ref` 只提供机位、构图、起点与终点位置，不提供人物动作；`motion_ref` 提供动作节奏与路径。白模视频只锁空间时用 `space_ref`，需要继承动作节奏时用 `motion_ref`。
 
-- 通道映射只有两条规则，除此之外全部素材走 `--video` / `--image` 通道：
-  - `first_frame` 与 `last_frame` 各恰好 1 个时，映射到 mglc 的
-    `--first-image` / `--last-image`（`first_frame` 在前）；多于一个即报参数错。
-  - `mask` 条目走 `--image` 通道上传，缩放规则是强制缩放到画布尺寸，不按图片
-    预算 fit；mask 是派生条目，由装配器生成、与母版同源（§4）。
+- 通道映射只有两条规则，除此之外全部勾选素材走 `--video` / `--image` 通道：
+  - 仅当模式为 `firstLastFrame` 时，勾选里恰好一张 `first_frame` 与一张
+    `last_frame` 映射到 mglc 的 `--first-image` / `--last-image`（首帧在前）；
+    不足、超出或混入其他素材即报参数错。其他模式下这两个角色按普通图片走
+    `--image`。
+  - `mask` 由装配器自动附带，不是用户候选；追加在所有用户图片之后，不参与
+    `@ImageN` 编号。缩放规则是强制缩放到母版的上传画布，不按图片预算 fit，
+    宽高、比例与体积仍按图片 validator 校验。模板用固定文案说明最后一张图是
+    区域标注，不写编号。
 - 母版（提示词几何与上传基准）的回退链依次是：第一条 `edit_master` 视频 → 第一条
   视频 → 第一条 `space_ref` 或 `scene_ref` 图片（二者同级，按清单顺序取第一个）→
   第一条 `first_frame` 图片 → 第一条图片。母版为图片时，画布尺寸取图片宽高。
@@ -180,6 +193,8 @@ cases/<名>/
     clip.json                    #   字段集/version=1 冻结，单段守卫
     clip.mp4                     #   送生成的视口裁剪
     clip_mask.png                #   inner 掩膜
+    first_frame_raw.png          #   clip.mp4 首帧原始图（从 clip 读，不从源片抽）
+    last_frame_raw.png           #   clip.mp4 末帧原始图（从 clip 读，不从源片抽）
     result.mp4                   #   被采用的那轮结果（adopt 时从 vrgen 拷入）
   derived/                       # merge 产物 out_<版本>.mp4 + .merge.json + pick/ 预览缓存
   # --- flow = fullredraw ---
@@ -228,7 +243,8 @@ vrgen prompt show --job <名> [--template <id>] [--refs <json>] [--mode <模式>
                  [--canvas WxH] [--source WxH] [--workdir <dir>]   # 读模板+草稿；可回展开正文
 vrgen prompt save --job <名> [--set k=v]… [--unset k]… [--template <id>] \
                  [--refs <json>] [--mode <模式>] [--canvas WxH] [--source WxH] [--workdir <dir>]
-vrgen params show --job <名> [--input <视频>] [--canvas WxH] [--source WxH] [--aspect-ratio auto] [--workdir <dir>]
+vrgen params show --job <名> [--refs <json>] [--canvas WxH] [--source WxH] [--aspect-ratio auto] [--workdir <dir>]
+                                           # 只读：output/input 档位与模式列表；refs 只用于取母版算输入尺寸
 vrgen params save --job <名> [--resolution <480p|720p|1080p>] [--scale <auto|full|half>] [--mode <模式>] [--aspect-ratio <auto|W:H>] [--session-id <id>] [--project-id <id>] [--episode <n>] [--workdir <dir>]
 vrgen sessions list [--project-id <id>] [--episode <n>]   # 只读：项目/剧集/会话树，JSON 输出
 ```
@@ -238,39 +254,50 @@ vrgen sessions list [--project-id <id>] [--episode <n>]   # 只读：项目/剧�
 ### `--refs` 提交资产清单（三个流程共用的唯一提交入口）
 
 `vrgen submit` 只有一种输入：`--refs` 清单。旧 `--input` / `--mask` 参数与互斥校验
-删除；patch 与 fullredraw 的母版、mask 由 vrstudio 装配器合成为清单里的派生条目，
-gen 的母版来自素材列表。vrstudio 是清单的唯一生产者，vrgen 不读 case.toml。
+删除。清单 = `[submit] selected` 里的用户素材与 clip/pad，加上装配器自动附带的
+mask 控制图：勾选了哪些素材就提交哪些，没有默认集，也没有自动补入的素材；mask
+是唯一的自动附带项，因为它不是画面参考，而是编辑区域控制图。patch 的 clip、
+fullredraw 的 pad 与 `[[assets]]` 文件素材使用同一套条目格式。vrstudio 是清单的
+唯一生产者，vrgen 不读 case.toml。
 
-清单是一个 JSON 文件，以 patch（母版 + mask + 三视图）为例：
+清单是一个 JSON 文件，以 patch（勾选 clip + 三视图，装配器附带 mask）为例：
 
 ```json
 {
   "assets": [
-    {"id": "xv1", "kind": "video", "path": "E:\\…\\cases\\dacne\\extracts\\20261021-140105\\clip.mp4", "role": "edit_master", "derived": true},
-    {"id": "xi1", "kind": "image", "path": "E:\\…\\cases\\dacne\\extracts\\20261021-140105\\clip_mask.png", "role": "mask", "derived": true},
-    {"id": "i1", "kind": "image", "path": "E:\\…\\cases\\dacne\\assets\\i1_dancer.jpg", "role": "subject_ref", "sha256": "…"}
+    {"id": "clip", "kind": "video", "path": "E:\\…\\cases\\dacne\\extracts\\20261021-140105\\clip.mp4", "role": "edit_master"},
+    {"id": "i1", "kind": "image", "path": "E:\\…\\cases\\dacne\\assets\\i1_dancer.jpg", "role": "subject_ref", "sha256": "…"},
+    {"id": "mask", "kind": "image", "path": "E:\\…\\cases\\dacne\\extracts\\20261021-140105\\clip_mask.png", "role": "mask"}
   ]
 }
 ```
 
+mask 条目由装配器追加在所有用户图片之后，不在 `[submit] selected` 里，也不参与
+提示词编号；它只是编辑区域控制图，不是用户素材。
+
 - 条目字段：`id`、`kind`（`video` | `image`）、`role`、`path`、可选 `sha256`
-  （给了就校验）、可选 `derived`（true 表示流程产物派生条目）。
-- `id` 在清单内唯一，前缀区分来源：用户素材是 `v1`、`v2`…（视频）与 `i1`、`i2`…
-  （图片）；派生条目是 `xv1`、`xi1`…（`x` 前缀，避免与用户素材的 id 分配冲突）。
-- 装配器固定的清单顺序是母版 → mask → 用户素材；编号规则是视频在前、图片在后，
-  按清单顺序得到 `@VideoN` / `@ImageN`，派生条目参与编号，声明顺序与 mglc argv
-  的 `--video` / `--image` 顺序逐一对齐（契约测试点）。
-- 路径可以是绝对路径，也可以相对 JSON 文件所在目录。`[submit] selected` 只引用
-  用户素材 id；派生条目始终参与提交，不受勾选影响。
+  （给了就校验）。没有 `derived` 字段；来源只影响面板展示与路径解析，不影响提交
+  语义。
+- `id` 在清单内唯一，统一为字母开头、其余为字母数字下划线连字符的字符串。用户
+  素材沿用 `v1`、`v2`…（视频）与 `i1`、`i2`…（图片）；进入 refs 的流程产物用
+  固定名 `clip`、`mask`、`pad`、`pad_mask`；`first_raw`/`last_raw` 只用于工作台
+  输入，不进入 refs。
+- 清单顺序取 `[submit] selected` 的顺序，mask 固定追加在所有用户图片之后；提示词
+  编号与 argv 按视频在前、图片在后分组，组内保持清单顺序，得到 `@VideoN` /
+  `@ImageN`。mask 不参与编号，声明顺序与 mglc argv 的 `--video` / `--image` 顺序
+  逐一对齐（契约测试点）。
+- 路径可以是绝对路径，也可以相对 JSON 文件所在目录。`[submit] selected` 可以
+  引用文件素材与 clip/pad；mask 不出现；缺省为空集，旧 case 需要重新勾选一次。
 - 数量、格式、时长、帧率、像素、体积校验以模型详情 validator 为唯一依据，vrgen
-  按具体超限项报参数错；本地不维护按模式的角色数量矩阵（§2「素材角色与校验」）。
-- `firstLastFrame` 的清单只含两张图片、顺序固定为首帧在前，映射到
-  `--first-image` / `--last-image`（见 §2「素材角色与校验」）。
+  按具体超限项报参数错；本地只保留 §2「素材角色与校验」的四条语义规则。
+- `firstLastFrame` 的清单只含勾选里恰好一张 `first_frame` 和一张 `last_frame`，
+  顺序固定为首帧在前，映射到 `--first-image` / `--last-image`；其他勾选项不参与，
+  视频也不参与，该模式不附带 mask（见 §2「素材角色与校验」）。
 - vrgen 在轮次目录里保存一份 `refs.json` 现场，之后断点续跑以它为准。
 - `--canvas` / `--source` 省略时，按母版回退链取尺寸；fullredraw 的装配器显式给出
   画布与源尺寸，画布来自 manifest。
-- 视频与超限图片各自缩放到模型限额内；mask 强制缩放到画布尺寸；缩放件按素材 id
-  命名并记入台账。
+- 视频与超限图片各自缩放到模型限额内；mask 由装配器追加在用户图片之后，强制
+  缩放到母版的上传画布，不按图片预算 fit；缩放件按素材 id 命名并记入台账。
 - `--dry-run` 只做本地半场，不发请求不花钱，用于检查清单、能力校验、提示词与
   argv。
 - 首尾图合规性首期按“直接传本地路径、不做 SD 合规素材登记”实现：CLI 的
@@ -341,12 +368,12 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
  "saved": true}
 ```
 
-- `output` 是平台输出档位及标称宽高；`input` 是当前 case 的输入文件在三种 `scale` 下的实际宽高，`ok/reason` 由平台模型的像素/体积限制计算。
-- `input` / `canvas` / `source` 都可省略。省略 `--input` 时（例如新建 gen case 后还没有素材），
+- `output` 是平台输出档位及标称宽高；`input` 是 `--refs` 清单里的母版在三种 `scale` 下的实际宽高，`ok/reason` 由平台模型的像素/体积限制计算。母版是图片时 `input` 为空，因为输入缩放只对视频有意义。
+- `input` / `canvas` / `source` 都可省略。省略 `--refs` 时（例如新建 gen case 后还没有素材），
   `output` 与 `input` 返回空数组，页面只使用 `modes` 与 `current`；素材补齐后再次调用
-  即恢复完整结果。省略 `--input` 时若显式给了 `--canvas`/`--source`，只用于计算 `output`。
-- `modes` 是模型能力里筛出的、本期支持的模式（`videoEdit` / `allMediaRef` / `videoExtend` / `firstLastFrame`）；筛选不再要求模式“接受视频”，否则纯图片的 `firstLastFrame` 不会出现在列表里。页面用它填充模式下拉框，不在前端写死。`max_videos` / `max_images` 取对应 validator 的 `maxCount`；`takes_video=false` 时 `max_videos` 返回 0。角色选项不在 `modes` 里回显：本地模式矩阵已退役（§2「素材角色与校验」），前端从全局角色词表按素材种类渲染。
-- `params show` 的 `takes_video` 闸门只拦“传了 `--input` 却不接受视频”的情况：不传 `--input` 时，无论当前模式是什么都返回 `modes` 与 `current`。否则纯图片 case 一旦把当前模式存成 `firstLastFrame`，页面连模式列表和时长范围都读不到。
+  即恢复完整结果。省略 `--refs` 时若显式给了 `--canvas`/`--source`，只用于计算 `output`。
+- `modes` 是模型能力里筛出的、本期支持的模式（`videoEdit` / `allMediaRef` / `videoExtend` / `firstLastFrame`）；筛选不再要求模式“接受视频”，否则纯图片的 `firstLastFrame` 不会出现在列表里。页面用它填充模式下拉框，不在前端写死。`max_videos` / `max_images` 取对应 validator 的 `maxCount`；`takes_video=false` 时 `max_videos` 返回 0。角色选项不在 `modes` 里回显：按模式的角色数量矩阵已退役，本地只保留 §2「素材角色与校验」的四条语义规则；前端从全局角色词表按素材种类渲染。
+- `params show` 的 `takes_video` 闸门只拦“`--refs` 清单里有视频、当前模式却不接受视频”的情况：不传 `--refs`、或清单里没有视频时，无论当前模式是什么都返回 `modes` 与 `current`。否则纯图片 case 一旦把当前模式存成 `firstLastFrame`，页面连模式列表和时长范围都读不到。
 - `current` 优先读 `runs/<job>/generation.toml`，没有则回退配置默认值；`saved` 表示草稿是否存在。`current` 里的 `session_id` 是项目生成会话（0 表示个人额度）。
 - `current.mode` 是本次提交使用的模式；`current.aspect_ratio` 是解析后的比例。没有比例选项的模式显示 `auto`，页面写“跟随输入”；`allMediaRef` 这类有比例列表的模式从列表里选择。
 - `fixed.duration_s` 不再表示保存的草稿偏好：页面时长下拉按 `modes[].duration` 渲染，“自动”不传 `--duration`，实际采用值以轮次台账 `params.duration_s` 为准。
@@ -407,9 +434,9 @@ gen 流程统一使用 `gen-multi`（旧 `gen-edit` 保留，供历史轮次重�
 
 - `{asset_list}`：按清单顺序生成，例如
   `@Video1：编辑母版，负责时间轴、构图与动作基准。`、
-  `@Image1：编辑区域标注，不作为画面内容参考。`、
-  `@Image2：主体参考，只定义角色外观。`；派生条目（母版、mask）参与编号，
-  声明顺序与 mglc argv 的 `--video` / `--image` 顺序逐一对齐。
+  `@Image1：主体参考，只定义角色外观。`；mask 不参与编号，模板用固定文案说明
+  最后一张图是编辑区域标注，声明顺序与 mglc argv 的 `--video` / `--image` 顺序
+  逐一对齐。
 - `{task_rule}`：按模式生成任务句。`videoEdit` 是“只编辑母版中的指定主体”；`allMediaRef`
   是“按文本分镜重新生成完整表演”；`videoExtend` 是“从母版结尾自然延长”。
 - `{timeline_rule}`：`videoEdit` 锁定动作顺序、起止时间、方向与画面位置；`allMediaRef`
@@ -440,7 +467,7 @@ runs/<job>/
     command.txt         # 实际发出的 argv
     progress.log        # 过程叙事（含等待轮询），每次调用追加
     mglc.log            # 外部调用的 argv/返回码/错误消息
-    refs.json           # 本次提交的资产清单现场（含 id/kind/role/path/hash/derived；三流程共用）
+    refs.json           # 本次提交的资产清单现场（含 id/kind/role/path/hash；三流程共用）
     upload_<id>_<w>x<h>.mp4 / .png   # 按素材 id 命名的缩放件（三流程统一；母版缩放件另记 run.json 的 upload 字段）
     result.mp4          # 生成/注册的结果
   img-<轮次key>/          # 图片轮次：label 固定为 img
@@ -454,10 +481,11 @@ gen 多素材与图片轮次的 run.json 字段扩展（其余字段与旧格式
 - `results`：可选字符串数组，图片轮次的多候选结果文件清单（`result_1.png` … `result_N.png`）。视频轮次不写该字段，单值 `result` 语义不变。
 - `params.duration_s`：本次实际采用的时长（整数秒），是审计事实，不是偏好；不写 `generation.toml`。
 - `assets`：按素材 id 分组，例如
-  `{"video:xv1": 123, "image:xi1": 456, "image:i1": 789}`。patch/fullredraw 的
+  `{"video:clip": 123, "image:mask": 456, "image:i1": 789}`。patch/fullredraw 的
   `"video"` / `"image"` 两个旧键退役，三流程统一为 `kind:id` 键。
 - `params.refs`：本次提交的资产清单，每项含 `id`、`kind`、`role`、`path`、`sha256`、
-  `derived`、`upload`（缩放件路径）、`width`、`height`；顺序与 `refs.json` 一致。
+  `upload`（缩放件路径）、`width`、`height`；顺序与 `refs.json` 一致。没有 `derived`
+  字段，流程产物与文件素材同构。
   `firstLastFrame` 同样通过该字段记录首尾帧。
 - `params.master`：母版素材 id（可能是图片）；`params.duration_source`：`master` | `longest` | `none`。
 - `run_key`：母版参数从“视频文件哈希”放宽为“任意参考素材”，否则纯图片轮次无法创建。

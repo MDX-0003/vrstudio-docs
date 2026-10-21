@@ -1,6 +1,6 @@
 # case 与多素材模型方案
 
-本文记录“新建 case 不再依赖单个视频、首个步骤选定多个素材”的改造方案。它针对当前 `simple_gen_01` 这类“从单个视频出发”的 case 模型；多素材生成、参考图和模式切换需要新的数据结构与页面流程。状态：已实施（2026-10-19），免额度验收通过；真实 allMediaRef 提交待额度。2026-10-20 起，素材列表通用化与 firstLastFrame 扩展见 `docs/first-last-frame-pipeline.md` §8；本文中“素材仅属于 gen”“本期不做 firstLastFrame”的表述只描述 2026-10-19 的实施范围，已被决策 26 取代。
+本文记录“新建 case 不再依赖单个视频、首个步骤选定多个素材”的改造方案。它针对当前 `simple_gen_01` 这类“从单个视频出发”的 case 模型；多素材生成、参考图和模式切换需要新的数据结构与页面流程。状态：已实施（2026-10-19），免额度验收通过；真实 allMediaRef 提交待额度。2026-10-20 起，素材列表通用化与 firstLastFrame 扩展见 `docs/first-last-frame-pipeline.md` §8；本文中“素材仅属于 gen”“本期不做 firstLastFrame”的表述只描述 2026-10-19 的实施范围，已被决策 26 取代。2026-10-21 起，提交集只认勾选、clip/pad 为候选、mask 自动附带、raw 帧仅工作台，`--input`/`--mask` 删除，见决策 33 与 `docs/unified-submit-plan.md`。
 
 ## 1. 问题来源
 
@@ -156,7 +156,7 @@ gen 不包含对比页。普通视频不能复用 360° ERP 对比器，本期�
 --ref-image <路径>:<角色>
 ```
 
-旧的 `--input` 与 `--mask` 保留给 patch/fullredraw；gen 多素材走新参数。两种入口最终都转换成同一份 `InputPackage`，提示词几何仍由 canvas/source 决定。
+旧的 `--input` 与 `--mask` 保留给 patch/fullredraw；gen 多素材走新参数。两种入口最终都转换成同一份 `InputPackage`，提示词几何仍由 canvas/source 决定。（2026-10-21 由决策 33 取代：三流程统一走 `--refs`，`--input`/`--mask` 删除，提交集只认勾选；见 `docs/unified-submit-plan.md`。）
 
 ### 5.2 素材登记
 

@@ -16,7 +16,7 @@
 
 ## 当前状态
 
-- `extract` 按 `[frames] start/end` 冻结 `clip.json`、`clip.mp4`、`clip_mask.png`。
+- `extract` 按 `[frames] start/end` 冻结 `clip.json`、`clip.mp4`、`clip_mask.png`，并按决策 33 同时从写好的 `clip.mp4` 导出 `first_frame_raw.png` 与 `last_frame_raw.png`（clip 首末帧，不是从原始 360 视频抽；供首尾帧工作台使用，不参与时间拼接）。
 - `merge` 从源片 `seg.frame_start` 开始，空间合并 `n_seg = end - start + 1` 帧，写到 `out/<抽取版本>.mp4`；当前输出只有这一段，不包含前缀和后缀。
 - `merge` 已经做出正确的位置合并：viewport/inner 来自 `clip.json`，只替换 inner，viewport footprint 之外在段内不变。
 - 空间合并输出的帧数和 fps 已经是 `n_seg` @ 抽取 fps：AI 返回件在空间合并前由 `restore` 转成这个目标（24fps 的 AIGC 结果也在这一步转回 60fps），`FfmpegSink` 按 `sidecar_fps` 写满 `n_seg` 帧。

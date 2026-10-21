@@ -21,8 +21,8 @@
                    │ flow = patch（局部重绘）             │ flow = fullredraw（全景重绘）
    pick(视口/inner 草稿→case.toml)                    pad(循环冗余画布 21:9 + mask
         │                                            + _pad.json 契约)
-   extract(冻结 clip.json + clip.mp4                     │
-     + clip_mask.png)  ──输入包──▶ vrgen            pad 画布 ──输入包──▶ vrgen
+   extract(冻结 clip.json + clip.mp4 + clip_mask.png     │
+     + 首尾原始帧)  ──候选清单──▶ vrgen              pad 画布 ──候选清单──▶ vrgen
         │                                                │
    adopt(结果拷入 case, 记轮次 key)                   adopt(同左)
         │                                                │
@@ -40,9 +40,11 @@
    契约原样冻结: clip.json(单段) · _pad.json · index_map 唯一时间重采样 · 像素基线测试
 ```
 
-**正交性**：三条流程互斥（一个 case 只选一条）。patch/fullredraw 给 vrgen 的是
-一段视频 + 一张 mask；gen 给的是一份有序素材清单（视频/图片 + 角色）。两者都归一到
-同一份 `InputPackage`，差异全部由 vrstudio 在"组装输入包"时消解。
+**正交性**：三条流程互斥（一个 case 只选一条）。三流程给 vrgen 的都是同一份提交
+清单：用户勾选的素材 + patch 的 clip / fullredraw 的 pad + 装配器自动附带的 mask
+（编辑区域控制图，不参与编号）；gen 的清单就是勾选的 `[[assets]]`。三者归一到同一
+份 `InputPackage`，差异全部由 vrstudio 在"组装候选与几何"时消解；没有默认提交集，
+勾选才提交。
 
 ## 2. vrgen 模块树（目标态）
 
@@ -135,5 +137,5 @@ vrpatch 的 ai-clip 注册端点改为调 `vrgen register`；extract/merge 仍 s
 - **gen 多素材**（完成，决策 24/25）：case 改为有序 `[[assets]]`（视频/图片 + 角色 + 哈希），新建时选模式且不再要求源视频；旧 gen case 读取时自动迁移。向导拆成 `素材 → 生成` 两步，素材复制进 `cases/<name>/assets/`。vrgen 新增 `submit --refs`：角色矩阵与限额校验、每段视频独立缩放、台账按 `video:v1`/`image:i1` 分组；提示词模板换成 `gen-multi`，素材清单与模式语义由 `asset_list`/`task_rule`/`timeline_rule` 自动生成。生成页提供免额度 `--check`（真正执行 `vrgen submit --dry-run`）。真实 allMediaRef 提交待额度。
 - **首尾帧管线**（2026-10-20 批准，WP1–WP4 代码已实现，真实提交待额度，决策 26）：`[[assets]]` 从 gen 专用扩展为三条流程通用；gen 与 patch 生成页增加素材侧边栏，patch 另有关键帧工作台与 firstLastFrame 模式；首期全链路固定 16:9。vrgen 侧已新增 firstLastFrame 模式、`image submit` 与任务种类注册表。设计与计划见 `docs/first-last-frame-pipeline.md`、`docs/firstlast-dev-plan.md`。
 - **当前测试规模**（2026-10-19 核对）：vrgen 95 个 + vrstudio 258 个（含 web 44 个），合计 353 个全绿；两仓库 `uv run ruff check .` 干净。
-- **待办**：M1/M4 的真实素材验收（需 mglc 配额）、决策 17 的多用户分层（已登记未实现）、M5（README 交接规范 + 旧仓库归档）。
+- **待办**：M1/M4 的真实素材验收（需 mglc 配额）、决策 17 的多用户分层（已登记未实现）、统一提交改造（决策 33：勾选即提交、clip/pad 为候选、mask 自动附带、raw 帧仅工作台、extract 产出首尾原始帧）、patch 时间拼接 WP1–WP4（决策 30–32）、M5（README 交接规范 + 旧仓库归档）。
 - 无 CD：本地工具无部署物；CI 的 test job 即提交门禁。

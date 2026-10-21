@@ -1,11 +1,11 @@
 # 首尾帧管线开发计划（WP0–WP4）
 
-本文是 `docs/first-last-frame-pipeline.md` §8 定稿设计的实施计划：每个工作包给出实现目标、代码切入点（文件、函数、现行行为与目标行为）、pytest 验收方案与免额度验证命令。状态：2026-10-20 按审查结论修订，并增加全链路 16:9 几何基线（见 §修订记录）；同日用户批准整体方案，WP0 契约文档与 WP1–WP4 代码均已实现并通过两侧 pytest 与 ruff，真实图片/首尾帧提交仍待用户批准；凡消耗平台额度的步骤都单独标注"需批准"。实施顺序 WP0 → WP0.5 → WP1 → WP2 → WP3 → WP4，WP1/WP2 可并行，WP3 依赖 WP1 的契约与 WP2 的图片任务，WP4 收尾。
+本文是 `docs/first-last-frame-pipeline.md` §8 定稿设计的实施计划：每个工作包给出实现目标、代码切入点（文件、函数、现行行为与目标行为）、pytest 验收方案与免额度验证命令。状态：2026-10-20 按审查结论修订，并增加全链路 16:9 几何基线（见 §修订记录）；同日用户批准整体方案，WP0 契约文档与 WP1–WP4 代码均已实现并通过两侧 pytest 与 ruff，真实图片/首尾帧提交仍待用户批准。2026-10-21 按决策 33 修订提交集与流程产物口径：只认用户勾选、没有默认集、clip/pad 为候选、mask 自动附带、raw 帧仅工作台，patch 的 extract 直接产出 clip 首尾原始帧（见 §2026-10-21 修订）。凡消耗平台额度的步骤都单独标注"需批准"。实施顺序 WP0 → WP0.5 → WP1 → WP2 → WP3 → WP4，WP1/WP2 可并行，WP3 依赖 WP1 的契约与 WP2 的图片任务，WP4 收尾。
 
 依据与范围：
 
-- 设计定稿：`docs/first-last-frame-pipeline.md` §8（三轮讨论：case 内工作台与素材通用化；派生条目与提交集侧边栏；fullredraw 互斥与路线分流）。
-- 本计划不改动 fullredraw 的任何行为；不实现派生条目勾选提交（扩展位）；不实现 mid_frame 的生成入口（只进词表）。
+- 设计定稿：`docs/first-last-frame-pipeline.md` §8（三轮讨论：case 内工作台与素材通用化；流程产物与提交集侧边栏；fullredraw 互斥与路线分流）。
+- 本计划不改动 fullredraw 的流程行为；流程产物按决策 33 作为可勾选候选（不再只读）；不实现 mid_frame 的生成入口（只进词表）。
 - 每个仓库的提交门禁沿用 AGENTS 硬规则 6：`uv run pytest` 全绿 + `uv run ruff check .` 干净；提交信息中文、动词开头。
 
 ## 修订记录（2026-10-20，审查后）
@@ -15,8 +15,8 @@
 | # | 问题 | 结论（落点） |
 |---|---|---|
 | 1 | 时长持久化表述三处互相矛盾 | 统一为"时长规则收敛"，不存在持久化（WP0-2、WP1 标题） |
-| 2 | 提交集存放层与默认集规则两份文档各写一套 | 定为 case.toml `[submit]`，默认集只认"恰一对"；角色覆盖首期不做（WP0-1、WP3-3a、R6） |
-| 3 | `params show` 的 `takes_video` 闸门会挡住 firstLastFrame | WP1 把它拆成"列表过滤"与"传了 `--input` 却不接受"两件事（WP1-7） |
+| 2 | 提交集存放层与默认集规则两份文档各写一套 | 定为 case.toml `[submit]`，默认集只认"恰一对"（2026-10-21 由决策 33 改为没有默认集）；角色覆盖首期不做（WP0-1、WP3-3a、R6） |
+| 3 | `params show` 的 `takes_video` 闸门会挡住 firstLastFrame | WP1 把它拆成"列表过滤"与"传了含视频的 `--refs` 却不接受"两件事（WP1-7） |
 | 4 | 图片提交会被视频的 `--resolution` 白名单拒绝 | 参数校验按 task kind 分派词表（WP2-6） |
 | 5 | `resolve_package` 返回 None 会打穿 web | 图片母版照常返回宽高，只有送生成的视频位置为 None；`_generation_params` 同步降级（WP3-3b、3c） |
 | 6 | patch firstLastFrame 的模板选择没落到所有入口 | `resolve_package` 收 mode，模板按 (flow, mode) 选（WP3-3b） |
@@ -24,21 +24,34 @@
 | 8 | assets 通用化的改动面被低估 | 增删改排与 check 一并放开，测试覆盖（WP3-3a） |
 | 9 | merge 的比例隐患与上游几何没有统一契约 | 首期全链路固定 16:9；比例一致只做等比缩放、不裁切，比例不一致直接报错；裁切只留给历史/外部导入（WP0.5、WP4） |
 
+## 2026-10-21 修订（决策 33）
+
+上一版把提交集写成「用户勾选优先，未显式选择时按模式取默认集」，并把流程产物当作只读派生条目。2026-10-21 讨论推翻这两点，下面六条覆盖对应工作包里的旧写法：
+
+| # | 旧写法 | 新做法（落点） |
+|---|---|---|
+| 1 | `[submit] selected` 缺省按模式取默认集 | 没有默认集，缺省等于空集；旧 case 首次打开重新勾选（WP0-1、WP3-3b） |
+| 2 | 流程产物只读，装配器自动带上母版/mask | clip/pad 与文件素材同为候选，勾选才提交；mask 自动附带但不进候选；没有 `derived` 标记（WP3-3a/3c/3d） |
+| 3 | patch firstLastFrame 靠"从 clip 抽帧"按钮 | `vrstudio extract` 直接导出 `first_frame_raw.png`/`last_frame_raw.png`，工作台直接使用（WP3-3e、CLI extract） |
+| 4 | firstLastFrame 的不足由后端报错 | 前端在点击生成时检查勾选里是否恰有一对首尾帧，不足或超出就弹错、不发请求；vrgen 保留同样的提交前校验（WP3-3c/3d） |
+| 5 | refs 清单用 `xv1`/`xi1` 区分派生条目 | id 统一为字母开头的字符串，流程产物用 `clip`/`mask`/`pad`/`pad_mask`（WP3-3a/3b） |
+| 6 | videoEdit 自动用流程视频，不需要勾选 | 三流程都只提交勾选项；patch 的 clip 要用户勾选，mask 自动附带，空选集由前端拦截（WP3-3b/3d） |
+
 ## WP0：契约文档先行（根仓库，不写代码）
 
 按 AGENTS 硬规则 1/2，`docs/case-model.md` 先行修改，两侧代码与测试跟随。修改条目：
 
 1. case.toml（§2）：
    - `[[assets]]` 从 gen 专属改为三条流程通用；patch/fullredraw 的既有段（`[source]`、viewport/frames、`*_pad.json`）不变。
-   - 角色词表扩展：新增 `first_frame`（首帧定稿图）、`last_frame`（尾帧定稿图）、`mid_frame`（中间过渡帧，预留）、`first_frame_raw`、`last_frame_raw`（工作台输入底图，从视频抽取的原始帧）。
-   - 新增可选段 `[submit]`：`selected = ["i2", "i3"]`，本 case 的提交集（素材 id 子集）；缺省表示按模式默认集（规则见 WP3-3b）。
+   - 角色词表扩展：新增 `first_frame`（首帧定稿图）、`last_frame`（尾帧定稿图）、`mid_frame`（中间过渡帧，预留）、`first_frame_raw`、`last_frame_raw`（工作台输入底图，由 extract 从 clip 首尾导出）。
+   - 新增可选段 `[submit]`：`selected = ["i2", "i3"]`，本 case 的提交集（候选 id 子集）；没有默认集，缺省等于空集，勾选才提交（规则见 WP3-3b）。
      - **存放层定为 case.toml，理由三条**：
        ① 提交集描述的是本 case 素材里哪几项参与提交，属于 case 自己的事实；跟着 case 目录走，复制目录或迁移机器时不丢。
        ② 放 `runs/<job>/generation.toml` 是另一个仓库（vrgen）的台账目录，清空台账或换机器就丢，而 case.toml 与 `[[assets]]` 同文件，材料与选择在同一个可审计位置。
        ③ 写入只发生在 vrstudio（侧边栏勾选），vrgen 只读 refs JSON；契约上不需要 vrgen 认识这个字段，也不会出现两处真源。
      - **角色覆盖首期不做**（R6，待拍板）：`selected` 只存素材 id，提交时沿用素材自身角色。临时改角色会让"素材列表是什么角色"和"这次提交用什么角色"分成两套事实，`@ImageN` 编号与角色矩阵校验要同时读两份；现有素材卡片的角色下拉（`set_asset_role`）已经能改角色，够用。若后续需要，再立项把字段扩成 `selected = ["i2:first_frame"]` 形式。
 2. vrgen CLI 契约（§4）：
-   - `MODE_ROLES` 增加 `firstLastFrame`：`{"video": (), "image": ("first_frame", "last_frame")}`；allMediaRef 的 image 角色集合并上述五个新角色。
+   - `firstLastFrame` 加入支持模式，并保留它自己的语义规则：不允许视频，恰好一张 `first_frame` 加一张 `last_frame`，首帧在前。按模式的角色数量矩阵在统一提交改造中退役（决策 33）；2026-10-21 之前的实现仍保留 `MODE_ROLES` 作为过渡。
    - master 回退链：第一条 edit_master 视频 → 第一条视频 → 第一条 `space_ref`/`scene_ref` 图片 → 第一条 first_frame 图片 → 第一条图片。第三级里 `space_ref` 与 `scene_ref` 同级，按清单顺序取第一个，不设角色优先级（避免镜像出第三种排序规则）。
    - 时长规则（用户 2026-10-20 拍板，原文："时长我觉得需要设计成cli参数，因为前端有必要支持一个4~30s的下拉框来决定生成时长，因此这里的逻辑在此需求下也变得简单，默认4，有视频就设置成视频长度max即可"）：时长是 CLI 参数（`--duration`，前端 4–30s 下拉）；解析顺序为显式 `--duration` > 素材含视频时取最长视频时长向上取整（下限 4，现行为）> 纯图片默认 4。显式值按当前模式的 duration 范围（模型详情，模型 37 为 4–30）校验，越界报参数错。
    - **不做 generation.toml 持久化**。这是本条的唯一口径：`generation.toml` 不再保存"希望下次还用这个时长"的草稿；运行时长的唯一入口是 `--duration`，实际采用值只记在轮次台账 `run.json` 的 `params.duration_s`（审计事实，不是偏好），前端下拉每次提交显式传值。`_apply_generation_params` 的 `duration_s` 键保留，只承接本次调用的显式值。
@@ -136,7 +149,7 @@
 - `src/vrgen/cli.py`
   - `_apply_generation_params()`（cli.py:59-111）：校验保持"0=自动、或 ≥4"，上限不在此处写死（由 `_prepare_gen` 按模式 limits 校验）；`--duration` 是唯一时长入口，不做 generation.toml 持久化（口径见 WP0-2）。
   - `submit` 的 dry-run 预览（cli.py:245-261）：同样按 mode 从台账 refs 里取 first_frame/last_frame 调 `build_generate_argv`，不能只组装 videos/images；首尾帧的免额度验收走的就是这里。
-  - `params_show` 的 `takes_video` 闸门（cli.py:546-547）：现行"`not limits.takes_video` 一律报错"→ 只在**传了 `--input`** 而模式不接受视频时报错；不传 `--input` 时无论当前模式是什么都返回 `modes` 与 `current`。
+  - `params_show` 的 `takes_video` 闸门（cli.py:546-547）：现行"`not limits.takes_video` 一律报错"→ 只在**传了含视频的 `--refs`** 而模式不接受视频时报错；不传 `--refs` 或清单里没有视频时，无论当前模式是什么都返回 `modes` 与 `current`。
     - 理由：这道闸门原本防的是"给不吃视频的模式传视频"，但 `limits.mode` 读的是 `generation.toml` 里保存的当前模式。纯图片 case 一旦把当前模式存成 firstLastFrame，页面连模式列表和时长范围都拿不到，用户也就无法切回吃视频的模式——闸门把"读模式列表"误伤成了"提交视频"。
   - `params_show` 的 `modes` 列表（cli.py:551-567）：过滤条件从 `m.takes_video and m.mode in SUPPORTED_MODES` 改为 `m.mode in SUPPORTED_MODES`（firstLastFrame 不吃视频但要出现在列表）；`video_required` 从写死 True 改为映射 `{videoEdit: True, videoExtend: True, allMediaRef: False, firstLastFrame: False}`；`max_videos` 在 `takes_video=False` 时返回 0（firstLastFrame 的 `max_count=2` 不应显示成允许 2 个视频）。
 
@@ -148,12 +161,14 @@
 - `test_refs.py::test_allmediaref_accepts_image_only`：0 视频 + N 图通过 `validate_mode`（回归"至少 1 个视频"已删除）。
 - `test_refs.py::test_master_fallback_chain`：五段回退各取一例（edit_master 视频 / 首条视频 / 同级的 space_ref 与 scene_ref 图片按清单顺序 / first_frame 图片 / 兜底第一条图片）。
 - `test_refs.py::test_new_role_prompt_wording`：`asset_list()` 对五个新角色输出预期首句。
+- `test_refs.py::test_raw_roles_rejected`：refs 含 `first_frame_raw`/`last_frame_raw` 时报 `UsageError`，文案说明 raw 帧只作工作台输入。
+- `test_mglc.py::test_models_cache_missing_fails_loud`：`models.json` 缺失或过期时 `prepare_round` 报配置错，提示 `vrgen models --refresh`，不静默放行。
 - `test_mglc.py::test_build_generate_argv_first_last_frame`：argv 含 `--first-image`（first_frame 路径在前）与 `--last-image`，不含 `--video`/`--image`/`--asset-id`/`--aspect-ratio`。
 - `test_mglc.py::test_build_generate_argv_requires_any_reference`：videos 与 images 皆空时报 `AigcError`。
 - `test_mglc.py::test_duration_resolution_rules`：三分支各一例——显式 `--duration 13` 取 13；无显式 + 双视频取最长；纯图片无显式取 4（含 firstLastFrame 一例，不触达空视频分支）。附带 `test_duration_explicit_out_of_range`：显式 31 对 limits 4–30 报 `UsageError`，文案含合法区间。
 - `test_mglc.py::test_prepare_round_gen_image_only`：纯图片 + duration=13 → run.params 的 `duration_s==13`、`keep_sound is False`、canvas 来自图片母版尺寸、`master` 为图片素材 id；不传 duration → `duration_s==4`。
 - `test_mglc.py::test_result_urls_accepts_image_suffix`：`.png` URL 在无 `url` 关键字的 key 下也能被收齐（补 WP2 伪 payload 的前置）。
-- `test_cli.py::test_params_show_duration_saved_any_mode`：`generation.toml` 的当前模式存成 firstLastFrame（合成一个 `takes_video=False` 的模式即可）时，不带 `--input` 的 `params show` 不报错且返回 `modes`；带 `--input` 时报 `UsageError`。
+- `test_cli.py::test_params_show_duration_saved_any_mode`：`generation.toml` 的当前模式存成 firstLastFrame（合成一个 `takes_video=False` 的模式即可）时，不带 `--refs` 的 `params show` 不报错且返回 `modes`；带含视频的 `--refs` 时报 `UsageError`。
 
 修改（受文案与放行影响的既有断言）：
 
@@ -251,12 +266,12 @@ vrgen image submit --job <case> --model-id 44 --ratio 16:9 --resolution 4K --num
 
 - `load()`：现行 `flow != "gen" and assets` 报错（case.py:193-194）→ 删除该限制；`save()` 的 assets 写块从 gen 分支提出，任意 flow 都写（`[submit]` 段紧随 `[[assets]]` 之后写在同一个文件里）。
 - 素材增删改排的 flow 守卫一并放开（第 8 条）：`add_assets`（case.py:332）、`remove_asset`（case.py:385）、`set_asset_role`（case.py:399）、`reorder_assets`（case.py:409）、`check_assets`（case.py:514）都硬编码 `flow == "gen"`。只改 `load`/`save` 的话，patch case 一调素材 API 就报 "没有素材列表"，WP3c 的侧边栏无法落地。
-  - `add_assets` 对 patch/fullredraw 的源视频仍走 `[source]`，但素材列表本身不需要源视频条目（派生条目，见父文档 §8.3）。
+  - `add_assets` 对 patch/fullredraw 的源视频仍走 `[source]`，素材列表不需要源视频条目；流程产物作为候选由装配器解析路径，不写进 `[[assets]]`（见父文档 §8.3）。
   - `check_assets` 的路径解析与哈希校验逻辑对三流程相同，只有守卫删除。
   - `_next_asset_number`（case.py:432）与 id 规则不变。
 - `MODE_ROLES`、`ROLES`/`ROLE_LABELS`：与 vrgen refs.py 同步（含 firstLastFrame 与五个新角色；LABELS 补中文说明）。
 - `Case.master()`：同步 WP0 回退链。
-- 新增 `submit_selected`（`list[str] | None`）字段 + `[submit] selected` 的读写与校验（id 必须存在于 assets；**不存角色覆盖**，口径见 WP0-1）。删除素材或重排时：素材被删则同步从 `selected` 移除；重排不改 id，`selected` 不动。
+- 新增 `submit_selected`（`list[str] | None`）字段 + `[submit] selected` 的读写与校验（id 必须存在于当前可勾选候选：`[[assets]]` 或 clip/pad；mask 不写进 `selected`；**不存角色覆盖**，口径见 WP0-1）。没有默认集，缺省等于空集。删除素材或重排时：素材被删则同步从 `selected` 移除；重排不改 id，`selected` 不动；clip/pad 的 id 固定，不因重新 extract 变化。
 - 测试（`tests/test_case.py`）：
   - `test_assets_allowed_for_all_flows`：patch/fullredraw case 写入并读回 assets。
   - `test_asset_crud_all_flows`：patch case 上 add/remove/reorder/set_role/check_assets 各一条（第 8 条的回归防线）。
@@ -274,36 +289,40 @@ vrgen image submit --job <case> --model-id 44 --ratio 16:9 --resolution 4K --num
   - 图片母版时不再 `probe(video)`，用 vrstudio 本地的 cv2 读取图片拿宽高（或新增 `media/` 下的小 helper；不得 import vrgen）；**canvas/source 照常返回 `(宽, 高)`，不返回 None**。
     - 理由：`app.py:213` 与 `app.py:273` 都直接做 `canvas[0]`，且异常捕获只有 `CaseError/GenError/KeyError/ValueError/OSError`，None 会抛 `TypeError` 变成 500。返回 None 还要改返回类型、三个调用点和测试，而调用方拿到的 `canvas` 本来就有合法值（图片宽高）。
   - 送生成的"视频"位置返回 None：`(None, None, template, canvas, source)`，`submit` 组装 argv 时据此**不带 `--input/--mask`**，而是走 `--refs`。报错文案"至少需要 1 个视频素材"改为按模式的说法（gen 的校验留给 vrgen 的模式矩阵，这里只拦"没有任何素材"）。
-- refs payload（generate.py:200-210）：现行全量 assets → 按 `case.submit_selected` 过滤；未设置时按模式默认集（第 2 条，只认"恰一对"）：
-  - videoEdit/videoExtend：edit_master 视频 + 全部 subject_ref。
-  - allMediaRef：全部素材。
-  - firstLastFrame：**恰有一对** first_frame/last_frame 时默认选之；多于一对（两张以上 first_frame 或两张以上 last_frame）报"有多组候选定稿帧，请在侧边栏勾选"；一对都没有时报"先在工作台生成并挑选首帧与尾帧"。
-  - 不采用父文档旧写法的"最新定稿的一对"：定稿时间靠文件 mtime 判断，素材被重新添加、复制目录或用 git 检出都会改 mtime，顺序不可复现。
-- patch 分支新增 firstLastFrame 变体：`resolve_package` 检测透传的 `--mode firstLastFrame` 时，先校验 viewport 宽高比为 16:9（相对容差 0.1%，约等于 1080p 下 1 像素取整误差），非 16:9 报 `GenError`（文案要求重新选区/抽取）；通过后走 refs 路径（canvas/source 仍取 clip.json viewport，模板用 `gen-multi`，不传 `--input`）；videoEdit 路径原样。
+- refs payload（generate.py:200-210）：只装 `case.submit_selected` 的素材，没有默认集，缺省等于空集：
+  - 可勾选候选 = `[[assets]]` + clip/pad（patch 的 `clip`，fullredraw 的 `pad`）；mask 不在候选里，由装配器在提交时追加到所有用户图片之后。
+  - firstLastFrame：只取勾选里恰好一张 `first_frame` 加一张 `last_frame`，按首帧在前组清单；其余勾选项、视频与 mask 都不参与，也不追加 mask。
+  - 其他模式：勾选什么就装什么，再追加 mask；勾选为空时 vrstudio 直接报错，不进入后端。
+  - `--refs` 清单拒绝 `first_frame_raw`/`last_frame_raw` 角色；raw 帧只给工作台，不能靠手动勾选或直接调 CLI 提交。
+  - 不采用"最新定稿的一对"：定稿时间靠文件 mtime 判断，素材被重新添加、复制目录或用 git 检出都会改 mtime，顺序不可复现。
+- patch 分支新增 firstLastFrame 变体：`resolve_package` 检测透传的 `--mode firstLastFrame` 时，先校验 viewport 宽高比为 16:9（相对容差 0.1%，约等于 1080p 下 1 像素取整误差），非 16:9 报 `GenError`（文案要求重新选区/抽取）；通过后走 refs 路径，清单只装勾选的首尾定稿图（canvas/source 仍取 clip.json viewport，模板用 `gen-multi`，不传 `--input`，clip/mask 不进入清单）；videoEdit 路径原样。
 - 测试（`tests/test_generate.py`）：
   - `test_resolve_gen_image_master_omits_canvas`：图片母版 → 返回的 canvas/source 等于图片宽高、视频位置为 None、`submit` 的 argv 无 `--input` 且含 `--refs` 与 `--first-image/--last-image`（由 vrgen 侧生成，此处断言 vrstudio 不传 `--input`）。
   - `test_submit_refs_filtered_by_selected`：`[submit] selected` 只含两 id → refs JSON 只装两条。
-  - `test_submit_firstlast_default_selection`：恰一对定稿帧默认选中；两对时报错；一对都没有时报错。
+  - `test_submit_firstlast_selection_requires_pair`：勾选里恰一对首尾帧时只装这两条；两对或一对都没有时报错；clip 即使勾选也不进入 firstLastFrame 清单，mask 不追加。
+  - `test_submit_refs_rejects_raw_roles`：refs 里出现 `first_frame_raw`/`last_frame_raw` 时 vrgen 报参数错，不能作为首尾帧提交。
+  - `test_mask_appended_not_numbered`：patch/fullredraw 提交时 mask 追加在所有用户图片之后；`asset_list` 的 `@ImageN` 从用户图片开始编号，不因 mask 顺延。
   - `test_patch_firstlast_branch_builds_refs`：patch case + mode=firstLastFrame → argv 走 `--refs`、`--canvas` 为 clip.json viewport 尺寸、`--template gen-multi`。
   - `test_patch_firstlast_requires_16_9_viewport`：1920×1080 的 patch case 通过；1920×1052 的 case 报 `GenError`，不组装 argv。
   - `test_prompt_template_follows_mode`：patch case 当前模式为 firstLastFrame 时，提示词预览与 `_generation_params` 用的模板都是 `gen-multi`。
 
 ### 3c web 后端（`src/vrstudio/web/app.py`）
 
-- 素材 API（`/api/case/<name>/assets`）从 gen 限定放开到三流程；派生条目接口 `GET /api/case/<name>/derived`（返回源视频与当前 clip/pad 产物的只读描述，不进 assets）。
+- 素材 API（`/api/case/<name>/assets`）从 gen 限定放开到三流程；流程产物接口 `GET /api/case/<name>/derived`（返回当前 clip/pad 等可勾选候选；mask 与 raw 帧不作为候选返回，不进 `[[assets]]`；接口名保留）。
 - `[submit]` 读写：`GET/PUT /api/case/<name>/submit`。
-- 抽帧接口：`POST /api/case/<name>/extract-frames`（body 可选 `{t_first, t_last}` 秒，缺省取 clip 首尾时刻）→ ffmpeg 抽两帧（**不做任何缩放，按源分辨率导出**）→ `add_assets` 以 `first_frame_raw`/`last_frame_raw` 角色入素材。仅 patch 流可用。
+- 抽帧接口：默认路径由 `vrstudio extract` 直接产出 `extracts/<版本>/first_frame_raw.png` 与 `last_frame_raw.png`（**不做任何缩放，按 clip 分辨率导出**），工作台直接读取这两张图，不再需要点按钮。`POST /api/case/<name>/extract-frames` 只保留给自定义时刻（body 可选 `{t_first, t_last}` 秒），写回工作台输入区，不再重复往 `[[assets]]` 增加 raw 角色条目。仅 patch 流可用。
   - 时刻边界：`t` 先按 clip 时长 clamp 到 `[0, duration]`；`t_last` 取 `min(t_last, duration - 1/fps)` 避免落在末尾抽不到帧；要求 `t_last > t_first`，不满足报参数错。
 - 工作台接口：`POST /api/case/<name>/keyframe/run`（body：step=first|last、model_id、prompt、参考图 asset id 列表、可选 resolution → 后端按 case 推导 `--ratio`（patch 取 viewport，gen 固定 16:9，忽略前端传入的其它比例）；`--resolution` 未传时取该模型 `resolutions` 的最高档（当前 4K），显式传入时只接受模型声明的档位；然后组装 `vrgen image submit` 子进程，走现有任务队列）；`GET /api/case/<name>/keyframe/rounds`（读台账 run.json 的 `results` 列举候选缩略图）；`POST /api/case/<name>/keyframe/pick`（round + index + 目标角色 → `vrgen result --index` 拷出 + `add_assets` 写 first_frame/last_frame；落素材前校验该对宽高一致且比例为 16:9，不一致报错要求重出图）。
-- 生成闸门（app.py:589-595）：`has_video` 判定改按模式——videoEdit/videoExtend 需视频；allMediaRef 需 ≥1 素材；firstLastFrame 需恰一对定稿帧且 viewport 为 16:9；fullredraw 额外不出现工作台与新模式入口。
+- 生成闸门（app.py:589-595）：前端点击生成时先检查提交集——空选集直接提示"没有勾选任何素材"；firstLastFrame 需勾选里恰有一对定稿帧且 viewport 为 16:9，不足或超出就弹错、不发请求；videoEdit/videoExtend 不因没有勾选流程视频而静默通过，空选集同样拦截；fullredraw 额外不出现工作台与新模式入口。vrgen 保留同样的提交前校验，供 CLI 直接调用时兜底。
 - `_generation_params`（app.py:252-276）与 `_prompt_preview_args`（app.py:199-231）：
-  - 送生成的视频为空（图片母版）或当前模式是 firstLastFrame（patch 的 clip 只用于 canvas/source，不作为生成输入）时，`params show` 不带 `--input`，只取 `modes` 与 `current`（`output/input` 为空数组，前端据此禁掉分辨率与缩放下拉）；否则会触发 `takes_video=False` 的闸门。
-  - `_prompt_preview_args` 的 refs 临时文件对 gen 与 patch firstLastFrame 都要生成（patch 走 refs 后同样需要素材清单展开提示词）。
+  - 送生成的清单为空（图片母版）或当前模式是 firstLastFrame（patch 的 clip 只用于 canvas/source，不作为生成输入）时，`params show` 不带 `--refs`，只取 `modes` 与 `current`（`output/input` 为空数组，前端据此禁掉分辨率与缩放下拉）；否则会触发 `takes_video=False` 的闸门。
+  - 其他模式下 `_generation_params` 用与提示词预览同一份 refs 临时文件调用 `params show --refs`，由 vrgen 从母版算输入档位。
+  - `_prompt_preview_args` 的 refs 临时文件对三流程都要生成：统一提交后 patch/fullredraw 也走 refs，提示词展开与提交使用同一份勾选清单。
   - 两处都按 `(flow, mode)` 选模板（第 6 条）。
 - `_op_argv`（app.py:1011-1025）：submit 增加可选 duration 透传（前端下拉框选中值；"自动"不传该字段）。`_op_argv` 读不到 `generation.toml` 的当前模式时，由调用方把模式作为 body 字段传入。
 - 测试（`tests/test_web_console.py`）：上述每个端点一条（沿用现有 mock `_vrgen_json`/子进程 的测试风格），加：
   - `test_generate_gate_mode_aware`
-  - `test_generation_params_image_case_omits_input`：纯图片 case 的 `params show` 不带 `--input`，页面 `generation_params.modes` 可读。
+  - `test_generation_params_image_case_omits_refs`：纯图片 case 的 `params show` 不带 `--refs`，页面 `generation_params.modes` 可读；母版是图片时 `input` 为空。
   - `test_prompt_preview_image_case_no_crash`：纯图片 case 下 `/api/case` 返回 200，`info.prompt.rendered` 或 `render_error` 二者有其一，不出现 500。
   - `test_keyframe_ratio_derived_16_9`：patch 工作台的图片请求 `--ratio` 等于 viewport 推导值（16:9）；gen 固定 16:9；前端传 4:3 被忽略或报错。
   - `test_keyframe_pick_rejects_mismatched_pair`：首尾帧宽高或比例不一致时 pick 报错，不写入素材。
@@ -311,22 +330,23 @@ vrgen image submit --job <case> --model-id 44 --ratio 16:9 --resolution 4K --num
 
 ### 3d web 前端（static/ + templates/partials）
 
-- 素材侧边栏组件（由 assets.js 演化）：三流程生成页统一挂载、可展开；区块一"流程产物（派生·只读）"、区块二"文件素材"（增删/角色/排序沿用现功能）；提交集勾选 + 模式感知校验提示；勾选变化触发 `@VideoN/@ImageN` 重编号（旧号→新号映射改写 prompt-vars 变量值，被移除素材的标记标红不删）与 `prompt show` 实时预览；变量值就地编辑（复用 prompt save）。勾选状态通过 `PUT /api/case/<name>/submit` 立即落盘。
-- 只读提示：fullredraw 生成页的文件素材区只读（生成仍走 `_prepare_single`，`[[assets]]` 不会发给 mglc）；patch 的 videoEdit 模式同样标注"本次提交不包含文件素材，只重绘流程视频"。
+- 素材侧边栏组件（由 assets.js 演化）：三流程生成页统一挂载、可展开；区块一"流程产物（可勾选）"只列 clip/pad，区块二"文件素材"（增删/角色/排序沿用现功能）；提交集只取勾选项，没有默认集，缺省为空；mask 不显示、由装配器自动附带，首尾原始帧只在关键帧工作台输入区出现。勾选变化触发 `@VideoN/@ImageN` 重编号（旧号→新号映射改写 prompt-vars 变量值，被移除素材的标记标红不删）与 `prompt show` 实时预览；变量值就地编辑（复用 prompt save）。勾选状态通过 `PUT /api/case/<name>/submit` 立即落盘。
+- 解锁提示：fullredraw 生成页的文件素材区可编辑，pad 作为可勾选候选，mask 自动附带；patch 的 videoEdit 模式不再自动带 clip，用户需要勾选 clip（mask 自动附带），面板显示当前提交数量并在空选集时禁用生成。
 - gen 向导步骤定义：由"素材→生成"改为"生成"一步（素材并入侧边栏），`STEPS` 数据驱动表同步。
-- 关键帧工作台页（新 partial + keyframe.js）：输入区（派生 clip 抽帧按钮 / 上传帧 + 三视图引用）、两步重绘（首帧→尾帧链式，参考图顺序 UI 明示 图1/图2/图3 对应 §4 提示词）、候选网格（4 张，点击放大）、挑选落素材（角色 first_frame/last_frame）、提示词编辑器预填 `first-last-frame-pipeline.md` §4 模板。
+- 关键帧工作台页（新 partial + keyframe.js）：输入区（extract 已产出的首尾原始帧 / 自定义时刻重抽 / 上传帧 + 三视图引用）、两步重绘（首帧→尾帧链式，参考图顺序 UI 明示 图1/图2/图3 对应 §4 提示词）、候选网格（4 张，点击放大）、挑选落素材（角色 first_frame/last_frame）、提示词编辑器预填 `first-last-frame-pipeline.md` §4 模板。生成首尾定稿帧后默认勾上这一对并替换旧对，用户仍可取消。
 - 工作台比例与分辨率固定：首期不提供比例下拉；patch 由 viewport 推导为 16:9，gen 固定 16:9，候选图的 `--ratio` 全部由后端传入。`--resolution` 默认取模型最高档（当前 4K），前端可下调；比例不变。首尾帧落素材时宽高不一致直接报错，不做自动裁切。
 - 生成参数面板：firstLastFrame 模式下“输出比例”显示为只读的 `16:9` 并说明“首期全链路固定”；其它模式维持现有可选比例。时长下拉仍按 WP3-3d 的模式元数据生成。
 - 生成参数面板增加时长下拉框（WP0 时长规则的前端面）：选项由**模式元数据**生成——`generation_params.modes[]` 里每一项都带 `duration`（`{type, min, max}`，来自模型详情，模型 37 为 4–30）；`type == "range"` 时渲染"自动" + min…max 整数，`type` 为空（videoEdit/videoExtend，时长跟随母版）时只显示"自动"并说明时长由母版决定，不给下拉。不硬编码 4–30。
   - "自动"不传 `--duration`，后端按规则推导（含视频取最长视频时长，纯图片取 4）；纯图片模式下拉缺省落在 4 并显示推导说明，避免无感默认。
   - `params.js:85` 现在把 `fixed.duration_s || "按输入自动"` 显示在参数行上，改为显示"本模式下时长由输入/素材推导"或当前选择值，不再暗示时长是保存的草稿。
 - wizard.js 校验文案按模式替换（"至少 1 个视频"仅对 videoEdit/videoExtend 出现；`wizard.js:186-188` 的硬编码 alert 同步改）。
-- 验收：浏览器手测清单——① patch case 建好选区并 extract；② 生成页展开侧边栏看到派生产物；③ 工作台从 clip 抽帧成功且帧分辨率等于 clip；④ 首帧 4 候选出图、挑选入素材；⑤ 尾帧带首帧产物重绘、挑选；⑥ 勾选两定稿帧时提示词预览的 `@ImageN` 编号正确联动；⑦ 提交模式切 firstLastFrame 后"检查提交命令"（免额度 `--check`）通过；⑧ fullredraw 生成页无工作台与新模式入口、文件素材只读；⑨ 纯图片 case 打开生成页，模式下拉与时长范围正常显示，不出现"生成参数暂时读不到"；⑩ 非 16:9 的 patch case 切 firstLastFrame 时提交按钮置灰并显示原因，16:9 case 正常通过。
+- 验收：浏览器手测清单——① patch case 建好选区并 extract；② 生成页展开侧边栏看到 clip 候选，mask 不显示；③ extract 后 `extracts/<版本>/first_frame_raw.png` 与 `last_frame_raw.png` 已存在且分辨率等于 clip；④ 首帧 4 候选出图、挑选入素材；⑤ 尾帧带首帧产物重绘、挑选；⑥ 勾选两定稿帧时提示词预览的 `@ImageN` 编号正确联动；⑦ 提交模式切 firstLastFrame 后"检查提交命令"（免额度 `--check`）通过；⑧ fullredraw 生成页无工作台与新模式入口，pad 与文件素材可勾选，mask 自动附带；⑨ 纯图片 case 打开生成页，模式下拉与时长范围正常显示，不出现"生成参数暂时读不到"；⑩ 非 16:9 的 patch case 切 firstLastFrame 时提交按钮置灰并显示原因，16:9 case 正常通过；⑪ firstLastFrame 下少勾或多勾首尾帧时点击生成，前端弹错且网络面板没有 submit 请求。
 
 ### 3e 抽帧 helper（`src/vrstudio/media/`）
 
 - 新建 `frames.py::extract_frame(video, t_seconds, out_png)`：调 bin\ffmpeg `-ss <t> -frames:v 1`，不缩放。首期 clip 为 16:9，抽出的原始帧天然 16:9；helper 不做裁切/缩放。
-- 测试：合成 2 秒测试视频抽帧，断言输出尺寸等于源分辨率、PNG 可被 `_imread` 读取（复用 web 层 cv2 断言风格）。
+- 2026-10-21 起由 `vrstudio extract` 在写完 `clip.mp4` 后直接调用两次：输入是 `clip.mp4`（不是原始 360 视频），t=0 写出 `first_frame_raw.png`，t=clip 末帧时刻写出 `last_frame_raw.png`，与 clip.json/clip.mp4/clip_mask.png 同目录。工作台默认读这两张图；web 的自定义时刻抽帧接口只作为补充入口。
+- 测试：合成 2 秒测试视频抽帧，断言输出尺寸等于源分辨率、PNG 可被 `_imread` 读取（复用 web 层 cv2 断言风格）；另加一条 `extract` 端到端测试，断言两个 raw 文件存在且尺寸等于 clip viewport。
 
 ## WP4：几何对齐与端到端验收
 

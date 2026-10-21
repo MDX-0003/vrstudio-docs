@@ -16,8 +16,8 @@
 
 1. 新建 patch case，源片是完整视频。case.toml 里记录源文件路径和 sha256。
 2. 在 pick 页确定 viewport、inner、frames 三段草稿，点“保存范围”只写 case.toml；这时它们仍然可改。
-3. 点“运行抽取”。`vrstudio extract name` 把草稿冻结成 `extracts/<版本>/clip.mp4`、`clip_mask.png`、`clip.json`，并把 `[extract] current` 指向这个版本。冻结之后，已生成版本的几何和时间不再随草稿变化。
-4. videoEdit 提交。当前 clip 是整段 viewport 视频，模型看到的是这段 201 帧、带背景外圈的画面；mask 记录 inner，供 merge 融合使用。
+3. 点“运行抽取”。`vrstudio extract name` 把草稿冻结成 `extracts/<版本>/clip.mp4`、`clip_mask.png`、`clip.json`，同时从写好的 `clip.mp4` 读取首末帧并导出为 `first_frame_raw.png` / `last_frame_raw.png`（不是从原始 360 视频抽），供首尾帧工作台使用，并把 `[extract] current` 指向这个版本。冻结之后，已生成版本的几何和时间不再随草稿变化。
+4. videoEdit 提交。当前 clip 是整段 viewport 视频，模型看到的是这段 201 帧、带背景外圈的画面；在生成页勾选 clip（编辑母版）后提交；mask 作为编辑区域控制图由装配器自动附带，不参与勾选与编号，记录 inner，供 merge 融合使用。
 5. 采用结果。返回件落到 `extracts/<当前版本>/result.mp4`，adopt 指针写入 case。
 6. 运行 merge。merge 读源片、`clip.json` 和 `result.mp4`，重建 viewport 投影，把 AI 结果对齐到 clip 的帧数和 fps，只在 inner 区域融合，再把 viewport 反投影贴回 ERP 画布。
 7. 当前代码输出 `out/<抽取版本>.mp4`；新命名方案是 `out/<抽取版本>_space.mp4`。它是 201 帧、完整 ERP 画布（8000×4000），第 i 帧对应源片第 `100 + i` 帧，不是整条 600 帧视频。

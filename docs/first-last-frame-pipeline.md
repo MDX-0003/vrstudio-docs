@@ -1,6 +1,6 @@
 # 首尾帧两段式生成方案（图片关键帧 + firstLastFrame）
 
-本文记录"图片模型生成首尾关键帧、视频模型 firstLastFrame 补中间动作"的两段式生成方案：可行性依据、三步管线、每一步的提示词、已知风险、网页验证结果与工具链接入设计。状态：2026-10-20 网页验证通过（用户实测"现在确实成功了"）；工具链接入设计经同日三轮讨论定稿（§8，含素材侧边栏、派生条目与 fullredraw 互斥的路线分流），同日用户批准整体方案；WP1–WP4 代码已实现并通过两侧测试，真实图片/首尾帧提交仍待额度批准，实施细节见 `docs/firstlast-dev-plan.md`。
+本文记录"图片模型生成首尾关键帧、视频模型 firstLastFrame 补中间动作"的两段式生成方案：可行性依据、三步管线、每一步的提示词、已知风险、网页验证结果与工具链接入设计。状态：2026-10-20 网页验证通过（用户实测"现在确实成功了"）；工具链接入设计经同日三轮讨论定稿（§8，含素材侧边栏、提交集与 fullredraw 互斥的路线分流），同日用户批准整体方案；WP1–WP4 代码已实现并通过两侧测试，真实图片/首尾帧提交仍待额度批准。2026-10-21 按决策 33 修订 §8：提交集只认用户勾选，clip/pad 与文件素材同为候选，mask 自动附带，raw 帧仅工作台，patch 的 extract 直接产出 clip 首尾原始帧；实施细节见 `docs/firstlast-dev-plan.md`。
 
 ## 1. 问题来源与思路
 
@@ -127,17 +127,17 @@
 2. 拿不到 UE 动画：走首尾帧管线，按帧的来源分两条。
    - 帧是完整 360 展开图（整幅画面）：走 gen 直接生成，不做区域切割与合并；代价是成片分辨率受 1080p 档限制，整幅展开图的清晰度低于原始全景，按镜头重要性取舍。
    - 帧是区域切割结果：走 patch，区域几何契约（clip.json）+ firstLastFrame 变体生成 + merge 回贴，区域吃满分辨率预算。
-3. 取帧本身可以在工具外部完成；工具内的抽帧（从 clip 抽首尾帧）只是便利入口，不是必需环节。
+3. 取帧本身可以在工具外部完成；工具内由 patch 的 extract 在冻结 clip 后，从写好的 `clip.mp4` 首帧和末帧导出两张原始图，工作台直接使用这两张图，不再依赖单独的抽帧按钮。需要自定义时刻时仍可手动重抽，属于补充入口，不是默认路径。
 
 ### 8.2 统一模型（五条）
 
-1. **素材列表通用化**：`case.toml` 的 `[[assets]]` 从 gen 专属升级为三条流程通用，但只承载**文件素材**（复制进 case 目录的图片与视频：三视图、抽取的原始帧、重绘定稿帧、用户上传的其他参考）。patch/fullredraw 的既有段（`[source]`、viewport/frames、`*_pad.json` manifest）不动。原始源视频与流程产物不进 `[[assets]]`，作为派生条目展示，见 §8.3。通用化是机制层面的——videoEdit 的 subject_ref 本就是角色矩阵的既有能力，fullredraw 将来可借此挂三视图改善身份漂移；首尾帧管线的接入只连 gen 与 patch（第 2、3 条）。
-2. **关键帧工作台是 case 内页面**，入口两个：gen 生成页侧边栏（上传整幅或区域帧 + 三视图）与 patch 生成页侧边栏（提供"从当前 clip 抽首尾帧"的便利按钮）；过程 = 图片模型重绘、每步 4 候选人工挑 1 张；输出 = 写入本 case 素材列表。fullredraw 不接入工作台（互斥判定见 §8.1）。
+1. **素材列表通用化**：`case.toml` 的 `[[assets]]` 从 gen 专属升级为三条流程通用，但只承载**文件素材**（复制进 case 目录的图片与视频：三视图、重绘定稿帧、用户上传的其他参考；extract 直接产出的首尾原始帧不在其中）。patch/fullredraw 的既有段（`[source]`、viewport/frames、`*_pad.json` manifest）不动。原始源视频与流程产物不进 `[[assets]]`，路径由流程状态决定；它们在生成页作为可勾选候选展示，提交契约不区分来源，见 §8.3。通用化是机制层面的——videoEdit 的 subject_ref 本就是角色矩阵的既有能力，fullredraw 将来可借此挂三视图改善身份漂移；首尾帧管线的接入只连 gen 与 patch（第 2、3 条）。
+2. **关键帧工作台是 case 内页面**，入口两个：gen 生成页侧边栏（上传整幅或区域帧 + 三视图）与 patch 生成页侧边栏（直接使用 extract 已导出的 clip 首尾原始帧，需要自定义时刻时再手动重抽）；过程 = 图片模型重绘、每步 4 候选人工挑 1 张；输出 = 写入本 case 素材列表。fullredraw 不接入工作台（互斥判定见 §8.1）。
 3. **生成模式变体只加给 patch 与 gen**：patch 的生成从 videoEdit（流程视频为输入）扩展出 firstLastFrame（首尾帧素材为输入），几何以 clip.json viewport 为权威，成片走本 case 既有的 merge 回贴；gen 照旧加 firstLastFrame 模式。fullredraw 保持纯 videoEdit，不增加模式变体。
-4. **素材建模用受控角色**（用户已拍板）：定稿帧 `first_frame` / `last_frame`，为补间崩坏预留 `mid_frame`；抽取的原始帧同样入素材列表（角色词表实施时定，语义为工作台输入底图）；三视图沿用 `subject_ref`。firstLastFrame 模式提交时校验恰好一张 first_frame + 一张 last_frame。
-5. **提交集是显式选择**：一次生成提交哪些素材由生成页侧边栏的勾选决定（见 §8.4），不再隐式提交全部素材；gen 现行"refs 装入全部素材"的行为随之改为按提交集过滤。
+4. **素材建模用受控角色**（用户已拍板）：定稿帧 `first_frame` / `last_frame`，为补间崩坏预留 `mid_frame`；抽取的原始帧 `first_frame_raw` / `last_frame_raw` 由 patch 的 extract 产出，只作为工作台输入底图，不是提交候选；`--refs` 清单拒绝 `*_raw` 角色，因此不能靠手动勾选或直接调 CLI 把它们当首尾帧提交；三视图沿用 `subject_ref`。firstLastFrame 模式提交时只取勾选里恰好一张 first_frame + 一张 last_frame。
+5. **提交集是显式选择**：一次生成提交哪些素材完全由生成页侧边栏的勾选决定（见 §8.4），没有默认集，缺省为空集；gen 现行"refs 装入全部素材"的行为随之改为只装勾选项。
 
-### 8.3 原始视频不进素材列表：派生条目方案
+### 8.3 原始视频不进素材列表：流程产物作为可勾选候选
 
 用户提问按原文记录：
 
@@ -146,12 +146,12 @@
 判定：原始视频**不作为 `[[assets]]` 条目**，理由三条：
 
 1. `[source]` 是 patch/fullredraw 的身份与几何契约锚：check_source 用哈希守卫"换源 = 新 case"，merge 还要回读源视频贴回。`[[assets]]` 是可自由增删的 mglc 参考清单。两者生命周期与语义都不同，塞进同一列表会造出指向同一文件的双重真源，与"唯一权威点"的工作区原则冲突。
-2. patch/fullredraw 真正提交给 mglc 的视频从来不是原始源，而是流程产物（clip / pad 产物），它们由流程状态派生（`[extract] current` 指针、manifest），同样不应手工增删。
+2. patch/fullredraw 真正提交给 mglc 的视频从来不是原始源，而是流程产物（clip / pad 产物），它们由流程状态派生（`[extract] current` 指针、manifest），路径不应手工复制或删除；但它们是本流程的提交对象，必须能被用户选中。
 3. gen 流程里视频确实就是素材，那是 gen 没有 `[source]` 契约锚的结果，不代表 patch/fullredraw 要向它看齐。
 
-解决方式：源视频与流程产物在侧边栏作为**派生条目**只读展示——不复制文件、不进 `[[assets]]`、不可增删，标注其在各模式下的提交行为（videoEdit 自动以流程视频为输入，无需勾选）。fullredraw 的源视频与 pad 产物同样作为派生条目展示，但其侧边栏不出现工作台入口与 firstLastFrame 模式（互斥）。派生条目将来可勾选提交（例如 allMediaRef 拿 clip 当 space_ref 复现旧工作流）留作扩展位，首期不实现。
+解决方式：源视频留在 `[source]`，只在侧边栏作为来源信息展示，不作为提交候选。流程产物（patch 的 clip/mask、fullredraw 的 pad/mask、patch 的首尾原始帧）不复制、不进 `[[assets]]`，由装配器按当前版本解析路径；其中 clip/pad 作为可勾选候选；mask 由装配器自动附带，不作为用户素材；首尾原始帧只进工作台输入区，不是提交候选。提交的素材只由 `[submit] selected` 决定，勾选才提交，不存在自动加入的素材；mask 是唯一的自动附带项，因为它是编辑区域控制图而不是画面参考。fullredraw 的侧边栏不出现工作台入口与 firstLastFrame 模式（互斥）。
 
-用户提出的"不确定原则"收录为本设计原则：case 的素材清单是动态事实集合（抽没抽帧、重绘没重绘取决于用户走的分支），哪些素材参与生成是每次提交的显式选择；侧边栏的可选项与校验按"当前生成模式 × 流程阶段"动态调整。
+用户提出的"不确定原则"收录为本设计原则：case 的素材清单是动态事实集合（抽没抽帧、重绘没重绘取决于用户走的分支），哪些素材参与生成是每次提交的显式选择，流程产物也在候选里；侧边栏的可选项只按"当前流程阶段"决定可见性，勾选与否则完全由用户决定。
 
 ### 8.4 生成页素材侧边栏（UI 设计）
 
@@ -162,10 +162,10 @@
 设计展开：
 
 - **位置与形态**：三流程的生成步骤页统一挂可展开侧边栏；gen 向导原"素材"独立步骤并入侧边栏（`docs/multi-asset-plan.md` §4.2 的素材步骤设计演进为本设计），patch/fullredraw 由此获得素材管理能力。
-- **两个区块**：「流程产物（派生 · 只读）」列源视频与当前 clip / pad 产物；「文件素材（`[[assets]]`）」列三视图、抽取原始帧、重绘定稿帧等，支持增删、角色、排序。
-- **提交集勾选与模式感知校验**：勾选若干文件素材作为本次提交。可选项与错误提示按模式动态调整——videoEdit 不需要勾选（自动用流程视频），fullredraw 的生成页只有 videoEdit 一种模式、可选素材仅 subject_ref 类、无工作台入口；firstLastFrame 要求恰好 1 张 first_frame + 1 张 last_frame，工作台输入用的原始帧与三视图默认不可选入；allMediaRef 按角色矩阵校验。前端校验只做引导，权威校验仍在 vrgen 提交前执行（沿用 multi-asset-plan 的"校验只在 vrgen"原则）。
+- **两个区块**：「流程产物（可勾选）」列当前 clip / pad；「文件素材（`[[assets]]`）」列三视图、重绘定稿帧等，支持增删、角色、排序。源视频只作来源信息展示，不作为候选；mask 由装配器自动附带、不显示；首尾原始帧只在关键帧工作台输入区出现。
+- **提交集勾选与校验**：勾选哪些候选就提交哪些，没有默认集，缺省为空；需要区域控制的模式由装配器追加 mask，mask 不占勾选位、不参与编号。firstLastFrame 下只取勾选里恰好一张 first_frame + 一张 last_frame，其余勾选项不参与，也不附带 mask；点击生成时前端检查这一对，不足或超出就弹出具体缺什么或多什么，不发起后端请求。其他模式的可选项不做模式过滤，数量与格式由 vrgen 按平台 validator 校验。
 - **提示词联动**：勾选变化时重算 asset_list，把素材变量值里的 `@VideoN` / `@ImageN` 标记按旧编号到新编号的映射自动改写，并实时预览渲染后的完整提示词；变量值可在侧边栏与提示词面板实时填写（复用 prompt show/save 草稿机制）。引用了已被移除素材的标记不自动删除，标红警告由用户处理。
-- **持久化**：提交集存为 case.toml 的可选段 `[submit] selected`（素材 id 子集，2026-10-20 审查定案；理由见 `firstlast-dev-plan.md` WP0-1）。不存角色覆盖：提交时沿用素材自身角色，临时改角色用素材卡片的角色下拉。未显式选择时按模式取默认集——firstLastFrame 仅当恰有一对 first_frame/last_frame 时默认选之，多于一对要求手动选择（不按"最新定稿"取，mtime 在复制目录后会变）。vrstudio 侧生成时只把勾选素材写进 refs JSON——refs JSON 本就支持任意子集，vrgen 无需认识 `[submit]`。
+- **持久化**：提交集存为 case.toml 的可选段 `[submit] selected`（素材 id 子集，2026-10-20 审查定案；理由见 `firstlast-dev-plan.md` WP0-1）。不存角色覆盖：提交时沿用素材自身角色，临时改角色用素材卡片的角色下拉。没有默认集，缺省等于空集；旧 case 首次打开需要重新勾选一次。clip/pad 使用固定 id，mask 由装配器自动附带（有固定 id 但不进 `selected`），都不因每次 extract 改变。vrstudio 侧生成时把勾选素材与自动附带的 mask 写进 refs JSON；vrgen 无需认识 `[submit]`。
 
 ### 8.5 已识别的实施隐患：成片与几何契约的对齐
 
@@ -182,18 +182,19 @@ videoEdit 时代的成片跟随输入视频几何，merge 按此假设回贴；f
 
 ### 8.6 契约变更清单（按 AGENTS 硬规则 1，先改 docs/case-model.md）
 
-- `[[assets]]` 通用化（三流程）与角色词表扩展（first_frame / last_frame / mid_frame / 原始帧角色）；源视频与流程产物保持派生，不进 assets。
-- 提交集存为 case.toml 的可选段 `[submit] selected`（不存角色覆盖）；gen 提交行为从"全部素材"改为"提交集过滤"（仅 vrstudio 侧变化，vrgen 不改）。
-- firstLastFrame 模式进 MODE_ROLES：恰好 2 张图片（首+尾）、无视频；时长为 CLI 参数（前端 4–30s 下拉，显式值 > 最长视频时长 > 纯图片默认 4，见 firstlast-dev-plan.md WP0）。首期几何固定 16:9：patch viewport 必须 16:9（规范 1920×1080），gen 图片固定 16:9；非 16:9 的 patch case 不进入该模式（WP0.5）。
+- `[[assets]]` 通用化（三流程）与角色词表扩展（first_frame / last_frame / mid_frame / 原始帧角色）；源视频不作候选，clip/pad 作为可勾选候选，mask 由装配器自动附带，raw 帧只进工作台输入区。
+- 提交集存为 case.toml 的可选段 `[submit] selected`（不存角色覆盖）；三流程都只提交勾选项，没有默认集，缺省为空集（仅 vrstudio 侧变化，vrgen 不改）。
+- patch 的 extract 在冻结 clip 时同时导出 `first_frame_raw.png` / `last_frame_raw.png`，工作台直接使用，不再依赖单独的抽帧动作。
+- firstLastFrame 作为模式加入：恰好 2 张图片（首+尾）、无视频；按模式的角色矩阵退役，只保留这条语义规则。时长为 CLI 参数（前端 4–30s 下拉，显式值 > 最长视频时长 > 纯图片默认 4，见 firstlast-dev-plan.md WP0）。首期几何固定 16:9：patch viewport 必须 16:9（规范 1920×1080），gen 图片固定 16:9；非 16:9 的 patch case 不进入该模式（WP0.5）。
 - vrgen 新增图片生成任务类型：进台账、走项目会话额度；图片模型无需 SD 合规登记，视频 firstLastFrame 的首尾图是否需要登记在 CLI 侧待验证。
 - 时长不做 generation.toml 持久化：`--duration` 是唯一入口（用户 2026-10-20 拍板："默认4，有视频就设置成视频长度max"），解析顺序为显式值 > 最长视频时长 > 4，显式值按模式 duration 范围校验；实际采用值只记在轮次台账 `params.duration_s`，不保存"下次还用它"的偏好。
-- vrstudio generate 为 patch 增加走 `--refs` 的提交分支（现仅 gen 走 refs；fullredraw 不加，互斥）。
+- vrstudio generate 三流程统一走 `--refs`：patch/fullredraw 的候选包含 clip/pad，mask 由装配器自动附带，gen 的候选就是 `[[assets]]`；不再有 `--input`/`--mask` 分支。
 
 ### 8.7 实施阶段建议
 
 1. vrgen 后端先行：firstLastFrame 模式、图片任务类型、时长规则收敛（不依赖 web，可用 CLI 验证）。
 2. case 模型：assets 通用化与角色词表（两侧镜像同步）。
-3. web：gen 与 patch 生成页素材侧边栏（含提交集与提示词联动）、关键帧工作台（gen 上传入口 + patch 抽帧便利入口）、patch 的 firstLastFrame 模式变体。
+3. web：gen 与 patch 生成页素材侧边栏（含提交集与提示词联动）、关键帧工作台（gen 上传入口 + patch 使用 extract 产出的首尾原始帧）、patch 的 firstLastFrame 模式变体。
 4. 几何对齐：首期全链路固定 16:9（patch viewport 16:9、gen 图片 16:9、firstLastFrame 1080p、merge 目标 1920×1080）；抽帧按原始分辨率导出、工作台不裁切；merge 比例一致只做等比缩放，比例不一致报错，中心裁切仅对历史/外部导入视频显式启用（见 `firstlast-dev-plan.md` WP0.5、WP4）。
 
 

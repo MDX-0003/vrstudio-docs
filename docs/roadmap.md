@@ -12,7 +12,8 @@
 ## M1 vrgen 最小可用（代码完成，真实额度下的一轮提交待验收）
 
 - [x] 迁入 vrpad `aigc/platform|prep|round`（原样），重写 `jobs.py` + `cli.py` 的 submit（a35ee41）
-- [ ] `vrgen submit --job t --input x.mp4 --mask m.png` 完成一次真实 mglc 调用并落台账
+- [ ] `vrgen submit --job t --refs refs.json` 完成一次真实 mglc 调用并落台账
+  （原 `--input`/`--mask` 参数面已由决策 33 删除，验收按统一清单重跑）
   —— 调用链已真实化并有回归覆盖；受配额限制，真实素材的一轮完整提交还没跑过
 - [x] `vrgen register --file` 手动后端写同构台账（M3 提前交付：`manual.py` 内容寻址注册 + run.json 契约 + `jobs.py` prompt-vars 自适应）
 - [x] 断点续跑：submit 中断后重发不重复扣额度（a35ee41，task_id 防重发回归测试）
@@ -82,6 +83,22 @@
   `uv run ruff check .` 两仓库干净（2026-10-19 核对）。
 - [ ] fullredraw 向导页真素材浏览器验收（与 M1 配额解决后的真实 submit 一并做）
 - 验收：两条流程各跑通一个真实 case，全程不离开浏览器
+
+## M6 生成提交统一化与 patch 时间拼接（2026-10-21 立项，待实施）
+
+- [x] 契约目标态：`docs/case-model.md` §2/§4/§5 已按统一提交重写，并按决策 33 改为
+  「勾选即提交、没有默认集、clip/pad 为候选、mask 自动附带、raw 帧仅工作台、
+  无 `derived` 标记」。
+- [x] patch 合并产物改名迁移脚本（`scripts/migrate_out_names.py`，决策 31）。
+- [ ] vrgen：合并 `_prepare_single`/`_prepare_gen`，`submit` 只保留 `--refs`，删除
+  `--input`/`--mask`，数量与格式校验切到模型详情 validator（决策 33）。
+- [ ] vrstudio：`extract` 产出 `first_frame_raw.png`/`last_frame_raw.png`；生成入口按
+  flow 装配候选清单；`[submit] selected` 无默认集；前端空选集与 firstLastFrame 首尾帧
+  不足的门禁（决策 33）。
+- [ ] patch 时间拼接 WP1–WP4：`merge` 输出 `_space.mp4`，新增 `vrstudio assemble`
+  输出 `_frame.mp4`，web 两段连续队列，对比页按 `_frame` → `_space` 回退（决策 30–32）。
+- 验收：dacne（patch clip + 三视图，mask 自动附带）、gen、fullredraw 各一个现有 case 的免额度
+  dry-run 回归；真实提交仍受平台额度限制。
 
 ## M5 收尾
 
