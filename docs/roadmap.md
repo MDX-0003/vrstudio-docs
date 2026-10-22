@@ -100,7 +100,7 @@
   输出 `_frame.mp4`，web 两段连续队列，对比页按 `_frame` → `_space` 回退（决策 30–32）。
 - 验收：dacne（patch clip + 三视图，mask 自动附带）、ship_01（fullredraw）、
   simple_gen_01（gen）的免额度 dry-run 全部走通；真实提交仍受平台额度限制。
-- 测试规模：vrgen 121 个 + vrstudio 316 个，全绿；`uv run ruff check .` 两仓库干净
+- 测试规模：vrgen 121 个 + vrstudio 320 个，全绿；`uv run ruff check .` 两仓库干净
   （2026-10-21 核对）。
 
 ## M5 收尾
