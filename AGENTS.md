@@ -70,5 +70,6 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 | `docs/firstlast-dev-plan.md` | 首尾帧管线开发计划：WP0–WP4 工作包、切入点与 pytest 验收（待批） |
 | `docs/patch-videoedit-example.md` | 例子：只重绘中间动作段的 patch + videoEdit 流程，位置/时间一致性原理与段成片边界 |
 | `docs/patch-time-assembly-plan.md` | 草案：空间合并后自动拼接原片前后段的时间合并计划与待确认项 |
+| `docs/generate-page-plan.md` | 生成页可读性优化方案：主题折叠、模板内别名、提示词自适应、底部提交条（待批） |
 | `docs/web-stack.md` | web 控制台技术栈三路线对比（决策 11 的论证） |
 | `docs/roadmap.md` | 实施里程碑与验收标准 |

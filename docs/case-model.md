@@ -412,13 +412,19 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
 ```json
 {"template": "gen-multi",          // 生效模板 id：草稿 > --template > 配置默认；都没有则 null
  "available": ["360-closure", "gen-edit", "gen-multi"],  // templates/ 下全部可选模板
- "template_text": "…",             // 模板正文原样（含 {占位符}）
- "placeholders": ["canvas_w", "asset_list", "theme"],  // 模板正文引用的全部 {键}
+ "template_text": "…",             // 模板正文原样（含 {键|显示名} 或 {键}）
+ "placeholders": ["canvas_w", "asset_list", "theme"],  // 模板正文引用的全部键（去掉显示名）
  "geometry_keys": ["canvas_w"],    // submit 时由几何自动填充的只读键
  "computed_keys": ["asset_list", "task_rule", "timeline_rule"],  // 由素材与模式自动填充的只读键
+ "labels": {"theme": "主题 / 场景"},  // {键|显示名} 里的显示名；只含写了显示名的键
  "vars": {"theme": "黄昏"}}         // prompt-vars.toml [vars] 当前值
 ```
 
+- 模板占位符可写成 `{键|显示名}`。显示名允许中文、空格与斜杠，不允许 `{`、`}`
+  与换行；它只服务页面展示，不进入展开后的提示词。`render()` 先把
+  `{键|显示名}` 归一成 `{键}` 再展开，成片提示词与不带显示名时逐字节一致。
+- `placeholders` 只列键名并按首次出现顺序去重；`labels` 只包含写了显示名的键，
+  同名键以第一次为准。没有写显示名的键由页面退回键名显示。
 - `show`：只读。模板解析顺序 `--template` > 草稿 > 配置默认；找不到模板时退出码 2 并列出 `available`。
 - `save`：写草稿并回显保存后的同一 JSON。`--set` 新增或覆盖（这里是草稿编辑器，
   **允许新键**，与 submit `--set` 只认已有键不同）；`--unset` 删除键，模板正文引用的键
@@ -426,9 +432,12 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
 - 变量的展示与增删规则（web 侧消费）：模板引用的非几何键（如 theme/style/plot/action/
   allowed_changes）永远展示、不可删除、值可改；草稿里的自定义键可改可删；`geometry_keys`
   与 `computed_keys` 是只读占位符，页面只提示不出现输入框。
-- `computed_keys` 是本次新增的契约字段：`asset_list`、`task_rule`、`timeline_rule` 由 vrgen
-  在 submit 时按素材顺序与当前模式生成，不允许写进 `prompt-vars.toml`。旧调用方不认识
-  这个字段时可以忽略它，不影响原有 `geometry_keys` 行为。
+- `labels` 是本次新增的契约字段：出厂模板要求每个非几何、非计算占位符都带显示名，
+  vrgen 的模板测试会遍历 `templates/*.md` 检查覆盖与一致性。旧调用方不认识这个字段时
+  可以忽略，不影响原有 `placeholders` / `geometry_keys` 行为。
+- `computed_keys`：`asset_list`、`task_rule`、`timeline_rule` 由 vrgen 在 submit 时按素材
+  顺序与当前模式生成，不允许写进 `prompt-vars.toml`；旧调用方不认识时可以忽略。
+
 
 ### 素材清单与模式规则的计算键（templates/）
 
