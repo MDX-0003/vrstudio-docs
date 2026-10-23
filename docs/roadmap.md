@@ -149,7 +149,7 @@
 
 方案与论证见 `docs/key-issues/20261023-frontend-stack-selection.md`，实施计划见 `docs/plan/frontend-refactor-plan.md`，决策为 38。
 
-2026-10-23 进展：Phase 0 原型、设计令牌与 `/next` 托管已提交；Phase 1 的 case 列表、昵称身份、任务中心与会话选择器已接真实接口。
+2026-10-23 进展：Phase 0 原型、设计令牌与 `/next` 托管已提交；Phase 1 的 case 列表、昵称身份、任务中心与会话选择器已接真实接口；Phase 2 生成页已接真实素材、提示词、生成参数、最近成片与轮次。
 
 - [ ] Phase 0：需求卡、信息架构、设计令牌、case 列表与生成页原型、三项技术验证。
 - [ ] Phase 1：新前端壳、case 列表、向导壳、任务中心只读，挂在 `/next`。
