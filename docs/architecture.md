@@ -112,6 +112,8 @@ case 列表（flow 徽标）
 
 vrpatch 的 ai-clip 注册端点改为调 `vrgen register`；extract/merge 仍 subprocess 跑 CLI。
 
+前端界面层正在按决策 38 重建：旧前端保留在 `/`，新前端使用 Vue 3 + TypeScript + Vite + Element Plus，构建产物挂在 `/next`，按页面迁移后切换默认入口。需求与论证见 `docs/key-issues/20261023-frontend-stack-selection.md`，实施计划见 `docs/plan/frontend-refactor-plan.md`。后端接口、CLI 契约以及 `erp360.js` 与 `pick.js` 的数学逻辑不随界面层重写。
+
 ## 4. 拷贝映射表（旧 → 新）
 
 | 旧 | → 新 | 动作 |

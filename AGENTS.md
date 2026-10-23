@@ -71,5 +71,9 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 | `docs/patch-videoedit-example.md` | 例子：只重绘中间动作段的 patch + videoEdit 流程，位置/时间一致性原理与段成片边界 |
 | `docs/patch-time-assembly-plan.md` | 草案：空间合并后自动拼接原片前后段的时间合并计划与待确认项 |
 | `docs/generate-page-plan.md` | 生成页可读性优化方案：主题折叠、模板内别名、提示词自适应、底部提交条（待批） |
+| `docs/keyframe-workbench-plan.md` | 首尾帧重绘工作台方案：两帧展示、图片步提示词框架、一键串联与到视频步的交接（patch 已实施） |
+| `docs/key-issues/frontend-decisions.md` | 前端关键问题与决策记录：逐条记录问题、决策、排除方案、验证与涉及文件（持续更新） |
+| `docs/key-issues/20261023-frontend-stack-selection.md` | 前端技术栈选型：需求、方案对比、概念对齐与用户确认记录 |
+| `docs/plan/frontend-refactor-plan.md` | 前端重构实施计划：Vue 3 + Element Plus、页面迁移、后端解耦与验收 |
 | `docs/web-stack.md` | web 控制台技术栈三路线对比（决策 11 的论证） |
 | `docs/roadmap.md` | 实施里程碑与验收标准 |

@@ -127,6 +127,35 @@
 - 数据实验（不入库）：ship_01 提示词改为写实奇幻风暴，5 个白膜替换为船员
   idle/扶栏/炮位待命；情节、动作、允许变化三处已对齐。
 
+## M8 首尾帧步骤（patch 实施完成；gen 待接）
+
+方案见 `docs/keyframe-workbench-plan.md`，实施记录见其 §10。
+
+- [x] 素材库与视频提交集拆分：图片步输入由 `keyframe.toml` 与原始帧解析，
+  不读 `[submit] selected`；一个三视图可以同时服务两步，但两份输入声明互不影响。
+- [x] patch 新增可选步骤「首尾帧」，插在抽取与生成之间；两帧大图、四个变量卡、
+  分步候选与当前定稿标记。
+- [x] 挑首帧后自动排队尾帧批次，尾帧用刚选的首帧作 图3；换首帧时旧尾帧指针清空、
+  从视频提交集里取消勾选，旧素材保留。
+- [x] 交接：写 `firstLastFrame` 模式与恰好一对提交集，跳到生成步骤；时长按 clip 推导。
+- [x] vrgen：`keyframe-first`/`keyframe-last` 模板、`--vars-file`、
+  `image submit --template/--step/--image-role`；`params.step` 进台账。
+- [x] 图片任务走项目会话；修掉原先不传 `--session-id` 与尾帧默认参考图不指向实际素材的两个缺陷。
+- [ ] gen 入口：需要上传两张原始帧的入口与存放位置。
+- [ ] 真实图片提交与 firstLastFrame 提交（需额度）；首次提交后回填 R2/R7。
+- 测试：vrgen 149 + vrstudio 342 = 491 个，全绿；两侧 ruff 干净（2026-10-23）。
+
+## M9 前端重构（方案已确认，待实施）
+
+方案与论证见 `docs/key-issues/20261023-frontend-stack-selection.md`，实施计划见 `docs/plan/frontend-refactor-plan.md`，决策为 38。
+
+- [ ] Phase 0：需求卡、信息架构、设计令牌、case 列表与生成页原型、三项技术验证。
+- [ ] Phase 1：新前端壳、case 列表、向导壳、任务中心只读，挂在 `/next`。
+- [ ] Phase 2：生成页迁移、上传、提示词编辑、预演与提交，形成最小可用版本。
+- [ ] Phase 3：选区、抽取、首尾帧、合并、对比迁移，WebGL 对比器包成组件。
+- [ ] Phase 4：身份与归属、任务视图、版本检查、case 占用、扣费归属，切换默认入口。
+- 验收：两位同事同时通过局域网使用，各自 case 与任务不串；旧前端可回退；pytest、ruff 与新增前端门禁全绿。
+
 ## M5 收尾
 
 - [ ] 两仓库 README 交接规范（输入/输出/必须保留/规矩，沿用 vrpad 风格）
