@@ -75,6 +75,7 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 | `docs/key-issues/frontend-decisions.md` | 前端关键问题与决策记录：逐条记录问题、决策、排除方案、验证与涉及文件（持续更新） |
 | `docs/key-issues/20261023-frontend-stack-selection.md` | 前端技术栈选型：需求、方案对比、概念对齐与用户确认记录 |
 | `docs/plan/frontend-refactor-plan.md` | 前端重构实施计划：Vue 3 + Element Plus、页面迁移、后端解耦与验收 |
+| `docs/plan/patch-browser-acceptance-plan.md` | Patch 流程新前端浏览器验收计划：两条真实路径、首尾帧 4+4、逐按钮验收与自动化接口 |
 | `docs/plan/frontend-workflow-and-skills.md` | 前端开发流程、验收步骤与 skill/工具留档（持续更新） |
 | `docs/web-stack.md` | web 控制台技术栈三路线对比（决策 11 的论证） |
 | `docs/roadmap.md` | 实施里程碑与验收标准 |

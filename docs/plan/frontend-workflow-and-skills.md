@@ -119,6 +119,7 @@ vrstudio 仓库：
 
 - 选型论证与用户确认：`docs/key-issues/20261023-frontend-stack-selection.md`。
 - 实施计划与阶段验收：`docs/plan/frontend-refactor-plan.md`。
+- 浏览器验收计划：`docs/plan/patch-browser-acceptance-plan.md`（两条真实路径、首尾帧 4+4、自动化工件与选择器约定）。
 - 页面级问题与排除方案：`docs/key-issues/frontend-decisions.md`。
 - 已拍板决策：`docs/decisions.md`。
 - 里程碑进度：`docs/roadmap.md`。
@@ -237,8 +238,9 @@ uv run ruff check .
 
 ## 7. 后续工作
 
-1. 用 500 MB 真实文件在局域网完成一次上传与断点续传验收。
-2. 两位同事同时打开同一个 case，确认 409 提示、占用锁与“我的/全部任务”筛选。
-3. 在可用额度下完成一次真实预演、提交与采用，回填 `docs/key-issues/frontend-decisions.md` 的 R2/R7。
-4. 把四条关键路径固化为 Playwright 用例。
-5. 旧前端保留一个版本周期后，按页面功能对照表删除。
+1. 按 `docs/plan/patch-browser-acceptance-plan.md` 执行两条真实路径的浏览器验收，并生成 `docs/test-runs/YYYYMMDD-patch-browser.md` 运行记录。
+2. 用 500 MB 真实文件在局域网完成一次上传与断点续传验收。
+3. 两位同事同时打开同一个 case，确认 409 提示、占用锁与“我的/全部任务”筛选。
+4. 在可用额度下完成一次真实预演、提交与采用，回填 `docs/key-issues/frontend-decisions.md` 的 R2/R7。
+5. 把验收计划里的无额度层固化为 CI Playwright 用例，付费层标记 `@paid` 手工或定时执行。
+6. 旧前端保留一个版本周期后，按页面功能对照表删除。
