@@ -157,7 +157,7 @@
 - [x] Phase 3：选区、抽取、首尾帧、合并、对比迁移，WebGL 对比器包成组件。
 - [x] Phase 4：身份与归属、任务视图、版本检查、case 占用、扣费归属，切换默认入口。
 - [x] Phase 5：日志分层与索引，旧日志淘汰，任务原始输出与事件关联，见计划第 10 节。
-- [ ] 真实验收：按 `docs/plan/patch-browser-acceptance-plan.md` 跑跳舞中间段与走路完整首尾帧两条路径；再做 500 MB 上传、两位同事同时使用与带额度预演。
+- [ ] 真实验收：按 `docs/plan/patch-browser-acceptance-plan.md` 跑跳舞中间段与走路完整首尾帧两条路径；2026-10-23 已跑通两条真实生成、采用、合并与对比，记录见 `docs/test-runs/20261023-patch-browser.md`，遗留自动尾帧复测、409 双人编辑与 500 MB 上传。
 - [ ] 旧前端下线：保留一个版本周期后删除；当前 `/case/{name}` 仍可回退。
 - 门禁：vrstudio pytest 全绿、ruff 干净；frontend lint、format、test、build 全绿（2026-10-23）。
 

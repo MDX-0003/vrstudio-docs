@@ -1,7 +1,7 @@
 # Patch 流程新前端浏览器验收计划
 
 记录时间：2026-10-23。
-状态：计划已整理，尚未执行；本文是后续人工验收与自动化验收的共同依据。
+状态：已执行一次（2026-10-23），运行记录见 `docs/test-runs/20261023-patch-browser.md`；两条路径真实生成、采用、合并、对比已完成，遗留项见运行记录第 5 节。
 关联文档：`docs/plan/frontend-refactor-plan.md`（Phase 2–5）、`docs/plan/frontend-workflow-and-skills.md`（开发与验收流程）、`docs/key-issues/frontend-decisions.md`（页面级问题）、`docs/decisions.md` 第 33、38、40 条。
 
 ## 1. 目标
