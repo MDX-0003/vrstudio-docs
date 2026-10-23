@@ -132,7 +132,7 @@
 ### 8.2 统一模型（五条）
 
 1. **素材列表通用化**：`case.toml` 的 `[[assets]]` 从 gen 专属升级为三条流程通用，但只承载**文件素材**（复制进 case 目录的图片与视频：三视图、重绘定稿帧、用户上传的其他参考；extract 直接产出的首尾原始帧不在其中）。patch/fullredraw 的既有段（`[source]`、viewport/frames、`*_pad.json` manifest）不动。原始源视频与流程产物不进 `[[assets]]`，路径由流程状态决定；它们在生成页作为可勾选候选展示，提交契约不区分来源，见 §8.3。通用化是机制层面的——videoEdit 的 subject_ref 本就是角色矩阵的既有能力，fullredraw 将来可借此挂三视图改善身份漂移；首尾帧管线的接入只连 gen 与 patch（第 2、3 条）。
-2. **关键帧工作台是 case 内页面**，入口两个：gen 生成页侧边栏（上传整幅或区域帧 + 三视图）与 patch 生成页侧边栏（直接使用 extract 已导出的 clip 首尾原始帧，需要自定义时刻时再手动重抽）；过程 = 图片模型重绘、每步 4 候选人工挑 1 张；输出 = 写入本 case 素材列表。fullredraw 不接入工作台（互斥判定见 §8.1）。
+2. **关键帧工作台是 case 内页面**，入口两个：gen 生成页侧边栏（上传整幅或区域帧 + 三视图）与 patch 生成页侧边栏（直接使用 extract 已导出的 clip 首尾原始帧，需要自定义时刻时再手动重抽）；过程 = 图片模型重绘、每步 4 候选人工挑 1 张；输出 = 写入本 case 素材列表。fullredraw 不接入工作台（互斥判定见 §8.1）。2026-10-22 起 patch 的实现改为「首尾帧」独立步骤（插在抽取与生成之间），图片步输入由 `keyframe.toml` 绑定、不读视频提交集；gen 入口尚未接。当前口径以 `docs/keyframe-workbench-plan.md` 为准。
 3. **生成模式变体只加给 patch 与 gen**：patch 的生成从 videoEdit（流程视频为输入）扩展出 firstLastFrame（首尾帧素材为输入），几何以 clip.json viewport 为权威，成片走本 case 既有的 merge 回贴；gen 照旧加 firstLastFrame 模式。fullredraw 保持纯 videoEdit，不增加模式变体。
 4. **素材建模用受控角色**（用户已拍板）：定稿帧 `first_frame` / `last_frame`，为补间崩坏预留 `mid_frame`；抽取的原始帧 `first_frame_raw` / `last_frame_raw` 由 patch 的 extract 产出，只作为工作台输入底图，不是提交候选；`--refs` 清单拒绝 `*_raw` 角色，因此不能靠手动勾选或直接调 CLI 把它们当首尾帧提交；三视图沿用 `subject_ref`。firstLastFrame 模式提交时只取勾选里恰好一张 first_frame + 一张 last_frame。
 5. **提交集是显式选择**：一次生成提交哪些素材完全由生成页侧边栏的勾选决定（见 §8.4），没有默认集，缺省为空集；gen 现行"refs 装入全部素材"的行为随之改为只装勾选项。

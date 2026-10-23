@@ -154,6 +154,11 @@ round = "dusk-3c1a4b2d"
     extract 从 clip 首尾导出，只提供场景与占位。它们只在关键帧工作台输入区出现，
     不是提交候选；`--refs` 清单拒绝 `*_raw` 角色，因此不能靠手动勾选或直接调 CLI
     把它们当首尾帧提交。
+- 首尾帧工作台的当前状态存于 case 目录的 `keyframe.toml`（vrstudio 自有，不是
+  case.toml 的段，也不是 vrgen 的契约）：`extract`（定稿基于哪个抽取版本）、
+  `sheet`（图片步绑定的三视图素材 id）、`[first]` / `[last]`（轮次、候选序号、
+  素材 id）。图片步的参考图由这份文件与原始帧解析，不读 `[submit] selected`；
+  视频提交集只由生成页的勾选决定，两者互不影响。
 
 `space_ref` 与 `motion_ref` 的分工是“空间”和“身体动作”的分工：`space_ref` 只提供机位、构图、起点与终点位置，不提供人物动作；`motion_ref` 提供动作节奏与路径。白模视频只锁空间时用 `space_ref`，需要继承动作节奏时用 `motion_ref`。
 
@@ -233,9 +238,11 @@ vrgen submit --job <名> --refs <提交资产清单.json> \
            [--duration <秒>] [--num <1..4>] [--aspect-ratio auto|W:H] \
            [--scale auto|full|half] [--session-id <项目生成会话>] [--workdir <dir>] [--dry-run]
                                            # 三个流程共用的唯一提交入口；断点续跑、task_id 防重发
-vrgen image submit --job <名> --prompt <文本> --model-id <图片模型 id> \
+vrgen image submit --job <名> (--prompt <文本> | --template <id> [--vars-file <文件名>]) \
+           [--image-role <角色>]… --model-id <图片模型 id> \
            --image <路径> [--image <路径>]… \
            --ratio <16:9> --resolution <1K|2K|4K> [--num <1..4>] \
+           [--step first|last] \
            [--session-id <项目生成会话>] [--workdir <dir>] [--dry-run]
                                            # 图片生成；候选全部下载，台账记为 img- 轮次
 vrgen status --job <名> [--watch]          # 轮询；--watch 阻塞到终态
@@ -243,10 +250,12 @@ vrgen register --job <名> --file <本地路径>            # 手动后端：写
 vrgen result --job <名> --round <key> [--index <N>] --out <路径>
                                            # 导出结果；图片轮次按 --index 取第 N 张，缺省第一张
 vrgen peek <task-id>                       # 零额度查平台侧状态
-vrgen prompt show --job <名> [--template <id>] [--refs <json>] [--mode <模式>] \
+vrgen prompt show --job <名> [--template <id>] [--vars-file <文件名>] [--refs <json>] \
+                 [--mode <模式>] [--image-role <角色>]… \
                  [--canvas WxH] [--source WxH] [--workdir <dir>]   # 读模板+草稿；可回展开正文
-vrgen prompt save --job <名> [--set k=v]… [--unset k]… [--template <id>] \
-                 [--refs <json>] [--mode <模式>] [--canvas WxH] [--source WxH] [--workdir <dir>]
+vrgen prompt save --job <名> [--set k=v]… [--unset k]… [--template <id>] [--vars-file <文件名>] \
+                 [--refs <json>] [--mode <模式>] [--image-role <角色>]… \
+                 [--canvas WxH] [--source WxH] [--workdir <dir>]
 vrgen params show --job <名> [--refs <json>] [--canvas WxH] [--source WxH] [--aspect-ratio auto] [--workdir <dir>]
                                            # 只读：output/input 档位与模式列表；refs 只用于取母版算输入尺寸
 vrgen params save --job <名> [--resolution <480p|720p|1080p>] [--scale <auto|full|half>] [--mode <模式>] [--aspect-ratio <auto|W:H>] [--session-id <id>] [--project-id <id>] [--episode <n>] [--workdir <dir>]
@@ -254,6 +263,8 @@ vrgen sessions list [--project-id <id>] [--episode <n>]   # 只读：项目/剧�
 ```
 
 `prompt show` 与 `prompt save` 在提供 `--refs` / `--mode` / `--canvas` / `--source` 时，会额外返回 `rendered`（展开后的完整提示词）和 `render_error`（缺哪个占位符）。展开只读，不建轮次、不碰平台；前端提示词面板默认显示 `rendered`，模板骨架可切换查看。
+
+`--vars-file` 指定草稿文件名（默认 `prompt-vars.toml`），只接受 job 目录下的裸文件名、必须以 `.toml` 结尾；首尾帧工作台用 `keyframe-vars.toml`，与视频提示词草稿互不覆盖。`--image-role` 与 `--image` 一一对应，用于展开模板里的计算键 `image_roles`（图片步的「图1/图2/图3」分工）；它不写进草稿，也不能用 `--set` 修改。
 
 ### `--refs` 提交资产清单（三个流程共用的唯一提交入口）
 
@@ -316,7 +327,7 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
 |---|---|---|
 | `--model-id` | mglc `--model-id` | 模型 ID；fullredraw 固定 37（Seedance 2.5） |
 | `--mode` | mglc `--type` | 生成模式；fullredraw 固定 `videoEdit` |
-| `--duration` | mglc `--duration` | 整数秒；显式值优先，按当前模式的 duration 范围校验。缺省时 `videoEdit` / `videoExtend` 取母版时长，`allMediaRef` 取最长视频，`firstLastFrame` 与纯图片提交取 4。时长不写进 `generation.toml`，实际值只记台账 `params.duration_s` |
+| `--duration` | mglc `--duration` | 整数秒；显式值优先，按当前模式的 duration 范围校验。缺省时 `videoEdit` / `videoExtend` 取母版时长，`allMediaRef` 取最长视频，`firstLastFrame` 与纯图片提交取 4。patch 的 `firstLastFrame` 由 vrstudio 从当前 `clip.json` 的帧范围与帧率推导整秒后显式传 `--duration`，所以 vrgen 的纯图片默认 4 只覆盖 gen。时长不写进 `generation.toml`，实际值只记台账 `params.duration_s` |
 | `--resolution` | mglc `--resolution` | **输出档位**，480p / 720p / 1080p；不是输入文件尺寸。图片命令另用 1K / 2K / 4K 词表 |
 | `--num` | mglc `--num` | 生成数量 1..4；视频轮次当前只取第一个结果，前端固定 1；图片轮次下载全部候选 |
 | `--aspect-ratio` | mglc `--aspect-ratio` | 输出比例；fullredraw 固定 21:9，gen 用 `auto` 表示不传该 flag（videoEdit 的输出比例跟随输入）。`firstLastFrame` 不传该 flag，比例跟随首尾图 |
@@ -327,8 +338,11 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
 
 `vrgen image submit` 的参数面：
 
-- `--prompt` 必填，`--model-id` 指向图片模型（首期默认专业图片-2.5，备选 Seedream 4.5）。
+- `--prompt` 与 `--template` 二选一：直接给正文，或给模板 id 由 vrgen 展开。模板路径读 `--vars-file` 指定草稿（默认 `prompt-vars.toml`），并接受 `--image-role` 生成的 `image_roles`；展开后的正文原样写入轮次的 `prompt.txt`，台账与直接给正文时同构。
+- `--model-id` 指向图片模型（首期默认专业图片-2.5，备选 Seedream 4.5）。
 - `--image` 可重复，直接传本地路径；图片模型不需要 SD 合规素材登记。
+- `--image-role` 可重复，条数必须与 `--image` 相同，按顺序对应；仅用于 `--template` 渲染，不发给平台。
+- `--step first|last` 可选：只写入 `run.json` 的 `params.step`，供首尾帧工作台分组展示，不参与平台请求；缺省不写该字段。
 - `--ratio`：首期调用方固定传 `16:9`；vrgen 只校验它属于模型详情声明的比例表，不自行推导。
 - `--resolution`：只接受 `1K|2K|4K`；工作台未显式传入时取该模型 `resolutions` 的最高档，允许下调。
 - `--num`：1..4；候选全部下载并写入台账 `results`，`vrgen result --index` 逐张取出。
@@ -380,7 +394,7 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
 - `params show` 的 `takes_video` 闸门只拦“`--refs` 清单里有视频、当前模式却不接受视频”的情况：不传 `--refs`、或清单里没有视频时，无论当前模式是什么都返回 `modes` 与 `current`。否则纯图片 case 一旦把当前模式存成 `firstLastFrame`，页面连模式列表和时长范围都读不到。
 - `current` 优先读 `runs/<job>/generation.toml`，没有则回退配置默认值；`saved` 表示草稿是否存在。`current` 里的 `session_id` 是项目生成会话（0 表示个人额度）。
 - `current.mode` 是本次提交使用的模式；`current.aspect_ratio` 是解析后的比例。没有比例选项的模式显示 `auto`，页面写“跟随输入”；`allMediaRef` 这类有比例列表的模式从列表里选择。
-- `fixed.duration_s` 不再表示保存的草稿偏好：页面时长下拉按 `modes[].duration` 渲染，“自动”不传 `--duration`，实际采用值以轮次台账 `params.duration_s` 为准。
+- `fixed.duration_s` 不再表示保存的草稿偏好：页面时长下拉按 `modes[].duration` 渲染，“自动”不传 `--duration`，实际采用值以轮次台账 `params.duration_s` 为准。patch 的 `firstLastFrame` 另下发 `auto_duration_s`（由 clip 帧范围与帧率推导的整秒），页面据此把“自动”显示成“自动（约 N 秒）”；提交仍由 vrstudio 显式传 `--duration`。`fixed.duration_s` 此时回显同一个推导值，只是提示，不是草稿。
 - 项目额度的接法：`mglc project list` 拿项目 ID，`mglc episode list --project-id <id>` 拿剧集序号，`mglc session list --project-id <id> --episode <n>` 拿 `sessionId`；把 `sessionId` 写进 `generation.toml`（`params save --session-id`）后，所有 submit 都走项目额度。不传 `--session-id` 时 `params save` 保留已有会话。层级、额度行为与失败边界详见 `docs/sessions.md`。
 - `params save` 的 `--resolution` / `--scale` 可省略；省略时保留 `generation.toml` 已有值，
   没有草稿时回退配置默认值。新建 gen case 只传 `--mode`，其余字段等素材选好后再写。
@@ -486,8 +500,9 @@ runs/<job>/
     refs.json           # 本次提交的资产清单现场（含 id/kind/role/path/hash；三流程共用）
     upload_<id>_<w>x<h>.mp4 / .png   # 按素材 id 命名的缩放件（三流程统一；母版缩放件另记 run.json 的 upload 字段）
     result.mp4          # 生成/注册的结果
+  keyframe-vars.toml    # 首尾帧图片步的变量草稿（可选；与 prompt-vars.toml 同构、互不覆盖）
   img-<轮次key>/          # 图片轮次：label 固定为 img
-    run.json            # params.kind="image"，results 列出全部候选
+    run.json            # params.kind="image"，params.step 可选，results 列出全部候选
     result_1.png … result_N.png
 ```
 
@@ -495,6 +510,8 @@ gen 多素材与图片轮次的 run.json 字段扩展（其余字段与旧格式
 
 - `params.kind`：`"video"` | `"image"`，缺省视为 `"video"`；`backend` 字段语义不变。轮次类型以它为准，读旧 run.json 缺字段时按 video 处理。
 - `results`：可选字符串数组，图片轮次的多候选结果文件清单（`result_1.png` … `result_N.png`）。视频轮次不写该字段，单值 `result` 语义不变。
+- `params.step`：可选，`"first"` | `"last"`；图片轮次属于首尾帧工作台的哪一步，供页面分组。缺省表示未标注（旧轮次或非工作台图片轮次）。
+- `task_ids`：可选整数数组；图片批次在平台侧对应多个并列任务时，记录全部任务 ID，`task_id` 仍保留第一个以兼容旧读取方。逐个任务的图按 URL 去重后写入 `results`。
 - `params.duration_s`：本次实际采用的时长（整数秒），是审计事实，不是偏好；不写 `generation.toml`。
 - `assets`：按素材 id 分组，例如
   `{"video:clip": 123, "image:mask": 456, "image:i1": 789}`。patch/fullredraw 的

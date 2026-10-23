@@ -337,7 +337,7 @@ vrgen image submit --job <case> --model-id 44 --ratio 16:9 --resolution 4K --num
 - 工作台比例与分辨率固定：首期不提供比例下拉；patch 由 viewport 推导为 16:9，gen 固定 16:9，候选图的 `--ratio` 全部由后端传入。`--resolution` 默认取模型最高档（当前 4K），前端可下调；比例不变。首尾帧落素材时宽高不一致直接报错，不做自动裁切。
 - 生成参数面板：firstLastFrame 模式下“输出比例”显示为只读的 `16:9` 并说明“首期全链路固定”；其它模式维持现有可选比例。时长下拉仍按 WP3-3d 的模式元数据生成。
 - 生成参数面板增加时长下拉框（WP0 时长规则的前端面）：选项由**模式元数据**生成——`generation_params.modes[]` 里每一项都带 `duration`（`{type, min, max}`，来自模型详情，模型 37 为 4–30）；`type == "range"` 时渲染"自动" + min…max 整数，`type` 为空（videoEdit/videoExtend，时长跟随母版）时只显示"自动"并说明时长由母版决定，不给下拉。不硬编码 4–30。
-  - "自动"不传 `--duration`，后端按规则推导（含视频取最长视频时长，纯图片取 4）；纯图片模式下拉缺省落在 4 并显示推导说明，避免无感默认。
+  - "自动"不传 `--duration`，后端按规则推导（含视频取最长视频时长，纯图片取 4）；纯图片模式下拉缺省落在 4 并显示推导说明，避免无感默认。patch 的 `firstLastFrame` 例外：vrstudio 从当前 `clip.json` 的帧范围与帧率推导整秒后显式传 `--duration`，页面把“自动”显示成“自动（约 N 秒）”；gen 没有 clip，仍按纯图片默认 4。
   - `params.js:85` 现在把 `fixed.duration_s || "按输入自动"` 显示在参数行上，改为显示"本模式下时长由输入/素材推导"或当前选择值，不再暗示时长是保存的草稿。
 - wizard.js 校验文案按模式替换（"至少 1 个视频"仅对 videoEdit/videoExtend 出现；`wizard.js:186-188` 的硬编码 alert 同步改）。
 - 验收：浏览器手测清单——① patch case 建好选区并 extract；② 生成页展开侧边栏看到 clip 候选，mask 不显示；③ extract 后 `extracts/<版本>/first_frame_raw.png` 与 `last_frame_raw.png` 已存在且分辨率等于 clip；④ 首帧 4 候选出图、挑选入素材；⑤ 尾帧带首帧产物重绘、挑选；⑥ 勾选两定稿帧时提示词预览的 `@ImageN` 编号正确联动；⑦ 提交模式切 firstLastFrame 后"检查提交命令"（免额度 `--check`）通过；⑧ fullredraw 生成页无工作台与新模式入口，pad 与文件素材可勾选，mask 自动附带；⑨ 纯图片 case 打开生成页，模式下拉与时长范围正常显示，不出现"生成参数暂时读不到"；⑩ 非 16:9 的 patch case 切 firstLastFrame 时提交按钮置灰并显示原因，16:9 case 正常通过；⑪ firstLastFrame 下少勾或多勾首尾帧时点击生成，前端弹错且网络面板没有 submit 请求。
