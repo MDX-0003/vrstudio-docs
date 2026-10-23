@@ -1,7 +1,7 @@
 # 前端重构实施计划：Vue 3 + Element Plus
 
 记录时间：2026-10-23。
-状态：方案已由用户确认，尚未动工；本文件是 Phase 0 到 Phase 4 的实施依据。
+状态：Phase 0–5 的代码与门禁已落地（2026-10-23）；真实 500 MB 上传、双人并发与带额度预演仍待验收，旧前端保留一个版本周期。本文件是 Phase 0 到 Phase 5 的实施依据。
 上游文档：`docs/key-issues/20261023-frontend-stack-selection.md`（需求与论证）、`docs/decisions.md` 第 17 与第 38 条（决策）、`docs/key-issues/frontend-decisions.md`（页面级问题记录）。
 
 ## 1. 目标与边界

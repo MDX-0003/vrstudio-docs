@@ -488,6 +488,36 @@ gen 没有 extract，首尾原始帧需要「上传两张原始帧」的入口�
 
 新增档位时只改 `PATCH_VIEWPORT_OPTIONS`。如果要加非 16:9 档位，先在生成步骤明确它只对哪些模式开放；选区页不负责把非 16:9 裁成 16:9，merge 也不会静默拉伸。
 
+## 14. 2026-10-23 · 新前端从原型补到可执行链路
+
+**问题**
+
+审查 Phase 2 进展时发现：生成页的预演与提交只改本地状态，参数不落盘，采用按钮禁用，上传、素材排序/删除、任务状态回显与前端门禁都还没有；选区、抽取、首尾帧、合并、对比仍是占位页。
+
+**决策**
+
+- 预演与提交改为 `POST /api/case/{name}/run`，提交前先 flush 提示词并保存参数；任务状态按 case 过滤并每 2 秒轮询。
+- 采用成片走 `adopt`，只对最新可用轮次开放；采用成功后刷新 case。
+- 参数修改 300 毫秒防抖写 `generation.toml`；提示词顶部显示“已保存/保存中/未保存”三态。
+- 上传使用 `cases/.uploads` 的 8 MB 分片、offset 校验、SHA-256 去重与断点续传；素材加入仍走 case 的素材函数。
+- 选区拖框的坐标换算抽成 `useInnerDrag`，只提交 0..1 分数；对比页把 `erp360.js` 迁成 `Erp360Compare`，保留原着色器与时钟对齐。
+- 并发写用 `X-Case-Revision` + `case-meta.json`，409 默认重新加载；占用锁只提示不阻断；任务记录扣费归属；默认入口切到 `/next/`，旧前端保留在 `/case/{name}`。
+- 日志按任务收敛到 `logs/tasks/`，CLI 通过 `VRSTUDIO_CLI_LOG_PATH` 复用同一文件；pytest 用临时日志目录。
+
+**排除的方案**
+
+- 冲突时允许直接覆盖：需要字段级合并与二次确认，首期只提供重新加载。
+- 用占用锁阻断写入：锁是安全网，真正的写冲突由 revision 检查负责；阻断会让浏览器崩溃后留下死锁。
+- 让旧前端同时支持 revision：旧页面只保留回退能力，不再加新功能。
+
+**验证**
+
+`npm run lint`、`format:check`、`test`、`build` 全绿；`uv run pytest` 全绿、`ruff` 干净。浏览器在 walk_4k 上打开选区、抽取、首尾帧、合并与对比页，确认视口示意框、候选定稿、输出文件与对比页播放时间同步；500 MB 上传与双人并发仍待真实环境验收。
+
+**涉及文件**
+
+`vrstudio/frontend/src/views/wizard/`、`frontend/src/api/`、`frontend/src/composables/`、`frontend/src/legacy/Erp360Compare.ts`；`vrstudio/src/vrstudio/web/app.py`、`case_meta.py`、`locks.py`、`tasks.py`、`logging.py`、`proxy.py`；`docs/plan/frontend-workflow-and-skills.md`。
+
 ## 待决与未做
 
 ### gen 的首尾帧入口
