@@ -698,6 +698,7 @@ Phase 2 结束是可用的最小版本，约 6 到 7 周。
 ## 12. 参考
 
 - 需求与论证：`docs/key-issues/20261023-frontend-stack-selection.md`
+- 开发流程与 skill 留档：`docs/plan/frontend-workflow-and-skills.md`
 - 决策：`docs/decisions.md` 第 17 条（多用户分层）、第 28 条（Web 事件日志）与第 39 条（日志分层）
 - 日志机制：本文件第 10 节
 - 页面级问题记录：`docs/key-issues/frontend-decisions.md`

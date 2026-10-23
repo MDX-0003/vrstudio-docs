@@ -401,6 +401,8 @@ renderAll();
 
 本项目的建议是 Phase 0 用 Anthropic 的 `frontend-design` 流程产出设计计划，再用浏览器截图做视觉验收；不把几十个社区 skill 全装进项目。
 
+本次实际使用的流程、验收步骤与 skill 地址见 `docs/plan/frontend-workflow-and-skills.md`。
+
 ## 15. 参考来源
 
 - 工作区内证据：`docs/20261023-vrstudio-Web-前端现状画像.md`、`docs/web-stack.md`、`docs/key-issues/frontend-decisions.md`、`docs/decisions.md` 第 17 与第 38 条、`docs/plan/frontend-refactor-plan.md`、`src/vrstudio/web/static/common.js`、`templates/wizard.html`、`templates/cases.html`。
