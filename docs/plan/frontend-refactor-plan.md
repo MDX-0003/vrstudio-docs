@@ -32,9 +32,9 @@
 
 ### 2.1 运行形态
 
-开发模式与运行模式是两件事，不能把开发时的两个进程当成部署形态。
+开发模式、构建步骤与运行模式是三件事。开发时有两个常驻进程；构建是一次性命令；运行时只有一个常驻进程。
 
-**开发模式（两个进程，两个终端）。**
+**开发模式（两个常驻进程，两个终端）。**
 
 1. 终端 A 启动后端：`cd E:\VRAIGC\vrstudio`，然后 `uv run vrstudio serve --host 127.0.0.1 --port 8760`。
 2. 终端 B 启动前端：`cd E:\VRAIGC\vrstudio\frontend`，然后 `npm run dev`。
@@ -42,13 +42,19 @@
 
 Vite 只负责前端页面与热更新，并把 `/api`、`/img`、`/video` 代理到 8760。后端没有启动时，列表会显示 502；这是开发模式下的预期错误，不是页面功能损坏。前端应把 502 与 504 显示成“后端服务没有启动，请先运行 `uv run vrstudio serve`”。
 
-**运行模式（一个进程）。**
+**运行模式（一个常驻进程）。**
 
-1. 构建前端：`cd E:\VRAIGC\vrstudio\frontend`，然后 `npm run build`。
-2. 启动服务：`cd E:\VRAIGC\vrstudio`，然后 `uv run vrstudio serve --host 0.0.0.0 --port 8760`。
+运行模式只有一个常驻进程。下面的第 1 步是一次性构建，不常驻；第 2 步才是服务进程。
+
+1. 一次性构建（只在改前端后或发布时执行）：`cd E:\VRAIGC\vrstudio\frontend`，然后 `npm run build`。
+2. 启动唯一常驻进程：`cd E:\VRAIGC\vrstudio`，然后 `uv run vrstudio serve --host 0.0.0.0 --port 8760`。
 3. 浏览器打开 `http://<服务器地址>:8760/next/`。
 
-Starlette 在 `/next` 挂载静态文件，所有未匹配的 `/next/*` 路径回退到 `index.html`，由 Vue Router 接管。运行模式不需要 Node 与 npm；Starlette 直接服务 `src/vrstudio/web/static/next/` 的构建产物。局域网同事只访问 8760，不在自己的电脑上运行前端工程。旧前端仍在 `/`，新前端在 `/next`。
+Starlette 在 `/next` 挂载静态文件，所有未匹配的 `/next/*` 路径回退到 `index.html`，由 Vue Router 接管。`npm run build` 不参与运行时，运行时不加载 Node。发布时可以把 `src/vrstudio/web/static/next/` 作为构建产物随包发布；源码仓库不提交它。Starlette 启动时不会自动构建前端；缺少构建产物时返回 503 与构建提示，避免服务器被迫安装 Node。运行时常驻的只有 Starlette 的 Web 服务进程；任务队列按需启动 CLI 子进程，任务结束就退出，不会常驻 Node 或 Vite。
+
+这样选不是为了兼容旧的 `uv run vrstudio serve` 命令，而是让运行时保持一个 Python 进程：前端是静态文件，后端负责接口、媒体、任务与权限，Node 只出现在开发与构建阶段。生产环境常驻 Vite 会多一个进程、多一个端口、多一套依赖与安全面，而热更新只在开发时有用。
+
+局域网同事只访问 8760，不在自己的电脑上运行前端工程。旧前端仍在 `/`，新前端在 `/next`。
 
 旧前端与旧接口保持原路径不变。新前端只新增 `/next` 页面与 `/api` 下的新接口；旧接口在迁移期间继续服务旧前端。
 
