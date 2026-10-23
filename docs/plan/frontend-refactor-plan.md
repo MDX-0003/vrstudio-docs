@@ -32,7 +32,23 @@
 
 ### 2.1 运行形态
 
-开发时，Vite 开发服务器监听一个端口，`/api` 与媒体路径代理到本机的 Starlette 服务。生产时，Vite 构建产物写入 `src/vrstudio/web/static/next/`，Starlette 在 `/next` 挂载静态文件，所有未匹配的 `/next/*` 路径回退到 `index.html`，由 Vue Router 接管。
+开发模式与运行模式是两件事，不能把开发时的两个进程当成部署形态。
+
+**开发模式（两个进程，两个终端）。**
+
+1. 终端 A 启动后端：`cd E:\VRAIGC\vrstudio`，然后 `uv run vrstudio serve --host 127.0.0.1 --port 8760`。
+2. 终端 B 启动前端：`cd E:\VRAIGC\vrstudio\frontend`，然后 `npm run dev`。
+3. 浏览器打开 `http://127.0.0.1:5173/next/`。
+
+Vite 只负责前端页面与热更新，并把 `/api`、`/img`、`/video` 代理到 8760。后端没有启动时，列表会显示 502；这是开发模式下的预期错误，不是页面功能损坏。前端应把 502 与 504 显示成“后端服务没有启动，请先运行 `uv run vrstudio serve`”。
+
+**运行模式（一个进程）。**
+
+1. 构建前端：`cd E:\VRAIGC\vrstudio\frontend`，然后 `npm run build`。
+2. 启动服务：`cd E:\VRAIGC\vrstudio`，然后 `uv run vrstudio serve --host 0.0.0.0 --port 8760`。
+3. 浏览器打开 `http://<服务器地址>:8760/next/`。
+
+Starlette 在 `/next` 挂载静态文件，所有未匹配的 `/next/*` 路径回退到 `index.html`，由 Vue Router 接管。运行模式不需要 Node 与 npm；Starlette 直接服务 `src/vrstudio/web/static/next/` 的构建产物。局域网同事只访问 8760，不在自己的电脑上运行前端工程。旧前端仍在 `/`，新前端在 `/next`。
 
 旧前端与旧接口保持原路径不变。新前端只新增 `/next` 页面与 `/api` 下的新接口；旧接口在迁移期间继续服务旧前端。
 
@@ -473,8 +489,9 @@ class SingleChannelQueue:
 
 - 建立 `frontend/` 工程、路由、Pinia store、接口客户端与类型。
 - 完成 `AppShell`、`SideNav`、`TopBar`、`StepNav`。
-- 完成 case 列表、新建 case 抽屉、向导壳、任务中心只读；任务记录带负责人字段。
+- 完成 case 列表与新建 case 抽屉（2026-10-23 已接真实 `/api/cases`）、向导壳、任务中心只读；任务记录带负责人字段。
 - 接入昵称身份与 `GET /api/me`。
+- 处理代理失败与运行模式说明：前端把 502 与 504 显示成“后端服务没有启动”，README 写清开发模式两个进程、运行模式一个进程。
 - 把构建产物挂到 `/next`，旧前端保持默认。
 
 验收：新旧前端同时可用；新前端能创建与打开 case；刷新回到同一步；任务中心能看到任务列表、负责人列与排队位置；旧前端功能不受影响。
@@ -518,6 +535,28 @@ Phase 2 结束是可用的最小版本，约 6 到 7 周。
 
 验收：两位同事同时使用，各自任务不串、case 不互相覆盖；任务中心能看出谁在跑、排第几；默认入口切换后旧前端仍可回退；pytest、ruff 与前端门禁全绿。
 
+### Phase 5：日志分层与索引（2–3 周）
+
+这一阶段把日志从“每个操作一个文件、分布在两棵树里”收敛成“事件日志 + 任务原始输出 + 轮次审计日志”。当前规则与目标规则见第 10 节。
+
+任务：
+
+- 后端任务记录增加 `task_id`、`owner_id`、`request_id`、`created_at`、`started_at`、`finished_at`；Web 任务的原始输出改到 `logs/tasks/YYYYMMDD/<task_id>_<kind>_<case>.log`。
+- 后端事件日志补齐 `request_id`、`task_id`、`round_id`、`user_id`、`case`、`op`、`status`、`duration_ms`、`error`、`log_ref` 字段；客户端错误带同一套关联字段。
+- 后端新增 `GET /api/tasks`、`GET /api/tasks/{id}`、`GET /api/tasks/{id}/log?tail=N`；旧 `log_path` 保留为只读兼容。
+- 后端停止写 `logs/web_*`、`logs/proxy_*`、`logs/extract_*` 等新文件；旧文件不迁移，Phase 5 上线时先输出清理清单，确认后删除。
+- 后端让 pytest 与本地实验使用临时日志目录，不再写生产 `logs/`。
+- 前端任务中心按 case、状态与时间筛选；任务详情抽屉显示结构化摘要与原始输出尾部，提供完整日志下载；主界面不展示原始路径。
+- 文档更新 `docs/decisions.md` 第 39 条与 `docs/architecture.md` 的日志说明。
+
+验收：
+
+- 一次任务只产生一个原始日志文件，路径在 `logs/tasks/`；同一次操作的请求、任务与轮次能用 `request_id`、`task_id`、`round_id` 串起来。
+- `cases/` 与 `logs/` 根目录不再出现新的日志文件；旧前缀文件不再被写入。
+- 旧日志清理先输出清单与总大小，确认后执行；执行结果写一条事件。
+- 任务中心能看到任务摘要、失败原因、日志尾部与完整日志。
+- pytest 运行后生产 `logs/` 不新增文件。
+
 ### 时间估算与里程碑
 
 - Phase 0：1–2 周。
@@ -525,7 +564,8 @@ Phase 2 结束是可用的最小版本，约 6 到 7 周。
 - Phase 2：3 周。
 - Phase 3：3 周。
 - Phase 4：2–3 周。
-- 合计：11–13 周。按一个人加 AI 协作估算；Phase 2 与 Phase 3 可以部分重叠，但不要跳过 Phase 0 的原型验收。
+- Phase 5：2–3 周。
+- 合计：13–16 周。按一个人加 AI 协作估算；Phase 2 与 Phase 3 可以部分重叠，但不要跳过 Phase 0 的原型验收。
 - 最小可用版本：Phase 0 到 Phase 2，约 6–7 周。
 
 ## 8. 测试与门禁
@@ -573,7 +613,74 @@ Phase 2 结束是可用的最小版本，约 6 到 7 周。
 - **冻结契约被顺手改动**：所有新增字段先写进 `docs/case-model.md`，再改代码；`case.toml` 不放 Web 层元数据，使用 `case-meta.json`。
 - **旧前端下线过早**：切换默认入口后保留一个版本周期，按页面功能对照表确认后再删除。
 
-## 10. 待决与后续
+## 10. 日志机制
+
+本节先写当前规则，再写 Phase 5 的目标规则。当前规则是实施前的现状，不是要保留的最终形态。
+
+### 10.1 当前规则（实施前）
+
+当前有四类日志，分布在两棵树里。
+
+1. **Web 结构化事件**：`logs/serve/service-YYYYMMDD.jsonl` 记录启动、HTTP 请求、预览耗时、几何变更与任务生命周期；`logs/serve/client-YYYYMMDD.jsonl` 记录浏览器上报的错误。按本地日期切换，默认保留 14 天；`/api/task`、`/api/client-log`、`/static/` 与 favicon 跳过访问日志；视频 Range 请求只在 DEBUG 记录。来源是 `web/logging.py` 与决策 28。
+2. **任务与命令原始输出**：每个 Web 任务写 `logs/web_<kind>_<case>_<timestamp>.log`（`web/tasks.py:47-48`）；每次代理构建写 `logs/proxy_<case>_<stem>_<timestamp>.log`（`web/proxy.py:306-307`）；每个 CLI 运行写 `logs/<stem>_<timestamp>.log`（`progress.py:110-123`）。
+3. **vrgen 轮次日志**：每个轮次目录写 `mglc.log` 与 `progress.log`（`vrgen/round/ledger.py:36-37`），Web 的 workdir 下对应 `vrgen_runs/<job>/<round>/`。
+4. **测试日志**：pytest 调用同一套 CLI 与日志函数，把 `extract_e2e_*`、`restore_good_*` 等文件写进生产 `logs/` 根目录。
+
+当前目录的证据：
+
+- `cases/` 下 `.log` 与 `.jsonl` 文件数量为 0；当前代码不把日志写进 case。
+- `vrgen_runs/` 下有 88 个 `.log` 文件，主要是每个轮次的 `mglc.log` 与 `progress.log`。
+- `logs/` 根目录有大量按操作与时间戳命名的文件，例如 `extract_e2e_...`、`merge_..._space_...`、`assemble_...`、`restore_...`、`web_...`、`proxy_...`。
+
+现状有六个问题：
+
+- 每个操作一个文件，短时间内产生大量文件，难以找到与某次提交对应的那一份。
+- 日志分布在 `logs/` 与 `vrgen_runs/` 两棵树，命名规则不一致。
+- 请求、任务、轮次与用户之间没有统一的关联 ID，无法从一条失败记录串到完整链路。
+- 任务原始输出与 CLI 日志没有保留期与清理，磁盘会持续增长。
+- 前端拿到的是原始 `log_path`，用户要自己判断文件在哪、该看哪一份。
+- 测试日志写进生产目录，审阅时混入大量 `extract_e2e`、`restore_good` 等噪声。
+
+### 10.2 目标规则（Phase 5）
+
+目标规则保留两层日志与一类审计产物，不再为短操作单独建文件。
+
+1. **事件层**：继续使用 `logs/serve/service-YYYYMMDD.jsonl` 与 `logs/serve/client-YYYYMMDD.jsonl`，保留决策 28 的按天轮转与 14 天保留。新增统一字段：`request_id`、`task_id`、`round_id`、`user_id`、`case`、`op`、`status`、`duration_ms`、`error`、`log_ref`。短操作只写事件层，例如改素材角色、保存提示词、点选视口、查询参数。
+2. **任务原始层**：每个长任务写一个文件 `logs/tasks/YYYYMMDD/<task_id>_<kind>_<case>.log`，只放子进程 stdout 与 stderr。文件头写入 `task_id`、`request_id`、`user_id`、`case`、`kind` 与完整 argv。默认保留 30 天，可配置。
+3. **轮次审计层**：`vrgen_runs/<job>/<round>/mglc.log` 与 `progress.log` 保留原位，因为它们与轮次台账、断点续跑和审计绑定。事件日志记录 `round_id` 与 `log_ref`，页面通过 API 读取，不要求用户浏览 `vrgen_runs/`。
+
+约束：
+
+- `cases/` 与新 `logs/` 根目录不再写日志；新原始日志只出现在 `logs/tasks/`，事件只出现在 `logs/serve/`。
+- 除任务原始输出外，不再为单次操作建立文件。
+- 所有事件带已知关联 ID；任务提交时把 `request_id`、`owner_id` 与 `case` 写入任务记录。
+- 旧前缀文件不迁移。Phase 5 上线时先输出清理清单（路径、大小、总数），确认后删除；删除动作写一条事件。
+- pytest 与本地实验使用临时目录，生产 `logs/` 不新增文件。
+- 前端只调用任务与日志 API，不直接读取文件路径。
+
+接口：
+
+- `GET /api/tasks?scope=mine|all&case=&status=&since=`
+- `GET /api/tasks/{id}`
+- `GET /api/tasks/{id}/log?tail=N`
+- `GET /api/events?case=&task_id=&level=&since=`（Phase 5 后半段）
+
+前端：
+
+- 任务中心按 case、状态与时间筛选。
+- 任务详情抽屉分两栏：结构化摘要与原始输出尾部；完整日志提供下载。
+- 失败任务直接显示错误行，不只显示“失败”。
+- 原始路径放在详情里，不作为主界面的导航入口。
+
+验收：
+
+- 一次任务只产生一个原始日志文件；事件日志能用 `task_id` 与 `request_id` 找到它。
+- 一次提交能用 `request_id` 串起请求、任务、轮次与原始输出。
+- `cases/` 与 `logs/` 根目录不再出现新日志。
+- 旧日志清理有清单、有确认、有结果记录。
+- pytest 后生产 `logs/` 不新增文件。
+
+## 11. 待决与后续
 
 - 账号与密码的启动时间：等局域网多人使用稳定后再评估，届时只替换 `IdentityProvider`。
 - 多 worker 队列的启动时间：等单队列出现可观察的排队瓶颈后再评估，届时只替换 `TaskQueue`。
@@ -582,10 +689,11 @@ Phase 2 结束是可用的最小版本，约 6 到 7 周。
 - 是否引入 Pydantic 与 JSON Schema 生成 TypeScript 类型：Phase 4 评估，首期用手写类型加契约测试。
 - 暗色模式、移动端适配、快捷键全集、操作记录查询：不进入首期，按使用反馈排期。
 
-## 11. 参考
+## 12. 参考
 
 - 需求与论证：`docs/key-issues/20261023-frontend-stack-selection.md`
-- 决策：`docs/decisions.md` 第 17 条（多用户分层）与第 38 条（前端技术栈）
+- 决策：`docs/decisions.md` 第 17 条（多用户分层）、第 28 条（Web 事件日志）与第 39 条（日志分层）
+- 日志机制：本文件第 10 节
 - 页面级问题记录：`docs/key-issues/frontend-decisions.md`
 - 现状画像：`docs/20261023-vrstudio-Web-前端现状画像.md`
 - 早期技术栈对比：`docs/web-stack.md`
