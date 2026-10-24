@@ -19,49 +19,51 @@
 - [x] FR-01 保存队列按 case 捕获；切 case 不再串写。
 - [x] FR-02 `useCaseTasks` 接受响应式 case 名；步骤组件按 case 重挂载。
 - [x] FR-03 `useCaseLoader` 用请求序号 + case 名丢弃旧响应。
-- [x] FR-04 `applyCaseInfo` 在提示词/参数有未保存改动时不覆盖编辑区。
+- [x] FR-04 生成步骤在提示词/参数有未保存改动时不覆盖编辑区。
 - [x] FR-05 `gateBlocked` 统一门控；`MergeStep` 扩充/裁回按钮修正。
 - [x] FR-06 提示词变量按 `placeholders` 排序，不再按下标取。
-- [x] FR-07 变量卡以别名为主标题，key 只放悬停提示；输入框自适应高度。
+- [x] FR-07 变量卡以别名为主标题，key 只放悬停提示；输入框自适应高度；
+  抽屉放宽到 `min(1100px, 92vw)`。
 - [x] FR-08 无改动保存不再让预演失效。
 - [x] FR-09 `nextStepForFlow` 用 `ready` 判断可操作性；打开 case 进入下一步。
 - [x] FR-10 步骤定义收敛到 `constants/steps.ts`；顶栏补 `pad/recompose`。
 - [x] FR-11 页头保存状态聚合提示词、参数、素材。
 - [x] FR-12 生成记录隐藏预演轮次与 `stage/gate`；任务日志收进“技术详情”。
-- [x] FR-13 上传对话框卸载时取消上传循环。
+- [x] FR-13 上传对话框卸载时取消上传循环，并有组件测试。
 - [x] FR-14 设置页显示名接真实保存；移除假密度输入。
-- [x] FR-21 前端单测从 5 个增加到 38 个，覆盖保存队列、加载竞态、任务轮询、
-  步骤流转、提示词排序、门控、轮次、状态映射、格式化、请求超时与 `MergeStep`
-  按钮禁用条件。
-
-说明：FR-12 的轮次文案与过滤有纯函数测试；FR-13 的上传取消、FR-14 的设置保存
-目前由 `typecheck`/`build` 与代码审查覆盖，尚未补组件测试。
-
-部分完成：
-
-- [ ] FR-07 抽屉宽度仍是 760px；变量输入框已自适应，但专注编辑体验留到下一轮。
-- [ ] FR-16 任务轮询已响应 case 变化，但 `WizardView` 与 `useCaseTasks` 两套轮询
-  仍在，后端按 case 过滤未做。
-- [ ] FR-17 `formatSize`、任务状态、步骤定义、门控已收敛；首尾帧的 `allowed`
-  变量集合与 1K/2K/4K 档位仍是硬编码。
-- [ ] FR-18 API client 已合并为一个 `request()` 并加超时；视图层尚未统一消费
-  `ApiRequestError`，revision Map 清理未做。
-- [ ] FR-15 `WizardView` 仍未拆分；本轮只抽出了保存队列、加载器和共享定义。
-
-未开始：
-
-- [ ] FR-19 类型去重与死代码清理。
-- [ ] FR-20 样式去重、颜色与 inline width 令牌化。
-- [ ] 组件级浏览器回归测试（当前只有纯函数/composable 测试）。
+- [x] FR-15 `WizardView` 缩到约 380 行；生成步骤拆成 `GenerateStep` 与
+  素材、提示词、结果、提交条四个展示组件。
+- [x] FR-16 任务接口支持 `?case=`，前端只请求当前 case；父级任务轮询已移除，
+  生成页只保留 `useCaseTasks` 一套轮询。
+- [x] FR-17 `formatSize`、任务状态、步骤定义、门控、首尾帧变量与档位均已收敛；
+  首尾帧保存不再维护 key 白名单。
+- [x] FR-18 API client 合并为一个 `request()` 并加超时；视图消费
+  `ApiRequestError`；revision Map 有上限并在 404 时清理；冲突弹窗去重。
+- [x] FR-19 `Gate` 类型去重；本地 body 类型改用 `RunPayload`/`SaveParamsPayload`；
+  删除 `addAssetsByPaths`、`fetchLock`、`CandidateRound`、未用的全屏状态和
+  `ui.taskDrawerOpen`。
+- [x] FR-20 重复的 `.task-tail`、`.task-summary`、`.load-error`、`.ctl`、`.empty`
+  收进 `base.css`；视频底色、遮罩与提交条阴影改为令牌；提交条 inline width
+  改为类。
+- [x] FR-21 前端单测从 5 个增加到 44 个（13 个测试文件），覆盖保存队列、
+  加载竞态、任务轮询、步骤流转、提示词排序、门控、轮次、状态映射、格式化、
+  请求超时、`MergeStep` 按钮、`GenerateStep` 渲染与上传卸载取消。
 
 本轮门禁结果：
 
 - `npm run typecheck` 通过。
 - `npm run lint` 通过。
-- `npm run test`：11 个测试文件、38 个用例全绿。
+- `npm run format:check` 通过。
+- `npm run test`：13 个测试文件、44 个用例全绿。
 - `npm run build` 通过（Vite 提示主 chunk 超过 500 kB，未处理）。
-- `uv run pytest`：360 passed。
-- `uv run ruff check .`：通过。
+- `uv run pytest`：360 passed；`uv run ruff check .` 通过。
+
+未能执行：
+
+- [ ] 真实浏览器逐按钮验收。当前环境的 Playwright 浏览器实例被占用，
+  browser-use 的 Chrome 远程调试端口未开启；已用 `GenerateStep`、`MergeStep`、
+  `AssetUploadDialog` 的 jsdom 组件测试替代，仍建议在可用浏览器里走一遍
+  dacne / walk_4k 的生成页。
 
 ## 2. 问题清单
 
