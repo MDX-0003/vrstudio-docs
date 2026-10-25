@@ -78,5 +78,6 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 | `docs/plan/patch-browser-acceptance-plan.md` | Patch 流程新前端浏览器验收计划：两条真实路径、首尾帧 4+4、逐按钮验收与自动化接口 |
 | `docs/plan/frontend-workflow-and-skills.md` | 前端开发流程、验收步骤与 skill/工具留档（持续更新） |
 | `docs/plan/frontend-review-fixes.md` | 前端审查修复计划：保存竞态、切 case、提示词显示、流程判断与共享工具，含实施状态与测试 |
+| `docs/plan/frontend-agent-test-plan.md` | Agent 浏览器验收计划：MCP 工具、无额度用例、接口证据、付费边界与逐次提交确认 |
 | `docs/web-stack.md` | web 控制台技术栈三路线对比（决策 11 的论证） |
 | `docs/roadmap.md` | 实施里程碑与验收标准 |

@@ -60,10 +60,10 @@
 
 未能执行：
 
-- [ ] 真实浏览器逐按钮验收。当前环境的 Playwright 浏览器实例被占用，
-  browser-use 的 Chrome 远程调试端口未开启；已用 `GenerateStep`、`MergeStep`、
-  `AssetUploadDialog` 的 jsdom 组件测试替代，仍建议在可用浏览器里走一遍
-  dacne / walk_4k 的生成页。
+- [ ] 真实浏览器逐按钮验收。Agent 测试方案已写入
+  `docs/plan/frontend-agent-test-plan.md`，待执行；当前环境的 Playwright
+  浏览器实例被占用，browser-use 的 Chrome 远程调试端口未开启。执行前需按方案
+  重新确认服务、端口、case 根与浏览器可用性。
 
 ## 2. 问题清单
 
