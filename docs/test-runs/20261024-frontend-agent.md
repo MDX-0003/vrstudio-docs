@@ -3,7 +3,7 @@
 记录时间：2026-10-25。
 对应计划：`docs/plan/frontend-agent-test-plan.md`。
 执行方式：Playwright MCP 驱动真实 Chromium，无人工点击。
-结论：A/B/D/F/G/I 通过；C/E 覆盖不足；H 发现一个真实缺陷，切页时取消上传的 DELETE 没有发出，服务端残留不完整上传。
+结论：A/B/D/F/G/I 通过；C/E 覆盖不足；H 发现的问题已修复并复测通过。
 
 ## 1. 环境
 
@@ -75,17 +75,33 @@
 - 已恢复为 `MDX`，`/api/me` 再次确认。
 - 证据：`G-settings.png`。
 
-### H. 上传取消：失败
+### H. 上传取消：修复后通过
+
+原始失败：
 
 - 第一次小文件上传因本地速度太快直接完成，无法判断取消。
 - 第二次用 Playwright 给 `PUT` 增加 5 秒延迟，确保切页时上传仍在进行。
-- 切换页面后捕获到的请求只有：
+- 用 `page.goto()` 整页导航后捕获到的请求只有：
   - `POST /api/uploads`
   - `PUT /api/uploads/dbfb977b66af440c8cf01830815abcd0?offset=0`
-- 没有 `DELETE /api/uploads/dbfb977b66af440c8cf01830815abcd0`，也没有 `complete`。
-- `cases_qa/.uploads/dbfb977b66af440c8cf01830815abcd0/` 在测试后仍存在，说明服务端不完整上传没有被取消。
-- 判断：`AssetUploadDialog` 的 `onUnmounted` 在 jsdom 组件测试里会调用 `cancelUpload`，但真实页面导航会中止普通的 `fetch`，DELETE 没有到达服务端。需要把取消上传改成在页面卸载时仍能发出的请求（例如 `keepalive` 或 `sendBeacon`），并补真实导航回归测试。
-- 证据：网络请求列表、`cases_qa/.uploads/dbfb977b66af440c8cf01830815abcd0/`。
+- 没有 `DELETE`，也没有 `complete`；`cases_qa/.uploads/dbfb977b66af440c8cf01830815abcd0/` 在测试后仍存在。
+- 根因：整页导航会销毁 JavaScript 上下文，Vue 的 `onUnmounted` 不会执行；普通 `fetch` 的 DELETE 也会被浏览器中止。
+
+修复：
+
+- `AssetUploadDialog.vue` 增加 `pagehide` 监听；页面卸载时对仍在进行的上传调用 `cancelUploadKeepalive()`。
+- `api/uploads.ts` 新增 keepalive DELETE，请求可在文档销毁后继续发出。
+- `onUnmounted` 保留 SPA 卸载路径；`canceledUploads` 防止 pagehide 与 unmount 重复取消。
+- 服务端 `_cleanup_uploads()` 除了启动时执行，也在创建新上传会话时惰性执行，作为 TTL 兜底。
+
+复测：
+
+- 延迟 PUT 5 秒，整页导航到 `/next/cases`。
+- 上传 ID `119b578a92b44771aea6b5cf89c2d74d`。
+- 复测后 `cases_qa/.uploads/119b578a92b44771aea6b5cf89c2d74d` 不存在，keepalive DELETE 到达服务端。
+- 旧的 `dbfb977b66af440c8cf01830815abcd0/` 是修复前产生的残留，按要求暂不清理。
+- 组件测试新增 `pagehide` 分支：`cancelUploadKeepalive` 被调用，`onUnmounted` 不重复调用普通取消。
+- 证据：网络请求、服务端 `.uploads` 目录、`asset-upload-dialog.spec.ts`。
 
 ### I. 响应式与控制台：通过
 
@@ -103,14 +119,15 @@
   - `qa_firstlast_1023` 当前任务列表为空。
   - `qa_videoedit_1023` 在 dry-run 后有一条 `dry_run`/`done` 任务 `5b815279f8f8`。
 - `/api/me`：设置页保存前后分别为 `MDX-TEST` 和 `MDX`。
-- `/api/uploads`：创建与分片成功；取消场景没有 DELETE。
+- `/api/uploads`：创建与分片成功；整页卸载后 keepalive DELETE 到达，测试上传目录被删除。
 
 ## 4. 发现的问题
 
-1. **P1：切换页面时上传取消没有到达服务端。**
-   - 影响：用户上传大文件后切页，服务端不完整上传会保留到自动清理。
-   - 证据：第二个上传只出现 POST/PUT，没有 DELETE；`.uploads/dbfb...` 仍存在。
-   - 建议：取消上传使用 `keepalive` 或 `sendBeacon`，并增加“真实导航后 DELETE 到达”的测试。
+1. **已修复：切换页面时上传取消没有到达服务端。**
+   - 原因：整页导航不会执行 Vue `onUnmounted`，普通 `fetch` DELETE 被中止。
+   - 修复：`pagehide` + keepalive DELETE；服务端 TTL 改为启动时与创建上传时惰性清理。
+   - 复测：上传 `119b578a...` 在整页导航后目录被删除。
+   - 残留：修复前的 `dbfb...` 目录暂不清理。
 
 2. **覆盖不足：没有 fullredraw case。**
    - 影响：`pad` 未完成时的“扩充画面”禁用分支没有在浏览器里验证。
@@ -156,7 +173,8 @@
 
 ## 6. 下一步
 
-1. 先决定是否修复 H 的上传取消问题；修复需要单独提交确认。
-2. 补齐 fullredraw case 的覆盖。
-3. 在你明确批准后，执行上面这一次付费提交；只做一次，不连带 adopt/merge/compare。
-4. 运行记录与截图目前未提交；提交前会单独请求确认。
+1. H 的代码修复已完成并通过前端、后端与浏览器复测；等待代码提交确认。
+2. 运行记录的 H 段已更新；等待文档提交确认。
+3. 执行已批准的提示词输入/保存测试（临时 case `qa_prompt_agent_1024`）。
+4. 补齐 fullredraw case 的覆盖。
+5. 在你明确批准后，执行上面这一次付费提交；只做一次，不连带 adopt/merge/compare。
