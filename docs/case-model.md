@@ -92,7 +92,11 @@ role = "subject_ref"
 sha256 = "…"
 
 [submit]                       # 可选：本次提交的候选 id 列表；缺省为空集
-selected = ["v1", "i1"]        # 只存 id，不存角色覆盖；勾选才提交
+selected = ["v1", "i1"]        # 顺序决定 @VideoN / @ImageN；角色见 [submit.roles]
+
+[submit.roles]                 # 可选：本次提交的逐条角色；缺省回退到 [[assets]] role
+v1 = "edit_master"
+i1 = "subject_ref"
 
 [adopt]
 round = "dusk-3c1a4b2d"
@@ -102,8 +106,9 @@ round = "dusk-3c1a4b2d"
 
 - `[[assets]]` 不再是 gen 专属：patch、fullredraw 也可以有文件素材列表（三视图、重绘定稿帧等）。三条流程的既有段（patch 的 `[source]/[viewport]/[inner]/[frames]`、fullredraw 的 `[source]`、以及 `*_pad.json` manifest）不变。
 - 原始源视频与流程产物（patch 的 clip/mask/首尾原始帧、fullredraw 的 pad/mask）不写进 `[[assets]]`，路径由 `[extract] current` 或 manifest 决定，避免与 `[source]` 的哈希契约形成双重真源。其中 clip/pad 作为可勾选候选；mask 由装配器自动附带，不作为用户素材；首尾原始帧只作工作台输入。提交契约不区分来源，也没有 `derived` 标记。merge 成片是流程输出，不作为生成提交候选。
-- 角色词表：`edit_master`、`motion_ref`、`space_ref`、`scene_ref`、`subject_ref`、`first_frame`（首帧定稿图）、`last_frame`（尾帧定稿图）、`mid_frame`（中间过渡帧，预留）、`first_frame_raw`、`last_frame_raw`（工作台输入底图，由 patch 的 extract 从 clip 首尾导出）、`mask`（编辑区域标注图；由 patch/fullredraw 的流程产物提供，装配器自动附带，不作为用户候选，也不参与 `@ImageN` 编号）。用户素材的角色由用户选择，不按顺序推断；空角色是未完成状态，提交前必须补齐。
-- `[submit]` 是可选的提交集：`selected` 就是本次提交的用户素材 id 列表，只存 id，不存角色覆盖；没有默认集，缺省等于空集，勾选才提交。clip/pad 用固定 id 也可以出现在 `selected` 里；mask 不写进 `selected`，由装配器在提交时自动追加。写入只发生在 vrstudio，vrgen 只读 refs JSON，不认识这个字段。删除素材时同步从 `selected` 移除；重排不改 id，`selected` 不动。旧 case 没有这个字段时按空集处理，升级后首次打开需要重新勾选一次。
+- 角色词表：`edit_master`、`motion_ref`、`space_ref`、`scene_ref`、`subject_ref`、`first_frame`（首帧定稿图）、`last_frame`（尾帧定稿图）、`mid_frame`（中间过渡帧，预留）、`first_frame_raw`、`last_frame_raw`（工作台输入底图，由 patch 的 extract 从 clip 首尾导出）、`mask`（编辑区域标注图；由 patch/fullredraw 的流程产物提供，装配器自动附带，不作为用户候选，也不参与 `@ImageN` 编号）。图片步另有 `detail_ref`（细节参考），只存在于 `keyframe.toml` 的 `refs`，不进入视频提交清单。用户素材的角色由用户在引用清单里选择，不按顺序推断；空角色是未完成状态，提交前必须补齐。
+- 当前前端只开放 `edit_master`、`subject_ref`、`motion_ref` 三个普通视频角色；`firstLastFrame` 模式另开 `first_frame` / `last_frame`。`scene_ref`、`space_ref`、`mid_frame` 仍在后端词表里，用于旧 case 与直接调用 CLI 的路径；普通下拉不展示，旧值以「旧角色」标记显示，可改成开放角色。
+- `[submit]` 是可选的提交集：`selected` 是本次提交的有序 id 列表，`roles` 是可选的逐 id 角色映射。没有默认集，缺省等于空集，勾选才提交。角色按 `roles[id]` 取；没有该键时回退到 `[[assets]] role`，因此旧 case 不需要迁移。同一份清单里一个素材只出现一次；跨步骤可以重复引用，角色各自记录。clip/pad 用固定 id 也可以出现在 `selected` 里；mask 不写进 `selected`，由装配器在提交时自动追加。写入只发生在 vrstudio，vrgen 只读 refs JSON，不认识这两个字段。删除素材时同步从 `selected` 与 `roles` 移除；重排不改 id，`selected` 不动。旧 case 没有这个字段时按空集处理，升级后首次打开需要重新勾选一次。
 - `target_aspect` 不在 case 里——它是平台 bucket 参数，进 vrstudio 项目配置。
 - `[viewport]/[inner]/[frames]` 是**草稿**（可变）；`clip.json` 是**契约**（冻结）。
   改范围 = 改草稿重新 extract = 新版本目录，两者分离避免 pick 迭代造成版本爆炸。
@@ -156,9 +161,11 @@ round = "dusk-3c1a4b2d"
     把它们当首尾帧提交。
 - 首尾帧工作台的当前状态存于 case 目录的 `keyframe.toml`（vrstudio 自有，不是
   case.toml 的段，也不是 vrgen 的契约）：`extract`（定稿基于哪个抽取版本）、
-  `sheet`（图片步绑定的三视图素材 id）、`[first]` / `[last]`（轮次、候选序号、
-  素材 id）。图片步的参考图由这份文件与原始帧解析，不读 `[submit] selected`；
-  视频提交集只由生成页的勾选决定，两者互不影响。
+  `refs`（图片步的有序参考图清单，每项含 `asset`、`role`、`note`；`role` 为
+  `subject_ref` 或 `detail_ref`，恰好一张 `subject_ref`）、`[first]` / `[last]`
+  （轮次、候选序号、素材 id）。旧格式的单值 `sheet` 读取时视为只有一项
+  `subject_ref` 的清单。图片步的参考图由这份文件与原始帧解析，不读 `[submit]`；
+  视频提交清单只由生成页的引用条目决定，两者互不影响。
 
 `space_ref` 与 `motion_ref` 的分工是“空间”和“身体动作”的分工：`space_ref` 只提供机位、构图、起点与终点位置，不提供人物动作；`motion_ref` 提供动作节奏与路径。白模视频只锁空间时用 `space_ref`，需要继承动作节奏时用 `motion_ref`。
 
@@ -239,7 +246,7 @@ vrgen submit --job <名> --refs <提交资产清单.json> \
            [--scale auto|full|half] [--session-id <项目生成会话>] [--workdir <dir>] [--dry-run]
                                            # 三个流程共用的唯一提交入口；断点续跑、task_id 防重发
 vrgen image submit --job <名> (--prompt <文本> | --template <id> [--vars-file <文件名>]) \
-           [--image-role <角色>]… --model-id <图片模型 id> \
+           [--image-role <角色>]… [--image-note <说明>]… --model-id <图片模型 id> \
            --image <路径> [--image <路径>]… \
            --ratio <16:9> --resolution <1K|2K|4K> [--num <1..4>] \
            [--step first|last] \
@@ -251,10 +258,10 @@ vrgen result --job <名> --round <key> [--index <N>] --out <路径>
                                            # 导出结果；图片轮次按 --index 取第 N 张，缺省第一张
 vrgen peek <task-id>                       # 零额度查平台侧状态
 vrgen prompt show --job <名> [--template <id>] [--vars-file <文件名>] [--refs <json>] \
-                 [--mode <模式>] [--image-role <角色>]… \
+                 [--mode <模式>] [--image-role <角色>]… [--image-note <说明>]… \
                  [--canvas WxH] [--source WxH] [--workdir <dir>]   # 读模板+草稿；可回展开正文
 vrgen prompt save --job <名> [--set k=v]… [--unset k]… [--template <id>] [--vars-file <文件名>] \
-                 [--refs <json>] [--mode <模式>] [--image-role <角色>]… \
+                 [--refs <json>] [--mode <模式>] [--image-role <角色>]… [--image-note <说明>]… \
                  [--canvas WxH] [--source WxH] [--workdir <dir>]
 vrgen params show --job <名> [--refs <json>] [--canvas WxH] [--source WxH] [--aspect-ratio auto] [--workdir <dir>]
                                            # 只读：output/input 档位与模式列表；refs 只用于取母版算输入尺寸
@@ -301,6 +308,8 @@ mask 条目由装配器追加在所有用户图片之后，不在 `[submit] sele
   编号与 argv 按视频在前、图片在后分组，组内保持清单顺序，得到 `@VideoN` /
   `@ImageN`。mask 不参与编号，声明顺序与 mglc argv 的 `--video` / `--image` 顺序
   逐一对齐（契约测试点）。
+- 清单条目的 `role` 由 vrstudio 按 `[submit.roles]` 覆盖 `[[assets]] role` 后写入；
+  vrgen 只读清单角色，不读 case.toml，也不知道角色来自哪里。
 - 路径可以是绝对路径，也可以相对 JSON 文件所在目录。`[submit] selected` 可以
   引用文件素材与 clip/pad；mask 不出现；缺省为空集，旧 case 需要重新勾选一次。
 - 数量、格式、时长、帧率、像素、体积校验以模型详情 validator 为唯一依据，vrgen
@@ -342,6 +351,7 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
 - `--model-id` 指向图片模型（首期默认专业图片-2.5，备选 Seedream 4.5）。
 - `--image` 可重复，直接传本地路径；图片模型不需要 SD 合规素材登记。
 - `--image-role` 可重复，条数必须与 `--image` 相同，按顺序对应；仅用于 `--template` 渲染，不发给平台。
+- `--image-note` 可重复，条数必须与 `--image` 相同，按顺序对应；空字符串表示这张图没有用途。它只用于 `--template`，由 vrgen 展开进 `image_roles`，不发给平台；与 `--prompt` 同用时报参数错。
 - `--step first|last` 可选：只写入 `run.json` 的 `params.step`，供首尾帧工作台分组展示，不参与平台请求；缺省不写该字段。
 - `--ratio`：首期调用方固定传 `16:9`；vrgen 只校验它属于模型详情声明的比例表，不自行推导。
 - `--resolution`：只接受 `1K|2K|4K`；工作台未显式传入时取该模型 `resolutions` 的最高档，允许下调。
