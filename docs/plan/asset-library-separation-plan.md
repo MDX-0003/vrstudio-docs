@@ -1,6 +1,6 @@
 # 素材库独立页面与步骤内引用清单方案
 
-状态：实施中（2026-10-26）。角色范围、悬停说明与 `space_ref` / `mid_frame` 的收敛已确认，见 §0.6。
+状态：已实施（2026-10-26）。自动化门禁与免额度浏览器验收完成；真实付费图片与视频提交未跑。实施记录与差异见 §12，验收细节见 `docs/test-runs/20261026-asset-library-refs.md`。
 
 原型：会话可视化目录下的 `asset-library-prototype/index.html`（不随仓库提交，实施后作废）。原型覆盖现状与方案两套视图，方案视图包含素材库页、生成页、首尾帧页与选择器；数据来自 `walk_4k` 的 26 个真实素材、两张原始帧与两组候选，`i27`/`i28` 是从三视图裁切的细节图示例。
 
@@ -445,3 +445,25 @@ case 级文件集合。这里只存文件；角色由各步骤的引用清单决
 - 每份清单里一个素材只出现一次；跨步骤可以重复引用，角色各自独立。
 - `--image-note` 按本稿实施；如果后续改为整组说明，再改模板变量方案。
 - 旧版控制台暂保留一个版本的兼容层；如果直接退役，`sheet` 兼容字段、`/keyframe/sheet` 与 `submit.roles` 同步可以同批删除。
+
+## 12. 实施记录（2026-10-26）
+
+已落地：
+
+- **契约与文档。** 根仓库 `e72a3f0` 登记本文，扩展 `docs/case-model.md` 的 `[submit] roles` 与图片步 `--image-note`；`docs/keyframe-workbench-plan.md` 标注固定输入前提失效。
+- **vrgen。** `59636e8` 增加 `detail_ref` 角色文案、`image_roles_text` 的逐图用途、`image submit` / `prompt show|save` 的 `--image-note`，并把两个首尾帧模板改为按角色引用图片。
+- **vrstudio 后端。** `3475637` 增加 `[submit.roles]`、`submit_entries`、`submit_role`、旧调用方回退与角色同步；`keyframe.toml` 的 `refs`、`Ref`、`validate_refs`、删除清理、`PUT /keyframe/refs`、门控与兼容 `sheet` 字段。
+- **vrstudio 前端。** `aa83fc2` 新增 `AssetReferenceList`、`AssetPickerDialog`、`CaseLibraryView`、`GenerateSubmitList`；生成页只显示提交条目，首尾帧页改为参考图清单，case 顶栏增加「流程 / 素材库」开关；角色选项收敛为三个普通角色加 `firstLastFrame` 的首尾帧，`space_ref` / `mid_frame` 不再出现在普通选项；角色说明以固定行与选项悬停文本呈现。
+- **测试。** vrgen 155 条、vrstudio 400 条、前端 87 条全绿；两侧 `ruff` 干净，前端 typecheck / lint / build 通过。详细验收见 `docs/test-runs/20261026-asset-library-refs.md`。
+
+与稿的差异：
+
+- 生成页的「去素材库管理」文字链接没有保留；case 顶栏的「素材库」开关承担入口，避免重复放导航。
+- 上传对话框不再让用户选库角色，按文件类型写默认角色；实际引用角色在清单里设置。
+- 视频选择器保留 clip/pad 流程产物；素材库页只列 `[[assets]]` 文件。
+- 首尾帧的锁定主图与首帧定稿锚点都作为共享引用行里的锁定行显示：尾帧步骤主图固定图2、锚点固定图3、细节图从图4 起；首帧步骤没有锚点，细节图从图3 起。
+
+未验证：
+
+- 真实付费图片提交（含细节图）与真实 `firstLastFrame` 视频提交；平台返回的图片数量与比例限制尚未实测。
+- 旧版控制台的浏览器回归；兼容字段与 `/keyframe/sheet` 保留，但未逐页点验。
