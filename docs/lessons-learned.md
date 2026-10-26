@@ -136,7 +136,36 @@ taskkill /PID 16880 /T /F
 本次没有修改 QA case 的提示词，因此长文本实际保存路径没有在浏览器里验证；
 后续如果要测，应该使用可丢弃的临时 case，或先记录原值并在测试后恢复。
 
-## 4. 记录模板
+## 4. 2026-10-26 · 本机 vrstudio.toml 会让全量 pytest 变红
+
+### 现象
+
+`uv run pytest` 有 9 例失败，全部在 `tests/test_web_proxy.py`：断言默认 `web.proxy_max_w == 4096`，实际读到 2048；代理 sidecar 的 ready/disabled 判定与预期相反。
+
+### 诊断步骤
+
+1. 确认失败集中在一个模块，且断言的是配置默认值。
+2. 查仓库根的 `vrstudio.toml`（gitignore）：本机按决策 17 设了 `proxy_max_w = 2048`。
+3. 把该文件临时移开，只跑 `tests/test_web_proxy.py`，13 例全绿；再跑全量 386 例全绿；随后原样移回。
+
+### 根因
+
+`config_mod.load()` 不传 `cwd` 时按“用户目录 → 当前目录”的优先级读取 `vrstudio.toml`；代理测试直接断言内置默认值，没有隔离开发者机器的本地覆盖。与本次功能改动无关。
+
+### 处理
+
+临时移开本地配置验证后恢复；没有改代理逻辑，也没有改测试。
+
+### 验证
+
+默认配置下 `uv run pytest` 386 passed；`vrstudio.toml` 恢复后本机仍按 2048 运行服务。
+
+### 预防
+
+- 全量门禁变红且集中在 `test_web_proxy` 时，先看本机 `vrstudio.toml`，不要先动代理实现。
+- 长期做法：这类断言默认值的测试显式传 `config_mod.load(cwd=tmp_path)` 或 monkeypatch `load`，不读开发者本地文件。本次未改，留作独立修复。
+
+## 5. 记录模板
 
 以后新增经验时按以下结构追加，不覆盖旧记录：
 
