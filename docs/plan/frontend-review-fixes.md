@@ -60,10 +60,15 @@
 
 未能执行：
 
-- [ ] 真实浏览器逐按钮验收。Agent 测试方案已写入
-  `docs/plan/frontend-agent-test-plan.md`，待执行；当前环境的 Playwright
-  浏览器实例被占用，browser-use 的 Chrome 远程调试端口未开启。执行前需按方案
-  重新确认服务、端口、case 根与浏览器可用性。
+- [x] 真实浏览器逐按钮验收。已分两轮完成：
+  - 第一轮（2026-10-25，`docs/test-runs/20261024-frontend-agent.md`）：
+    A/B/D/F/G/I 通过；C/E 覆盖不足；H（上传取消）发现并修复后复测通过。
+  - 第二轮（2026-10-25/26，`docs/test-runs/20261025-frontend-agent.md`）：
+    提示词输入/保存五场景、fullredraw pad 门控两分支全部通过；
+    新发现 F1–F6 六项问题并已修复（默认草稿共用播种、pad ready 语义、
+    pad 原因显示、步骤按钮 aria-label、添加变量入口、render_error 前缀）。
+- [ ] 单次真实付费提交（qa_videoedit_1023，只提交不 adopt/merge/compare）：
+  预演已通过，等待单独批准。
 
 ## 2. 问题清单
 
