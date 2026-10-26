@@ -1,6 +1,6 @@
 # 首尾帧页排布重做（A2 · 通栏）与抽取页产物条
 
-状态：待批（2026-10-26 原型验收通过，用户选择「只做 A2」）。
+状态：已实施（2026-10-26）。首尾帧页提交 `a0f51e7`，抽取页提交 `8695fd2`；浏览器验收记录见 `docs/test-runs/20261026-keyframe-extract-layout.md`。
 关联：`docs/plan/frontend-refactor-plan.md`（新前端总体计划）、`docs/key-issues/frontend-decisions.md`（前端决策惯例）、
 `vrgen/templates/keyframe-first.md` 与 `keyframe-last.md`（图1/图2/图3 的参考图分工来源）、
 `docs/plan/unified-file-view-plan.md`（`FileOpenLink` 与 `/file` 打开入口的既有机制）。
@@ -94,51 +94,54 @@
 1. **保留任务状态与日志**：原型没有这块，但当前页面用它显示失败原因与任务尾部。方案是收进候选面板底部的「最近一次生成任务」折叠行：常态一行（状态标签 + 任务 id + 排队位），失败时自动展开 `error`，日志尾部放在折叠内容里。依据 `DESIGN.md` §5「状态必须可见、长内容默认折叠」。
 2. **四格继续用 `/img/asset` 的 320px 缩略**，这一点与原页面相同，本轮不改伺服面。显示宽度约 266px，1x 屏够用；2x 屏会略软。若后续要原图，`/file` 路由已经存在，替换图片地址即可，不需要新接口。候选图仍走 `/img/keyframe/...`，它返的是候选原图字节。
 
-## 4. 实施步骤
+## 4. 实施步骤（均已完成）
 
-### WP1 顶栏与输入四格
+实际提交按「一个可验收的页面状态」合并：WP1、WP3、WP4 改的是同一个模板块，拆开提交会出现半迁移的版面，因此并成首尾帧页的一次提交；WP5 单独一次。
 
-- 删除 `.frame-chain`、`.picked-preview`、`.video-node` 及其样式。
+### WP1 顶栏与输入四格（已完成，合入 `a0f51e7`）
+
+- 已删除 `.frame-chain`、`.picked-preview`、`.video-node` 及其样式。
 - 新增 `.kf-topbar`：`el-radio-group`（首帧/尾帧）+ spacer + 交接按钮 + 禁用原因。
 - 新增 `.kf-slots` 四格与 `.kf-slot` 子结构（标题行、16:9 媒体区、文件名行）。
-- 图3 与目标格的空态用虚线占位，定稿后 `object-fit: cover` 铺满并去掉虚线；定稿态不加内边距（原型里就是这一点导致图片没填满）。
+- 图3 与目标格的空态用虚线占位，定稿后由 `.kf-shot img` 铺满；定稿态不加内边距。
 
-### WP2 三视图抽屉与上传
+### WP2 三视图抽屉与上传（已完成）
 
-- 新增抽屉（`el-drawer`）+ 候选卡（缩略图、已绑定标记、打开原图）。
-- `AssetUploadDialog.vue` 增加可选 `defaultRole?: string` 属性：只有该角色在 `ASSET_ROLE_OPTIONS` 里才生效，新上传行用它作为初始角色，仍允许用户改。
-- 附件 `added` 事件后 `emit('updated', data)`，让 `sheet_candidates` 刷新。
+- 新增 `el-drawer` 抽屉 + 候选卡（缩略图、已绑定标记、文件名、打开原图）。
+- **没有给 `AssetUploadDialog` 加 `defaultRole` 属性**：`defaultRole('image')` 本来就是 `subject_ref`，加一个写死的预设对图片无行为差异，却会把抽屉里误传的视频也标成 `subject_ref`。沿用现有默认角色。
+- `added` 事件后 `emit('updated', data)`，`sheet_candidates` 随之刷新。
 
-### WP3 候选面板与任务折叠行
+### WP3 候选面板与任务折叠行（已完成，合入 `a0f51e7`）
 
-- 候选面板升为满宽，头部放批次元信息（round / 分辨率 / 张数）、分辨率选择、数量、刷新、生成按钮。
+- 候选面板升为满宽，头部放分辨率、数量、刷新、生成按钮。
 - 候选网格 `repeat(4, minmax(0, 1fr))`，保留 `.candidate-card` / `.candidate-wrap`。
-- 底部加「最近一次生成任务」折叠行，失败时自动展开。
+- 底部「最近一次生成任务」行：状态标签 + 任务 id + 排队位，失败时自动展开错误；日志尾部放在「技术详情」里。
+- 头部不再重复批次编号：每个批次块自带 `img-…` 与阶段标签，头部再放一份是重复信息。
 
-### WP4 提示词三列与清理
+### WP4 提示词三列与清理（已完成，合入 `a0f51e7`）
 
 - 提示词面板满宽，`VariableCard` 列表改三列网格；`VariableCard` 自身样式不动。
-- 删除不再使用的 import（`ArrowRight`、`VideoPlay`）与样式块。
-- 更新 `tests/unit/keyframe-step.spec.ts`：`.frame-media a` 的断言改到新类名；新增图3 步骤切换、三视图缩略图、交接禁用原因三条断言。
+- 删除不再使用的 import（`ArrowRight`、`VideoPlay`、`Check`）与样式块。
+- 重写 `tests/unit/keyframe-step.spec.ts`：改为挂载真实 Element Plus，覆盖四格、步骤切换、抽屉、交接禁用。
 
-### WP5 抽取页产物条（可独立交付）
+### WP5 抽取页产物条（已完成，`8695fd2`）
 
 - 控制行合并当前版本、两个门槛、`运行抽取` 主按钮。
-- 新增「本次产物」四格：`clip.mp4`、`clip_mask.png`、`clip.json`、首尾原始帧，数据来自现有 `step_files.extract.outputs`，每格用 `FileRow` 的打开入口。
+- 新增「本次产物」四格：`clip.mp4`、`clip_mask.png`、`clip.json`、首尾原始帧，数据来自现有 `step_files.extract.outputs`，每格直接链到 `open_url`。
 - 版本与任务并排为两栏，去掉 2×2 配对。
+- 视频格用 `first_frame_raw.png` 的 `/file` 地址作海报（`/file` 返回 `inline`，可直接当 `<img src>`）。
 
 ## 5. 测试
 
-前端单测（`frontend/tests/unit`）：
+前端单测（`frontend/tests/unit`，实施后共 77 条）：
 
-- `keyframe-step.spec.ts`：现有两条断言按新结构更新；新增「首帧步骤图3 为占位」「尾帧步骤图3 显示首帧定稿」「三视图格指向 `/img/asset/<case>/<sheet id>`」「未定稿时交接禁用并显示原因」。
-- `asset-upload-dialog.spec.ts`：新增「defaultRole 生效且可被用户改回」。
-- 现有 `extract-step.spec.ts` 在 WP5 后补一条「产物四格渲染四个打开入口」。
+- `keyframe-step.spec.ts`（7 条）：当前步骤原图链接与提示、三视图缩略图指向 `/img/asset/<case>/<id>`、抽屉列出候选、首帧步骤图3 为占位、切到尾帧后图3 与目标同步、交接禁用原因、候选打开链接在按钮外。
+- `extract-step.spec.ts`（6 条）：新增「产物四格渲染且 mask 以 `open_url` 作图片地址、首尾帧成对」。
 
 门禁（提交前全绿）：
 
 - 前端：`npm run lint`、`npm run typecheck`、`npm run test`、`npm run build`。
-- 后端（本轮不改，仍记录现状）：`uv run pytest`、`uv run ruff check .`。
+- 后端（本轮不改）：`uv run ruff check .` 干净；`uv run pytest` 需临时移开本机 `vrstudio.toml`，否则 `test_web_proxy` 的 9 例按 2048 失败（见 `docs/lessons-learned.md` §4）。移开后 386 条全绿。
 
 ## 6. 验收
 
@@ -157,4 +160,4 @@
 
 - **首屏变长**：单栏纵向，1440×900 下提示词在首屏以下。生成与交接都在顶栏常驻，不滚动也能完成主流程；提示词是本页低频操作，接受这个代价。
 - **三视图按钮藏在格子里**：「查看 / 更换」是文字链接，首次使用可能不易发现。回退方案是在图2 缩略图上叠加整卡点击区。
-- 回退方式：改动集中在 `KeyframeStep.vue` 与 `AssetUploadDialog.vue` 两处，`git revert` 单个提交即可恢复旧排布；不涉及数据与契约。
+- 回退方式：首尾帧页的改动集中在 `KeyframeStep.vue` 一个文件（连同它的单测），`git revert a0f51e7` 即可恢复旧排布；抽取页同理 `git revert 8695fd2`。不涉及数据与契约。
