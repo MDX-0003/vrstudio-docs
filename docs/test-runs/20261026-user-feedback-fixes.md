@@ -1,0 +1,50 @@
+# 用户反馈四问题的排查与修复记录
+
+记录时间：2026-10-26。
+背景：用户在实际使用（dacne，自建服务 127.0.0.1:8760）后报告四个问题；本文是排查证据与修复记录。决策条目见 `docs/key-issues/frontend-decisions.md` §15、§16。
+结论：问题 1/3/4 已修复并验证；问题 2（播放卡顿）排查完毕，方案待用户选定后实施。
+
+## 1. 问题清单与判定
+
+| # | 用户描述 | 判定 | 证据 |
+|---|---|---|---|
+| 1 | 全景界面中央有一个圆形图案，不确定是不是 bug | 页面元素，非场景内容 | `PickStep.vue` 的 `.erp-cross`：14px 白色半透明圆环固定在 (50%,50%)；从 dacne 代理视频抽帧确认场景里无圆形物体；旧前端无此元素（Vue 迁移新增） |
+| 2 | 选区和对比窗口播放都非常卡顿 | 待讨论 | 两页播放 4096×2048@60fps 代理（`PROXY_MAX_W=4096`，帧率与源一致）；对比页同时播两路；远程桌面环境 Chrome 可能无硬件解码 |
+| 3 | 抽取完成后仍显示首尾帧“文件缺失” | 页面陈旧状态，数据无误 | 任务日志成功；`extracts/20261026-091318` 里两个文件都在（09:16:11 写入）；case.toml 指向正确；用户服务 API 复查五个文件全部 `exists=true` |
+| 4 | 微调速度想要页面滑块实时修改 | 新需求 | 原为写死 0.1°/100ms |
+
+## 2. 问题 3 的完整因果链
+
+1. 抽取 CLI 最后一步才写 `extract.current`（`src/vrstudio/cli/extract.py:190`）；运行期间 API 指向旧版本 `20261021-140105`，该目录没有首尾帧文件（列表核实）。
+2. 后端对当前版本目录固定列出首尾两帧（`_patch_step_files`）→ 期间加载的页面显示“缺失”是当时的事实。
+3. 完成后不自动刷新的两层原因：完成回调 `if (!running.value) return`，`running` 只在本页点击后置位（`ExtractStep.vue` 旧实现）；且任务轮询 `start()` 只在点击运行/刷新时启动，页面没有数据源。
+
+教训（已进决策条目 §15）：任务驱动的刷新不能依赖“本页发起”的本地标志；`running` 这类状态要从任务列表推导。KeyframeStep / MergeStep 是同一模式，未改，出现同类问题按 §15 处理。
+
+## 3. 修复内容（vrstudio `main`）
+
+- 问题 3：`ExtractStep.vue`——`running` 从最近 extract 任务推导 + 提交瞬间 `submitting` 防双击；完成回调去守卫（挂载后创建的任务 done 即刷新，挂载前旧任务忽略）；`onMounted(start())` 开始轮询。
+- 问题 1：删除 `.erp-cross` 元素与样式。
+- 问题 4：`PickStep.vue`——摇杆改方向语义，步长 = 速度(°/秒)×0.1s；滑块 0.2–5.0（步进 0.1，默认 1.0），localStorage 持久化 `vr.pickNudgeDegPerSec`；提示文案改为实时显示“N°/秒”。
+
+测试：新增 `extract-step.spec.ts`（4 用例）、`pick-step.spec.ts`（3 用例，含圆环不存在的回归断言）。门禁：ruff 通过、pytest 365 passed、lint/typecheck 通过、vitest 56 passed、build 通过。
+
+## 4. 浏览器验证（8763，cases_qa 的 qa_patch_fix_1026，8 帧小 case）
+
+- 问题 1：`.erp-cross` 计数 0。
+- 问题 4：键盘把滑块调到 3.0°/秒 → 文案“3.0°/秒”、localStorage=3；按住 ↑ 半秒 pitch 0.00→1.80°（≈6 tick×0.3°，与 3°/秒一致；旧速度约 0.5°）。截图 `T6-pick-nudge-slider.png`。
+- 问题 3（复现用户场景）：抽取页开着不动、任务用 curl 从外部发起；完成后页面自动换到新版本号（093933→094306）、2 个版本、无“文件缺失”、任务显示已完成、控制台 0 错误。截图 `T7-extract-auto-refresh.png`。
+  - 第一轮验证曾失败并暴露第二个缺口（未挂载轮询），补 `onMounted(start())` 后复测通过——这正是真浏览器验证的价值，组件测试手动推动 `latest` 把该缺口盖住了。
+
+## 5. 问题 2 的排查事实（待讨论）
+
+- dacne 代理：4096×2048@60fps、crf22（`derived/pick/proxy.json`）；对比页两路同时播（左源片代理 + 右成片代理，右路也是 4096 宽）。
+- 帧率不能降：`_encode_proxy` 校验代理与源帧数/帧率一致（选区页滑块按帧号同步）。
+- 环境因素：远程桌面下 Chrome 可能无硬件解码，`chrome://gpu` 的 Video Decode 可确认。
+- 候选方案与取舍已写入 `docs/key-issues/frontend-decisions.md`「待决与未做」；等用户定 `web.proxy_max_w` 的取值（2048 或 2560）后实施。
+
+## 6. 环境
+
+- vrstudio HEAD：`ed53166` + 本轮未提交修复（提交信息见 git log）。
+- 服务：8763（cases_qa）用于验证；用户服务 8760 未动。
+- 截图目录：`E:\VRAIGC\.playwright-mcp\frontend-agent-20261026\`，不进 git。

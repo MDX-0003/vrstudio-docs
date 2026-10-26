@@ -2,7 +2,7 @@
 
 本文记录 E:\VRAIGC 前端（web 模板、静态脚本、页面交互与客户端状态）的关键问题、已拍板决策、被排除的方案和最终解决办法。后端契约与算法决策仍在 `docs/case-model.md`、`docs/decisions.md` 与各自的计划文档里，本文只在它们影响前端交互时引用。
 
-最后更新：2026-10-23。
+最后更新：2026-10-26。
 
 前端技术栈选型的需求与论证见 `20261023-frontend-stack-selection.md`，实施计划见 `../plan/frontend-refactor-plan.md`；本文只记录页面级与交互级问题，不重复选型论证。
 
@@ -518,7 +518,77 @@ gen 没有 extract，首尾原始帧需要「上传两张原始帧」的入口�
 
 `vrstudio/frontend/src/views/wizard/`、`frontend/src/api/`、`frontend/src/composables/`、`frontend/src/legacy/Erp360Compare.ts`；`vrstudio/src/vrstudio/web/app.py`、`case_meta.py`、`locks.py`、`tasks.py`、`logging.py`、`proxy.py`；`docs/plan/frontend-workflow-and-skills.md`。
 
+## 15. 2026-10-26 · 抽取页的完成刷新不再依赖“本页点过按钮”
+
+**问题**
+
+用户在 dacne 上跑完抽取（任务日志显示成功），抽取页仍把 `first_frame_raw.png` 与 `last_frame_raw.png` 标成“文件缺失”：
+
+> E:\VRAIGC\vrstudio\logs\tasks\20261026\18da9d76b3de_extract_dacne.log 执行完毕以后，抽取界面还是显示 first_frame_raw.png 和 last_frame_raw.png ”文件缺失"。
+
+**原因**
+
+文件与指针都正确（API 复查五个文件 `exists=true`）。抽取 CLI 在最后一步才写 `extract.current` 指针（`cli/extract.py:190`），抽取运行的近三分钟里 API 一直指着旧版本目录，而旧目录没有首尾帧文件——期间加载的页面显示“缺失”是当时的事实。但完成后页面不自动刷新有两层原因：完成回调有 `if (!running.value) return` 守卫，`running` 只在本页点击“运行抽取”时置位，中途刷新或从别处发起的任务永远不触发刷新；且任务轮询 `start()` 只在点击运行/刷新时才启动，页面干等着根本没有数据源。
+
+**决策**
+
+- `running` 改为从任务列表推导（最近一条 extract 任务 queued/running 即进行中），另加提交瞬间的本地 `submitting` 防双击。
+- 完成回调去掉 `running` 守卫：本页挂载之后创建的 extract 任务变 done 就 `fetchCase` 刷新；挂载之前完成的旧任务不触发（挂载时的 info 已是最新）。
+- 挂载即 `start()` 轮询，卸载停止由 `useCaseTasks` 自理。
+
+**排除的方案**
+
+- 保留点击标志、只补轮询：任务从别的页面发起时刷新逻辑仍会被守卫挡掉。
+- 轮询到 done 无条件刷新：挂载时旧任务会立刻触发一次多余请求，且和挂载时的 info 竞争。
+
+**验证**
+
+组件测试三例（外部任务完成触发刷新、挂载前旧任务不触发、running 随任务状态变化）；真浏览器在 `qa_patch_fix_1026` 上复现用户场景——页面开着不动、任务从 curl 发起，完成后页面自动换到新版本号且无“文件缺失”。门禁 56 用例全绿。
+
+**涉及文件**
+
+`vrstudio/frontend/src/views/wizard/ExtractStep.vue`、`frontend/tests/unit/extract-step.spec.ts`。
+
+**后续入口**
+
+KeyframeStep / MergeStep 的任务驱动刷新是同一模式（点击标志 + 手动 start），排查记录见 `../test-runs/20261026-user-feedback-fixes.md`；出现同类陈旧显示时按本条方式改。
+
+## 16. 2026-10-26 · 选区页：删掉全景中心圆环，微调加速度滑块
+
+**问题**
+
+用户报告两处：
+
+> 选区窗口-全景界面中央有一个圆形图案，不确定是不是bug。
+> 选区页面的“按住持续微调（0.1°/0.1 秒）”我希望速度可以在页面上有个滑块实时修改。
+
+**原因/决策**
+
+- 圆环是 Vue 迁移时新加的 `.erp-cross`（14px 白色半透明圆环固定在 50%,50%），旧前端没有对应物，场景内容里也没有圆形物体（从代理视频抽帧核实过）。它不承载信息（选区位置由示意框表达），却被用户当成可疑图形——删除。
+- 摇杆原来写死 0.1°/100ms（即 1°/秒）。改为摇杆只传方向（-1/0/1），步长 = 速度(°/秒) × 0.1s；页面滑块范围 0.2–5.0、步进 0.1、默认 1.0（与旧行为一致），实时生效并写入 `localStorage('vr.pickNudgeDegPerSec')`。
+
+**排除的方案**
+
+- 圆环改成悬停显示的十字准星：点击定位已有示意框与提示文案，再加准星是重复表达。
+- 速度档位用下拉：实时调速要连续拖动，滑块才是对的控件。
+
+**验证**
+
+组件测试（滑块范围/默认值、2.5°/秒时每 tick 0.25°、localStorage 持久化、圆环不存在）；真浏览器键盘把滑块调到 3.0°/秒后按住 ↑ 半秒 pitch 0→1.8°（约 6 tick × 0.3°），localStorage 记住 3。
+
+**涉及文件**
+
+`vrstudio/frontend/src/views/wizard/PickStep.vue`、`frontend/tests/unit/pick-step.spec.ts`。
+
+**后续入口**
+
+若以后觉得 0.2°/秒仍太快（远焦视口），把下限降到 0.05 再说；不要为此加档位预设。
+
 ## 待决与未做
+
+### 选区与对比页的播放卡顿（2026-10-26，等讨论）
+
+用户报告选区和对比窗口播放都非常卡顿。排查事实：两页播放的都是代理视频，代理上限 `PROXY_MAX_W=4096`、帧率与源一致（dacne 为 4096×2048@60fps），对比页同时播两路；本机经远程桌面使用，若 Chrome 走软解（`chrome://gpu` 的 Video Decode 为 Software）则 4K60 必卡。候选方案：把代理宽度上限做成配置（`web.proxy_max_w`，默认不变，本机设 2048/2560 后按新尺寸重建代理）；或选区页与对比页用不同清晰度的两套代理（编码与存储翻倍，倾向不做）。fps 不能降——帧同步要求与源一致。等用户选定上限值与方案后实施。
 
 ### gen 的首尾帧入口
 
