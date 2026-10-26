@@ -76,6 +76,7 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 | `docs/patch-time-assembly-plan.md` | 草案：空间合并后自动拼接原片前后段的时间合并计划与待确认项 |
 | `docs/generate-page-plan.md` | 生成页可读性优化方案：主题折叠、模板内别名、提示词自适应、底部提交条（待批） |
 | `docs/keyframe-workbench-plan.md` | 首尾帧重绘工作台方案：两帧展示、图片步提示词框架、一键串联与到视频步的交接（patch 已实施） |
+| `docs/plan/keyframe-page-layout-plan.md` | 首尾帧页排布重做（A2 通栏）与抽取页产物条：四格输入、三视图抽屉、候选与提示词通栏（待批） |
 | `docs/plan/unified-file-view-plan.md` | 统一文件视图方案：/file 按根寻址的白名单直开路由 + FileRow 组件，所有展示资产可查名查路径可单独打开（已实施，验收见 `docs/test-runs/20261026-unified-file-view.md`） |
 | `docs/key-issues/frontend-decisions.md` | 前端关键问题与决策记录：逐条记录问题、决策、排除方案、验证与涉及文件（持续更新） |
 | `docs/key-issues/20261023-frontend-stack-selection.md` | 前端技术栈选型：需求、方案对比、概念对齐与用户确认记录 |
