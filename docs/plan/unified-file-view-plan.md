@@ -1,6 +1,6 @@
 # 统一文件视图方案：所有展示资产可查名、可查路径、可单独打开
 
-状态：修订稿（2026-10-26 讨论确认：根寻址、逐轮台账文件、回收伺服面；WP0 优先）。
+状态：已实施（2026-10-26，WP0–WP5 完成；浏览器验收记录见 `docs/test-runs/20261026-unified-file-view.md`）。
 关联：`docs/key-issues/frontend-decisions.md`（前端决策惯例）、`docs/plan/frontend-review-fixes.md`（ExtractStep 文件行样板的出处）、`docs/case-model.md`（跨仓台账契约）。
 
 ## 0. 已确认的分支决策
