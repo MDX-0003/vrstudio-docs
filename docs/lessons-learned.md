@@ -180,3 +180,7 @@ taskkill /PID 16880 /T /F
 ### 预防
 ### 相关文件/命令
 ```
+
+- 2026-10-27 对比页 Playwright 验收：应用层的「设置显示名」el-dialog 会盖住整个页面，点击类操作全部落在 overlay 上（超时或无效）；先点「稍后」关掉弹窗再交互。elementFromPoint 可用来快速发现遮挡。无头页面失焦时 rAF 节流到 1fps，测量前 bringToFront 并检查 document.hidden。
+
+- 2026-10-27 前端改动的两份形态：8760 服务的是 frontend/ 的构建产物（src/vrstudio/web/static/next），vite dev（5173）才是源码实时版；改了 frontend/src 后必须 cd frontend && npm run build 才能在 8760 看到变化，且无需重启 serve（静态文件现读盘）。用户看到旧版入口还在、新功能没生效时，先查产物时间戳再怀疑代码回退。

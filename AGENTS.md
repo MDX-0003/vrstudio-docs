@@ -79,7 +79,12 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 | `docs/plan/keyframe-page-layout-plan.md` | 首尾帧页排布重做（A2 通栏）与抽取页产物条：四格输入、三视图抽屉、候选与提示词通栏（已实施，验收见 `docs/test-runs/20261026-keyframe-extract-layout.md`） |
 | `docs/plan/asset-library-separation-plan.md` | 素材库独立页面与步骤内引用清单：文件库、视频提交集、图片参考集三层分离，选择器、旧版兼容与迁移（审查稿，待原型确认） |
 | `docs/plan/unified-file-view-plan.md` | 统一文件视图方案：/file 按根寻址的白名单直开路由 + FileRow 组件，所有展示资产可查名查路径可单独打开（已实施，验收见 `docs/test-runs/20261026-unified-file-view.md`） |
+| `docs/plan/frontend-perf-compare-playback.md` | 对比页 360 视频播放卡顿排查与修复：B 路从未播放只靠 seek 挪进度（Playwright 实测实锤）、隐藏视频元素失去 GPU 上传快路径、每帧强制布局、播放画质下拉框（代理/原始分辨率，已实施，待真实浏览器验证） |
+| `docs/plan/case-owner-transfer-plan.md` | Case 负责人归属行与「归属到我的名下」方案：改主端点 + revision 乐观并发，不做认领/指派（已实施，Playwright 验证通过） |
+| `docs/plan/save-conflict-resolution-plan.md` | 保存冲突三条修复：弹窗加「仍要保存（覆盖对方）」出口、同轮冲突收敛为一次、几何草稿落定帧带 revision 校验（已实施，Playwright 端到端验证通过） |
+| `docs/plan/upload-source-video-plan.md` | 新建 case 支持上传源视频：复用分片上传管线，`api_cases` 加 `upload_id` 分支，上传弹窗解耦终点，入口在新建弹窗源视频旁（待实施） |
 | `docs/key-issues/frontend-decisions.md` | 前端关键问题与决策记录：逐条记录问题、决策、排除方案、验证与涉及文件（持续更新） |
+| `docs/key-issues/20261027-windows-process-port-management.md` | Windows 下进程与端口占用的排查与治理：uv venv 跳板的 exe 陷阱、运行中 exe 锁 venv、serve 启动接管旧实例（portguard） |
 | `docs/key-issues/20261023-frontend-stack-selection.md` | 前端技术栈选型：需求、方案对比、概念对齐与用户确认记录 |
 | `docs/plan/frontend-refactor-plan.md` | 前端重构实施计划：Vue 3 + Element Plus、页面迁移、后端解耦与验收 |
 | `docs/plan/patch-browser-acceptance-plan.md` | Patch 流程新前端浏览器验收计划：两条真实路径、首尾帧 4+4、逐按钮验收与自动化接口 |
