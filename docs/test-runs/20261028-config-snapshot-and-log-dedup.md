@@ -54,7 +54,16 @@
 
 - 没有重启 8760、8763、8766 三个常驻服务：它们仍是旧代码进程，新行为要重启才生效。配置数据没有变化，所以它们不会重复 18:14 的事故。
 - 没有用浏览器逐页点验新前端，只做了接口级验证。
-- `web.upload_max_bytes` 在 `default.toml` 里不存在，`_deep_merge` 又拒绝未知键，这个键实际上设不了值，`_upload_max_bytes()` 永远返回内置默认。属既有问题，本次未动。
+
+## 同日补做：删掉 `web.upload_max_bytes` 死键
+
+`api_uploads_create` 原本通过 `_upload_max_bytes()` 读 `web.upload_max_bytes`，缺键时回落到内置默认。这个键不在 `config/default.toml` 与 `_FALLBACK` 里，而配置合并只允许覆盖默认值里已有的键（`_deep_merge` 与 `_set_path` 都报 `unknown config key`），所以它只能读、不能设，上限恒为 10 GiB。实测：`config.load(overrides=["web.upload_max_bytes=1048576"])` 抛 `ConfigError --set web.upload_max_bytes: unknown config key`。
+
+按「能删就删」处理：删除 `_upload_max_bytes()` 与 `.get` 回落，常量由 `UPLOAD_MAX_DEFAULT` 改名为 `UPLOAD_MAX_BYTES`（不再是「默认值」，已经没有覆盖入口），`api_uploads_create` 的 413 判定与响应里的 `max_size` 都用它。上传上限是产品级约束而不是机器级取舍（`proxy_max_w` 才是机器级），放宽只会在平台侧被拒，所以不提供覆盖入口。
+
+补了一处断言与一条测试：`test_upload_rejects_bad_type_and_size` 增加 `UPLOAD_MAX_BYTES + 1` 的 413 断言；新增 `test_upload_limit_is_not_configurable`，断言把 `upload_max_bytes` 写进配置文件会报 `unknown config key`，钉住「它不是配置项」。
+
+验证：`pytest` 419 条通过、`ruff check .` 干净。
 
 ## 涉及文件
 
