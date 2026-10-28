@@ -1,0 +1,126 @@
+{
+  "schema": 1,
+  "note": "素材角色契约快照。docs/roles.json 为权威，vrgen/src/vrgen/roles.json 与 vrstudio/src/vrstudio/roles.json 必须与它逐字节相同；改契约时三份一起改，并更新两个仓库 tests/test_roles_contract.py 里的 SHA256。字段语义见 docs/case-model.md §2「素材角色与校验」。",
+  "roles": [
+    {
+      "name": "edit_master",
+      "label": "编辑母版",
+      "help": "编辑母版（时间轴、构图与动作基准）",
+      "prompt": "编辑母版，负责时间轴、构图与动作基准。",
+      "kinds": null,
+      "modes": ["videoEdit", "allMediaRef", "videoExtend"],
+      "open": true,
+      "reserved": false
+    },
+    {
+      "name": "motion_ref",
+      "label": "动作参考",
+      "help": "动作参考（只提供动作节奏与路径）",
+      "prompt": "动作参考，只提供动作节奏与路径。",
+      "kinds": null,
+      "modes": ["videoEdit", "allMediaRef", "videoExtend"],
+      "open": true,
+      "reserved": false
+    },
+    {
+      "name": "space_ref",
+      "label": "空间参考",
+      "help": "空间参考（只提供机位、构图与起终点位置）",
+      "prompt": "空间参考，只提供机位、构图、起点与终点位置；不提供人物动作。",
+      "kinds": null,
+      "modes": ["videoEdit", "allMediaRef", "videoExtend"],
+      "open": false,
+      "reserved": false
+    },
+    {
+      "name": "scene_ref",
+      "label": "场景参考",
+      "help": "场景参考（只提供构图、背景与光照）",
+      "prompt": "场景参考，只提供构图、背景与光照。",
+      "kinds": null,
+      "modes": ["videoEdit", "allMediaRef", "videoExtend"],
+      "open": false,
+      "reserved": false
+    },
+    {
+      "name": "lighting_ref",
+      "label": "光照参考",
+      "help": "光照参考（只提供光源位置、色温、明暗对比与空气质感）",
+      "prompt": "光照参考，只提供光源位置、色温、明暗对比与空气质感；不提供构图、机位、背景与任何画面内容。",
+      "kinds": ["image"],
+      "modes": ["videoEdit", "allMediaRef", "videoExtend"],
+      "open": true,
+      "reserved": false
+    },
+    {
+      "name": "subject_ref",
+      "label": "主体参考",
+      "help": "主体参考（只定义角色外观）",
+      "prompt": "主体参考，只定义角色外观。",
+      "kinds": null,
+      "modes": ["videoEdit", "allMediaRef", "videoExtend"],
+      "open": true,
+      "reserved": false
+    },
+    {
+      "name": "first_frame",
+      "label": "首帧定稿",
+      "help": "首帧定稿图（视频第一帧，锁起点构图与人物外观）",
+      "prompt": "首帧定稿图，视频的第一帧，锁定起点构图与人物外观。",
+      "kinds": ["image"],
+      "modes": ["firstLastFrame"],
+      "open": true,
+      "reserved": false
+    },
+    {
+      "name": "last_frame",
+      "label": "尾帧定稿",
+      "help": "尾帧定稿图（视频最后一帧，锁终点位置、大小与朝向）",
+      "prompt": "尾帧定稿图，视频的最后一帧，锁定终点位置、大小与朝向。",
+      "kinds": ["image"],
+      "modes": ["firstLastFrame"],
+      "open": true,
+      "reserved": false
+    },
+    {
+      "name": "mid_frame",
+      "label": "中间帧",
+      "help": "中间过渡帧（首尾间距过大时补充，预留）",
+      "prompt": "中间过渡帧，仅在首尾间距过大时补充。",
+      "kinds": ["image"],
+      "modes": ["firstLastFrame"],
+      "open": false,
+      "reserved": false
+    },
+    {
+      "name": "first_frame_raw",
+      "label": "首帧原始图",
+      "help": "首帧原始抽取图（工作台输入底图，不是生成素材）",
+      "prompt": "工作台输入底图（原始抽取帧），只提供场景与占位，不是生成素材。",
+      "kinds": ["image"],
+      "modes": [],
+      "open": false,
+      "reserved": true
+    },
+    {
+      "name": "last_frame_raw",
+      "label": "尾帧原始图",
+      "help": "尾帧原始抽取图（工作台输入底图，不是生成素材）",
+      "prompt": "工作台输入底图（原始抽取帧），只提供场景与占位，不是生成素材。",
+      "kinds": ["image"],
+      "modes": [],
+      "open": false,
+      "reserved": true
+    },
+    {
+      "name": "mask",
+      "label": "编辑区域标注",
+      "help": "编辑区域标注（流程产物，装配器自动附带）",
+      "prompt": "编辑区域标注，不作为画面内容参考。",
+      "kinds": ["image"],
+      "modes": [],
+      "open": false,
+      "reserved": true
+    }
+  ]
+}

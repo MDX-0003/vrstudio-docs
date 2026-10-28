@@ -107,7 +107,7 @@ round = "dusk-3c1a4b2d"
 - `[[assets]]` 不再是 gen 专属：patch、fullredraw 也可以有文件素材列表（三视图、重绘定稿帧等）。三条流程的既有段（patch 的 `[source]/[viewport]/[inner]/[frames]`、fullredraw 的 `[source]`、以及 `*_pad.json` manifest）不变。
 - 原始源视频与流程产物（patch 的 clip/mask/首尾原始帧、fullredraw 的 pad/mask）不写进 `[[assets]]`，路径由 `[extract] current` 或 manifest 决定，避免与 `[source]` 的哈希契约形成双重真源。其中 clip/pad 作为可勾选候选；mask 由装配器自动附带，不作为用户素材；首尾原始帧只作工作台输入。提交契约不区分来源，也没有 `derived` 标记。merge 成片是流程输出，不作为生成提交候选。
 - 源视频为什么不并进 `[[assets]]`（2026-10-27 补充，与 gen 的差异在此说明）：patch 的 `[source] sha256` 是 merge 前的校验契约，同一份视频再记一条素材就是双重真源；fullredraw 的生成母版是 `pad` 产物（候选 id `pad`、角色 `edit_master`），源视频只被 `vrstudio pad` 读一次，并进素材库会让候选里出现两个 `edit_master` 视频，而提交几何由 manifest 决定，选错源会静默错片。此外 `[[assets]]` 的语义是"复制进 `cases/<name>/assets/` 的文件"，源视频是从共享池 `sources/` 直接引用的数 GB 原片，按 case 复制一份没有收益。gen 既没有流程段也没有流程母版，源视频本身就是第一条素材，所以 gen 反过来取消 `[source]`（见本节末尾的迁移说明）。界面上的统一由素材库承担：素材库在 `[[assets]]` 表格上方以只读「流程文件」组显示源视频与流程母版（`info.source_file` 与 `source === 'flow'` 的候选，可查名、查路径、打开原片，母版还标出是否已加入本次提交），不改动以上数据规则。
-- 角色词表：`edit_master`、`motion_ref`、`space_ref`、`scene_ref`、`lighting_ref`（光照参考，只给光源位置、色温、明暗对比与空气质感，不给构图与画面内容）、`subject_ref`、`first_frame`（首帧定稿图）、`last_frame`（尾帧定稿图）、`mid_frame`（中间过渡帧，预留）、`first_frame_raw`、`last_frame_raw`（工作台输入底图，由 patch 的 extract 从 clip 首尾导出）、`mask`（编辑区域标注图；由 patch/fullredraw 的流程产物提供，装配器自动附带，不作为用户候选，也不参与 `@ImageN` 编号）。图片步另有 `detail_ref`（细节参考），只存在于 `keyframe.toml` 的 `refs`，不进入视频提交清单。用户素材的角色由用户在引用清单里选择，不按顺序推断；空角色是未完成状态，提交前必须补齐。
+- 角色词表：`edit_master`、`motion_ref`、`space_ref`、`scene_ref`、`lighting_ref`（光照参考，只给光源位置、色温、明暗对比与空气质感，不给构图与画面内容）、`subject_ref`、`first_frame`（首帧定稿图）、`last_frame`（尾帧定稿图）、`mid_frame`（中间过渡帧，预留）、`first_frame_raw`、`last_frame_raw`（工作台输入底图，由 patch 的 extract 从 clip 首尾导出）、`mask`（编辑区域标注图；由 patch/fullredraw 的流程产物提供，装配器自动附带，不作为用户候选，也不参与 `@ImageN` 编号）。机器可读的权威是 `docs/roles.json`（每项含 name/label/help/prompt/kinds/modes/open/reserved），两仓库各存一份逐字节相同的副本。图片步另有 `detail_ref`（细节参考），只存在于 `keyframe.toml` 的 `refs`，不进入视频提交清单。用户素材的角色由用户在引用清单里选择，不按顺序推断；空角色是未完成状态，提交前必须补齐。
 - 当前前端开放的角色按素材种类区分：视频为 `edit_master`、`subject_ref`、`motion_ref`；图片在这三个之外增加 `lighting_ref`，因为光照参考只对图片成立。`firstLastFrame` 模式另开 `first_frame` / `last_frame`。`scene_ref`、`space_ref`、`mid_frame` 仍在后端词表里，用于旧 case 与直接调用 CLI 的路径；普通下拉不展示，旧值以「旧角色」标记显示，可改成开放角色。
 - `[submit]` 是可选的提交集：`selected` 是本次提交的有序 id 列表，`roles` 是可选的逐 id 角色映射。没有默认集，缺省等于空集，勾选才提交。角色按 `roles[id]` 取；没有该键时回退到 `[[assets]] role`，因此旧 case 不需要迁移。同一份清单里一个素材只出现一次；跨步骤可以重复引用，角色各自记录。clip/pad 用固定 id 也可以出现在 `selected` 里；mask 不写进 `selected`，由装配器在提交时自动追加。写入只发生在 vrstudio，vrgen 只读 refs JSON，不认识这两个字段。删除素材时同步从 `selected` 与 `roles` 移除；重排不改 id，`selected` 不动。旧 case 没有这个字段时按空集处理，升级后首次打开需要重新勾选一次。
 - `target_aspect` 不在 case 里——它是平台 bucket 参数，进 vrstudio 项目配置。
@@ -140,9 +140,13 @@ round = "dusk-3c1a4b2d"
 角色只承载提示词里的职责声明，不再承载按模式的数量限制；数量、格式、时长、帧率、
 像素、体积的上限以模型详情的 validator 为唯一依据（`refVideoValidator` /
 `refImageValidator` / 模式 `maxCount`），提交前由 vrgen 校验，超限时按 validator
-返回的具体项报参数错。本地只保留五条平台接不住的语义规则：firstLastFrame 恰好一张
-首帧加一张尾帧、至多一个 `edit_master` 且必须是第一条视频、`mask` 只能是图片、
-`lighting_ref` 只能是图片、`first_frame_raw`/`last_frame_raw` 不能进入 `--refs` 清单。模型详情缓存
+返回的具体项报参数错。本地只保留平台接不住的语义规则：firstLastFrame 恰好一张
+首帧加一张尾帧、至多一个 `edit_master` 且必须是第一条视频、`*_raw` 不能进入
+`--refs` 清单，以及角色与素材种类的限制（`mask`、`lighting_ref`、首尾帧与
+`*_raw` 只能是图片）。角色词表、职责句、种类限制、模式归属与下拉可见性固化在
+`docs/roles.json`：vrgen 与 vrstudio 各存一份逐字节相同的副本，两侧各有一条契约
+测试断言本地词表与快照一致并用 SHA256 钉住快照；前端不再自带词表，`/api/case`
+下发 `roles`（name/label/help/kinds/modes/open/reserved）。模型详情缓存
 （`runs/<job>/models.json`）缺失、过期或刷新失败时直接报配置错，提示先运行
 `vrgen models --refresh`；需要模型能力的命令（submit、params show、prompt show）
 一律按此报错，不在本地回退内置限额，也不静默放行。
