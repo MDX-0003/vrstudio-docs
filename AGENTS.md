@@ -64,6 +64,7 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 | `docs/architecture.md` | 总架构、模块树、拷贝映射表、默认决策 |
 | `docs/case-model.md` | case.toml 格式、vrgen CLI 契约、台账格式（两仓库的唯一接口权威） |
 | `docs/decisions.md` | 决策记录（已拍板 + 待确认默认） |
+| `docs/spec/asset-roles.md` | 素材角色的设置与运行机制：词表快照、kind/modes 规则、新增角色的步骤、约束分层与排查表 |
 | `docs/sessions.md` | 项目、剧集与生成会话的层级、额度扣减与 vrgen 接法 |
 | `docs/session-ui-plan.md` | 前端项目会话选择器的实现方案与回退顺序 |
 | `docs/prompt-rules.md` | Seedance 提示词规则（编辑模式、参考模式、角色替换） |
