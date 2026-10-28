@@ -20,7 +20,7 @@
 - **Phase 1 的只读数据接入**：case 列表读取真实 `/api/cases`；新建 case 使用真实 `/api/sources` 与 `/api/modes`；昵称身份走 `/api/me`；任务中心读取真实 `/api/tasks`；项目、剧集、会话读取真实 `/api/sessions`。
 - **Phase 2 的生成页**：素材读取、勾选、角色、排序、删除、上传、提示词自动保存、生成参数保存、项目/剧集/会话、预演、提交、采用成片、最近成片、生成轮次与任务状态回显都已接真实接口。
 - **Phase 3 的向导页**：选区（全景点击、视口示意框、拖框、摇杆、逐帧）、抽取（任务与输出文件）、首尾帧（两帧、变量卡、候选网格、自动接尾帧、交接）、合并/重组、对比（WebGL 双路同步、分割线、全屏）全部迁到 `/next`。
-- **Phase 4 的多人能力**：`case-meta.json` 归属与 revision、409 冲突对话框、case 占用锁与心跳、任务扣费归属、默认入口切到 `/next`，旧前端仍由 `/case/{name}` 提供回退。
+- **Phase 4 的多人能力**：`case-meta.json` 归属与 revision、409 冲突对话框、case 占用锁与心跳、任务扣费归属、默认入口切到 `/next`；旧前端的回退已于 2026-10-27 由决策 42 退役，`/case/{name}` 只做 307 跳转。
 - **Phase 5 的日志分层**：任务原始输出统一到 `logs/tasks/YYYYMMDD/<task_id>_<kind>_<case>.log`；CLI 不再为 Web 任务另建 `logs/extract_*`、`logs/merge_*`；新增任务详情与日志接口；pytest 使用临时日志目录；旧日志清理脚本默认只列清单。
 - **后端配套**：新增 `identity.py`、`case_meta.py`、`locks.py`、`/api/me`、`/api/tasks` 与任务详情/日志、`/api/uploads/*`、`/next` 静态托管与单页回退。
 - **门禁**：前端 `typecheck`（含在 `build`）、`lint`、`format:check`、`test`、`build`；后端 `pytest` 与 `ruff`；CI 增加 Node 任务。

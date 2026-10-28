@@ -1,6 +1,6 @@
 # 素材库独立页面与步骤内引用清单方案
 
-状态：已实施（2026-10-26）。自动化门禁与免额度浏览器验收完成；真实付费图片与视频提交未跑。实施记录与差异见 §12，验收细节见 `docs/test-runs/20261026-asset-library-refs.md`。
+状态：已实施（2026-10-26）。自动化门禁与免额度浏览器验收完成；真实付费图片与视频提交未跑。实施记录与差异见 §12，验收细节见 `docs/test-runs/20261026-asset-library-refs.md`。2026-10-27 更新：旧版控制台退役（决策 42），本文标注的旧版兼容点（`sheet`/`sheet_candidates`、`/keyframe/sheet`、角色同步）已删除。
 
 原型：会话可视化目录下的 `asset-library-prototype/index.html`（不随仓库提交，实施后作废）。原型覆盖现状与方案两套视图，方案视图包含素材库页、生成页、首尾帧页与选择器；数据来自 `walk_4k` 的 26 个真实素材、两张原始帧与两组候选，`i27`/`i28` 是从三视图裁切的细节图示例。
 
@@ -18,7 +18,7 @@
 
 以下五条按推荐值写进本稿，原型已按此做出；评审要改时先改本节，再动代码。
 
-- **视频提交清单也按条目存角色。** `[submit]` 保留 `selected` 的顺序，新增 `roles` 映射；素材库不再编辑角色；旧 case 没有 `roles` 时回退到 `[[assets]] role`。代价是 `[submit]` 形状扩展，旧版控制台需要一个同步兼容层。
+- **视频提交清单也按条目存角色。** `[submit]` 保留 `selected` 的顺序，新增 `roles` 映射；素材库不再编辑角色；旧 case 没有 `roles` 时回退到 `[[assets]] role`。代价是 `[submit]` 形状扩展；旧版控制台在役时需要同步兼容层，已随决策 42 退役删除。
 - **生成页与首尾帧页共用引用行组件。** 两页都用「序号、缩略图、角色下拉、顺序、移除」这一套；角色选项、用途输入列与保存端点由步骤注入。生成页在窄栏里用紧凑布局，首尾帧页用带用途输入的宽布局。
 - **参考图两批共用，尾帧自动追加首帧定稿。** 首帧与尾帧共用同一份 `refs`；尾帧批次在人物三视图之后插入首帧定稿。代价是某一帧需要专属细节图时没有位置。
 - **每张细节图逐张写用途。** `refs` 的每一项带 `note`，渲染进【参考图分工】。代价是 `keyframe.toml` 多一个字段，并要扩展 vrgen 的 `--image-note` 契约。
@@ -79,7 +79,7 @@
 
 ### 3.1 三层结构
 
-- **文件库**：`case.toml` 的 `[[assets]]`，只存文件事实（id、kind、path、sha256）。`role` 保留为旧 case 与旧版控制台的兼容默认，新页面的素材库不展示、不编辑。
+- **文件库**：`case.toml` 的 `[[assets]]`，只存文件事实（id、kind、path、sha256）。`role` 保留为旧 case 的兼容默认，新页面的素材库不展示、不编辑。
 - **视频提交集**：`[submit]` 的 `selected` 有序 id 数组与 `roles` 映射。顺序就是提示词 `@VideoN` / `@ImageN` 与 argv 的顺序；角色按 id 取 `roles[id]`，缺省回退到 `[[assets]] role`。
 - **图片步参考集**：`keyframe.toml` 的 `refs`，新增。它是一个有序数组，每项含 `asset`、`role`、`note`。
 
@@ -101,7 +101,7 @@ i4 = "last_frame"
 - 同一素材在同一份清单里只出现一次；跨步骤可以重复引用，两份清单的角色各自记录。`roles` 用 id 做键，天然保证一份清单里一个素材只有一个角色。
 - `firstLastFrame` 门控读 `[submit.roles]`：恰好一张 `first_frame` 与一张 `last_frame`，其余条目会让门控给出具体原因。
 - `vrgen submit --refs` 已经按条目接收 role，vrgen 侧不需要改；vrstudio 装配 `--refs` 时用 `roles[id]` 覆盖素材的兼容角色。
-- 旧版控制台的兼容：`set_asset_role` 与只传 id 的 `set_submit_selected` 要同步写 `[submit.roles]`，否则旧版改角色会被新映射遮住。旧版退役后删除这条同步。
+- 旧版控制台的兼容（已随决策 42 删除）：旧版在役时 `set_asset_role` 与只传 id 的 `set_submit_selected` 同步写 `[submit.roles]`；退役时同步已移除。
 
 ### 3.3 `keyframe.toml` 的新格式
 
@@ -286,14 +286,14 @@ case 级文件集合。这里只存文件；角色由各步骤的引用清单决
 - `case.py`：
   - 保留 `submit_selected` 的 id 顺序；新增 `submit_roles`（id → role）与 `submit_entries`（有序 `(id, role)`，role 缺省回退到素材的兼容角色）。
   - `set_submit_selected(name, ids, roles=None)`：同时写 `selected` 与 `roles`；只传 ids 时保留已有 roles，新增 id 用素材的兼容角色。
-  - `set_asset_role`：为旧版控制台保留；如果该素材在 `selected` 里，同步写 `submit.roles[id]`，避免旧版改角色被新映射遮住。
+  - `set_asset_role`：写素材的 `[[assets]] role`；旧版在役时还同步 `submit.roles[id]`，该同步已随决策 42 删除。
   - 装配 `--refs` 清单时用 `submit_roles[id]` 覆盖素材的兼容角色；`firstLastFrame` 的角色校验读清单角色。
 - `web/app.py`：
   - `_case_info` 增加 `submit_entries` 与 `submit_roles`；`submit_selected` 保留给旧版与测试。
   - `PUT /api/case/{name}/submit` 的请求体扩展为 `{"selected": [...], "roles": {...}}`；只给 `selected` 时按旧行为处理。
   - `_keyframe_state()`：
   - 新增 `refs`，每项带 `asset`、`role`、`note`、`file`、`url`、`exists`。`url` 用现有 `/img/asset/<case>/<id>`。
-  - 保留 `sheet` 与 `sheet_candidates` 作为旧版控制台的派生字段：`sheet` 等于主三视图的 asset id，`sheet_candidates` 仍是 `subject_ref` 素材列表。新前端不读这两个字段。
+  - ~~保留 `sheet` 与 `sheet_candidates` 作为旧版控制台的派生字段~~（已随决策 42 删除；新前端只读 `refs`）。
   - 没有 `refs` 且素材库恰好一张 `subject_ref` 时，返回一个虚拟 `refs` 项并标记 `default: true`；读取不写文件，第一次编辑时保存。
   - `complete` 仍由两张定稿与 `stale` 决定；`ready` 改为「至少一张 `subject_ref` 且所有引用文件存在」。
 - `_keyframe_inputs(case, step)`：
@@ -302,7 +302,7 @@ case 级文件集合。这里只存文件；角色由各步骤的引用清单决
 - `_keyframe_argv()`：为每张图传 `--image`、`--image-role`、`--image-note`；条数一一对应。其余参数不变。
 - `_keyframe_prompt()` / `_keyframe_save_prompt()`：把同样的角色与用途传给 `prompt show/save`；四个变量白名单不变。
 - 新增 `PUT /api/case/{name}/keyframe/refs`：请求体 `{"refs": [{"asset": "i1", "role": "subject_ref", "note": ""}]}`；调用 `normalize_refs` 与 `keyframe_mod.save`；返回完整 case info。校验失败返回 400，错误文案说明哪一项不合格。
-- 保留 `PUT /api/case/{name}/keyframe/sheet` 作为旧版控制台的兼容入口：目标是「设置主三视图」；若素材已在 `refs` 里则提升为主图，否则追加为主图；旧主图降为细节参考。新前端不调用。
+- ~~保留 `PUT /api/case/{name}/keyframe/sheet` 作为旧版控制台的兼容入口~~（已随决策 42 删除；设置主三视图改走 `keyframe/refs`）。
 - `api_assets()` 的 `remove` 分支：删除素材后调用 `keyframe_mod.remove_asset()`，清掉 `refs` 与指针；返回的 case info 会反映新的 `keyframe` 状态。
 - `_gates` 的 `keyframe` 原因文案改成「素材库缺少人物三视图；在首尾帧页的参考图清单里加入一张」等。
 - `_case_info` 不需要新增素材用途字段；素材库页用 `assets`、`submit_entries`、`keyframe.refs`、`keyframe.first/last` 自己计算引用次数与明细。
@@ -324,7 +324,7 @@ case 级文件集合。这里只存文件；角色由各步骤的引用清单决
 - `types/case-info.ts`：`CaseInfo` 增加 `submit_entries: { asset: string; role: string }[]` 与 `submit_roles: Record<string, string>`；`submit_selected` 保留为兼容字段。
 - `types/case-info.ts`：`KeyframeState` 增加 `refs: KeyframeRef[]`；`KeyframeRef` 含 `asset`、`role`、`note`、`file`、`url`、`exists`、`default`。保留 `sheet` / `sheet_candidates` 作为可选兼容字段，新页面不读。
 - `api/case.ts`：`saveSubmitSelection(name, selected, roles)` 同时提交 id 顺序与角色映射；`reorderAssets` 不再被生成页调用，素材库不排序。
-- `api/keyframe.ts`：新增 `setKeyframeRefs(name, refs)`；`setKeyframeSheet` 标记为旧版控制台使用，或从新前端 API 模块删除。
+- `api/keyframe.ts`：新增 `setKeyframeRefs(name, refs)`；`setKeyframeSheet` 已随决策 42 删除。
 - `constants/steps.ts`：`stepLabel('library')` 返回「素材库」；`stepsForFlow` 不变。
 - `AssetDetail.role` 保留为兼容默认；素材库页只读文件事实，不展示库角色。
 
@@ -332,7 +332,7 @@ case 级文件集合。这里只存文件；角色由各步骤的引用清单决
 
 - **旧 `keyframe.toml`**：读取时 `sheet` 视为一项 `subject_ref`；首次保存写成 `[[refs]]`。旧的两帧指针不变。
 - **旧 `[submit]`**：没有 `roles` 时按 `[[assets]] role` 回退，顺序原样保留；新页面第一次保存时写 `roles`。旧 case 不需要批量迁移。
-- **旧版控制台**：`/` 的旧页面继续使用 `sheet` / `sheet_candidates` 与 `/keyframe/sheet`，以及 `[[assets]] role`。`set_asset_role` 与只传 id 的 `set_submit_selected` 同步写 `submit.roles`，保证旧版改角色仍然生效。旧版退役时删除这三个兼容点。
+- **旧版控制台（已随决策 42 退役）**：旧版在役期间使用 `sheet` / `sheet_candidates` 与 `/keyframe/sheet`，以及 `[[assets]] role`；`set_asset_role` 同步写 `submit.roles`，保证旧版改角色仍然生效。退役时这三个兼容点已同批删除。
 - **旧素材**：不批量改动；素材库页按现有 `[[assets]]` 展示。重复内容（walk_4k 里多张候选哈希相同）不在本轮去重。
 - **旧轮次**：`run.json` 与 `prompt.txt` 不动；历史轮次仍可查看。新轮次的 `prompt.txt` 会包含细节图分工。
 - **旧测试**：依赖 `sheet` / `sheet_candidates` / `submit_selected` 的测试保留，作为兼容层测试；新增 `refs` 与 `submit_roles` 的测试覆盖主路径。
@@ -409,7 +409,7 @@ case 级文件集合。这里只存文件；角色由各步骤的引用清单决
 
 ## 9. 风险与回退
 
-- **旧版控制台兼容。** 保留 `sheet` 派生字段与 `/keyframe/sheet` 一个版本；`set_asset_role` 与只传 id 的 `set_submit_selected` 同步写 `submit.roles`，旧版改角色仍然生效。旧版看不到细节图，但提交时使用完整 `refs`。旧版退役时删除这些兼容点。
+- **旧版控制台兼容（已于 2026-10-27 随决策 42 删除）。** 旧版在役期间保留 `sheet` 派生字段与 `/keyframe/sheet` 一个版本；`set_asset_role` 同步写 `submit.roles`，旧版改角色仍然生效。旧版退役时这三处已同批删除；历史设计保留在 §5.2 与本节，不再作为现行接口。
 - **视频角色迁移。** 旧 case 的 `[submit]` 没有 `roles`，按 `[[assets]] role` 回退；新页面第一次保存时写 `roles`。回退窗口内两套路径都能读，但只有新映射会写角色，不要在实施期间让旧版与新页面同时改同一 case 的角色。
 - **生成页不再显示全库。** 用户可能找不到未选文件；缓解是「添加素材」选择器、素材库入口计数与空状态文案。若实际使用中仍难找，再考虑在生成页加一个只读的「未选 N 项」链接，不恢复全库列表。
 - **`firstLastFrame` 加错文件。** 选择器不按角色过滤；加入后角色默认是 `subject_ref`，由用户在清单里改。清单下方的门控常显「当前首帧 N、尾帧 M、共 K 项」，不新增本地硬限制。
@@ -444,7 +444,7 @@ case 级文件集合。这里只存文件；角色由各步骤的引用清单决
 - 角色下拉的每个选项在悬停时显示一句说明；说明文本与后端角色文案保持一致。
 - 每份清单里一个素材只出现一次；跨步骤可以重复引用，角色各自独立。
 - `--image-note` 按本稿实施；如果后续改为整组说明，再改模板变量方案。
-- 旧版控制台暂保留一个版本的兼容层；如果直接退役，`sheet` 兼容字段、`/keyframe/sheet` 与 `submit.roles` 同步可以同批删除。
+- 旧版控制台已随决策 42（2026-10-27）退役；`sheet` 兼容字段、`/keyframe/sheet` 与 `submit.roles` 同步已同批删除。
 
 ## 12. 实施记录（2026-10-26）
 
@@ -460,10 +460,10 @@ case 级文件集合。这里只存文件；角色由各步骤的引用清单决
 
 - 生成页的「去素材库管理」文字链接没有保留；case 顶栏的「素材库」开关承担入口，避免重复放导航。
 - 上传对话框不再让用户选库角色，按文件类型写默认角色；实际引用角色在清单里设置。
-- 视频选择器保留 clip/pad 流程产物；素材库页只列 `[[assets]]` 文件。
+- 视频选择器保留 clip/pad 流程产物；素材库页只列 `[[assets]]` 文件，另在表格上方用只读「流程文件」组显示源视频与流程母版（见 `docs/key-issues/frontend-decisions.md` 条目 18，2026-10-27 补充）。
 - 首尾帧的锁定主图与首帧定稿锚点都作为共享引用行里的锁定行显示：尾帧步骤主图固定图2、锚点固定图3、细节图从图4 起；首帧步骤没有锚点，细节图从图3 起。
 
 未验证：
 
 - 真实付费图片提交（含细节图）与真实 `firstLastFrame` 视频提交；平台返回的图片数量与比例限制尚未实测。
-- 旧版控制台的浏览器回归；兼容字段与 `/keyframe/sheet` 保留，但未逐页点验。
+- ~~旧版控制台的浏览器回归；兼容字段与 `/keyframe/sheet` 保留，但未逐页点验。~~ 旧版已于 2026-10-27 退役，不再需要回归。

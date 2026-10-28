@@ -7,5 +7,8 @@
 .playwright-mcp/
 wizard-pick.png
 
+# 手册制作的临时目录：case 副本、浏览器用户数据、失败重拍的中间文件，可整个删除
+/.manual-draft/
+
 # 系统
 Thumbs.db

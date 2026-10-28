@@ -1,0 +1,1062 @@
+{
+  "schema": 1,
+  "doc": "output/aigc-redraw-guide.md",
+  "draft": "draft/20261027-aigc-redraw-guide.draft.md",
+  "base_url": "http://127.0.0.1:8761",
+  "viewport": {
+    "width": 1600,
+    "height": 1000,
+    "device_scale_factor": 2
+  },
+  "captured_at": "2026-10-27",
+  "vrstudio_commit": "0f287c2",
+  "shots": [
+    {
+      "id": "00-open-url",
+      "file": "images/00-open-url.png",
+      "section": "1.2 打开网页",
+      "page": "/",
+      "case": null,
+      "capture_mode": "window",
+      "target": "浏览器地址栏与首屏左侧导航",
+      "clip": "整个浏览器窗口，裁掉桌面其他部分",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住地址栏"
+        },
+        {
+          "n": 2,
+          "mark": "标在左侧导航 Case 列表上"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "00-nickname",
+      "file": "images/00-nickname.png",
+      "section": "1.3 设置显示名",
+      "page": "/",
+      "case": null,
+      "target": "设置显示名弹窗",
+      "clip": "弹窗本身，向四周扩 16px",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "标在输入框"
+        },
+        {
+          "n": 2,
+          "mark": "标在确认按钮"
+        },
+        {
+          "n": 3,
+          "mark": "框住只用于显示归属的说明文字"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "01-case-list",
+      "file": "images/01-case-list.png",
+      "section": "2.1 Case 列表页",
+      "page": "/next/cases",
+      "case": null,
+      "target": "工具栏与 case 表格",
+      "clip": "页面标题下沿到表格最后一行",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住下一步列"
+        },
+        {
+          "n": 2,
+          "mark": "标在行尾打开按钮"
+        },
+        {
+          "n": 3,
+          "mark": "标在新建 case 按钮"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "01-case-header",
+      "file": "images/01-case-header.png",
+      "section": "2.4 保存状态与 case 归属",
+      "page": "/next/case/walk_4k/generate",
+      "case": "walk_4k",
+      "target": "case 页头部：保存状态、当前归属与归属按钮",
+      "clip": "页面标题行到归属提示行，x 236..1584",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "标在已保存状态"
+        },
+        {
+          "n": 2,
+          "mark": "标在当前归属文字左侧"
+        },
+        {
+          "n": 3,
+          "mark": "标在归属到我的名下按钮右上"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "01-create-dialog",
+      "file": "images/01-create-dialog.png",
+      "section": "2.2 新建 case",
+      "page": "/next/cases",
+      "case": null,
+      "target": "新建 case 抽屉",
+      "clip": "抽屉本身",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "标在 Case 名称输入框"
+        },
+        {
+          "n": 2,
+          "mark": "标在流程单选组"
+        },
+        {
+          "n": 3,
+          "mark": "标在源视频下拉"
+        },
+        {
+          "n": 4,
+          "mark": "框住上传视频按钮"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "01-upload-dialog",
+      "file": "images/01-upload-dialog.png",
+      "section": "2.3 上传源视频与素材",
+      "page": "/next/cases",
+      "case": null,
+      "target": "上传弹窗的拖拽区、文件行与底部按钮",
+      "clip": "弹窗本身",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "标在拖拽区"
+        },
+        {
+          "n": 2,
+          "mark": "框住单文件最大 10 GB 的说明"
+        },
+        {
+          "n": 3,
+          "mark": "标在底部的用作源视频按钮"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "patch-01-pick-overview",
+      "file": "images/patch-01-pick-overview.png",
+      "section": "3.1 选区",
+      "page": "/next/case/walk_4k/pick",
+      "case": "walk_4k",
+      "target": "选区页左右两栏布局",
+      "clip": "步骤条下沿到两栏底部的整块主内容区",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住左栏全景画面"
+        },
+        {
+          "n": 2,
+          "mark": "框住视口尺寸下拉"
+        },
+        {
+          "n": 3,
+          "mark": "框住右栏预览图区域"
+        },
+        {
+          "n": 4,
+          "mark": "标在保存范围按钮"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "patch-02-pick-drag",
+      "file": "images/patch-02-pick-drag.png",
+      "section": "3.1 选区",
+      "page": "/next/case/walk_4k/pick",
+      "case": "walk_4k",
+      "target": "预览图里刚画完的选框与尺寸数字",
+      "clip": "右侧预览图容器",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住预览图里的选框"
+        },
+        {
+          "n": 2,
+          "mark": "标在选框内部的尺寸数字"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "patch-03-pick-range",
+      "file": "images/patch-03-pick-range.png",
+      "section": "3.1 选区",
+      "page": "/next/case/walk_4k/pick",
+      "case": "walk_4k",
+      "target": "抽取范围两个数字框、保存按钮与成功提示",
+      "clip": "右栏底部的抽取范围区",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "标在开始帧数字框"
+        },
+        {
+          "n": 2,
+          "mark": "标在结束帧数字框"
+        },
+        {
+          "n": 3,
+          "mark": "标在保存范围按钮"
+        },
+        {
+          "n": 4,
+          "mark": "框住抽取范围已保存提示"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "patch-04-extract-run",
+      "file": "images/patch-04-extract-run.png",
+      "section": "3.2 抽取",
+      "page": "/next/case/walk_4k/extract",
+      "case": "walk_4k",
+      "target": "抽取页顶部版本条与运行按钮",
+      "clip": "顶部版本条整行",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住选区已保存状态"
+        },
+        {
+          "n": 2,
+          "mark": "框住抽取已完成状态"
+        },
+        {
+          "n": 3,
+          "mark": "标在运行抽取按钮"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "patch-05-extract-artifacts",
+      "file": "images/patch-05-extract-artifacts.png",
+      "section": "3.2 抽取",
+      "page": "/next/case/walk_4k/extract",
+      "case": "walk_4k",
+      "target": "本次产物四张卡片",
+      "clip": "本次产物卡片区",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住 clip.mp4 卡片"
+        },
+        {
+          "n": 2,
+          "mark": "框住 clip_mask.png 卡片"
+        },
+        {
+          "n": 3,
+          "mark": "框住首尾原始帧卡片"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "patch-06-extract-versions",
+      "file": "images/patch-06-extract-versions.png",
+      "section": "3.2 抽取",
+      "page": "/next/case/walk_4k/extract",
+      "case": "walk_4k",
+      "target": "抽取版本条目与切换说明",
+      "clip": "抽取版本面板",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住当前标签"
+        },
+        {
+          "n": 2,
+          "mark": "标在另一个版本条目"
+        },
+        {
+          "n": 3,
+          "mark": "框住切换版本的说明文字"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "patch-07-keyframe-inputs",
+      "file": "images/patch-07-keyframe-inputs.png",
+      "section": "3.3 首尾帧",
+      "page": "/next/case/walk_4k/keyframe",
+      "case": "walk_4k",
+      "target": "图片步输入四格",
+      "clip": "图片步输入面板",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住图1 原始首帧"
+        },
+        {
+          "n": 2,
+          "mark": "框住图2 参考图组"
+        },
+        {
+          "n": 3,
+          "mark": "框住目标首帧定稿"
+        },
+        {
+          "n": 4,
+          "mark": "标在交接给视频步按钮"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "patch-08-keyframe-candidates",
+      "file": "images/patch-08-keyframe-candidates.png",
+      "section": "3.3 首尾帧",
+      "page": "/next/case/walk_4k/keyframe",
+      "case": "walk_4k",
+      "target": "首帧候选网格与已定稿角标",
+      "clip": "候选区一行网格与生成按钮",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "标在分辨率与数量下拉"
+        },
+        {
+          "n": 2,
+          "mark": "标在生成首帧候选按钮"
+        },
+        {
+          "n": 3,
+          "mark": "框住带已定稿角标的候选图"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "patch-09-keyframe-prompt-handoff",
+      "file": "images/patch-09-keyframe-prompt-handoff.png",
+      "section": "3.3 首尾帧",
+      "page": "/next/case/walk_4k/keyframe",
+      "case": "walk_4k",
+      "target": "图片步提示词与右上角交接按钮",
+      "clip": "提示词面板与交接按钮，放不下时拆成两张",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住完整提示词"
+        },
+        {
+          "n": 2,
+          "mark": "标在一个变量卡"
+        },
+        {
+          "n": 3,
+          "mark": "框住交接给视频步按钮及置灰原因"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "patch-10-generate-list",
+      "file": "images/patch-10-generate-list.png",
+      "section": "3.4 生成",
+      "page": "/next/case/walk_4k/generate",
+      "case": "walk_4k",
+      "target": "本次视频提交清单与角色",
+      "clip": "左侧提交清单面板",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "标在添加素材按钮"
+        },
+        {
+          "n": 2,
+          "mark": "框住角色下拉"
+        },
+        {
+          "n": 3,
+          "mark": "标在上下移动按钮"
+        },
+        {
+          "n": 4,
+          "mark": "框住清单角色说明文字"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "patch-11-generate-prompt",
+      "file": "images/patch-11-generate-prompt.png",
+      "section": "3.4 生成",
+      "page": "/next/case/walk_4k/generate",
+      "case": "walk_4k",
+      "target": "编辑提示词抽屉",
+      "clip": "抽屉本身",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住完整提示词只读区"
+        },
+        {
+          "n": 2,
+          "mark": "标在一个变量输入框"
+        },
+        {
+          "n": 3,
+          "mark": "标在保存并关闭按钮"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "patch-12-generate-bar",
+      "file": "images/patch-12-generate-bar.png",
+      "section": "3.4 生成",
+      "page": "/next/case/walk_4k/generate",
+      "case": "walk_4k",
+      "target": "底部提交条",
+      "clip": "整条提交条",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住输出分辨率"
+        },
+        {
+          "n": 2,
+          "mark": "框住时长"
+        },
+        {
+          "n": 3,
+          "mark": "标在预演检查按钮"
+        },
+        {
+          "n": 4,
+          "mark": "标在提交生成按钮"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "patch-13-generate-dryrun",
+      "file": "images/patch-13-generate-dryrun.png",
+      "section": "3.4 生成",
+      "page": "/next/case/walk_4k/generate",
+      "case": "walk_4k",
+      "target": "预演通过状态与提交按钮",
+      "clip": "提交条右侧按钮与状态提示",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住预演通过状态"
+        },
+        {
+          "n": 2,
+          "mark": "框住当前选择未改动提示"
+        },
+        {
+          "n": 3,
+          "mark": "标在提交生成按钮"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "patch-14-generate-adopt",
+      "file": "images/patch-14-generate-adopt.png",
+      "section": "3.4 生成",
+      "page": "/next/case/walk_4k/generate",
+      "case": "walk_4k",
+      "target": "生成记录与选用成片",
+      "clip": "生成记录面板一行与最近成片播放器",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住可用标签"
+        },
+        {
+          "n": 2,
+          "mark": "标在选用成片按钮"
+        },
+        {
+          "n": 3,
+          "mark": "框住最近成片播放器"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "patch-15-merge-run",
+      "file": "images/patch-15-merge-run.png",
+      "section": "3.5 合并",
+      "page": "/next/case/walk_4k/merge",
+      "case": "walk_4k",
+      "target": "合并流程条、允许裁切与开始合并",
+      "clip": "左侧合并面板上半部分",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住流程条"
+        },
+        {
+          "n": 2,
+          "mark": "框住允许裁切复选框"
+        },
+        {
+          "n": 3,
+          "mark": "标在开始合并按钮"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "patch-16-merge-output",
+      "file": "images/patch-16-merge-output.png",
+      "section": "3.5 合并",
+      "page": "/next/case/walk_4k/merge",
+      "case": "walk_4k",
+      "target": "合并输出文件行与成片面板",
+      "clip": "合并输出区与右侧成片面板",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住合并输出文件行"
+        },
+        {
+          "n": 2,
+          "mark": "标在播放按钮"
+        },
+        {
+          "n": 3,
+          "mark": "框住成片上的整片标签"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "patch-17-compare",
+      "file": "images/patch-17-compare.png",
+      "section": "3.6 对比",
+      "page": "/next/case/walk_4k/compare",
+      "case": "walk_4k",
+      "target": "两路画面、分割线与顶部选择器",
+      "clip": "两路画面与顶部选择器",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住右路成片下拉"
+        },
+        {
+          "n": 2,
+          "mark": "框住中间分割线"
+        },
+        {
+          "n": 3,
+          "mark": "框住播放画质下拉"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "patch-18-compare-controls",
+      "file": "images/patch-18-compare-controls.png",
+      "section": "3.6 对比",
+      "page": "/next/case/walk_4k/compare",
+      "case": "walk_4k",
+      "target": "对比页底栏控制",
+      "clip": "底栏整条",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "标在播放暂停按钮"
+        },
+        {
+          "n": 2,
+          "mark": "框住时间轴"
+        },
+        {
+          "n": 3,
+          "mark": "标在视角复位"
+        },
+        {
+          "n": 4,
+          "mark": "标在全屏"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "full-01-pad-overview",
+      "file": "images/full-01-pad-overview.png",
+      "section": "4.1 扩充画面",
+      "page": "/next/case/ship_01/pad",
+      "case": "ship_01",
+      "target": "扩充与裁回面板",
+      "clip": "左侧扩充与裁回面板",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住流程条"
+        },
+        {
+          "n": 2,
+          "mark": "标在扩充画面按钮"
+        },
+        {
+          "n": 3,
+          "mark": "框住扩充画面输出区"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "full-02-pad-outputs",
+      "file": "images/full-02-pad-outputs.png",
+      "section": "4.1 扩充画面",
+      "page": "/next/case/ship_01/pad",
+      "case": "ship_01",
+      "target": "扩充输出的三个文件",
+      "clip": "扩充画面输出区",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住 seedance_input.mp4 行"
+        },
+        {
+          "n": 2,
+          "mark": "框住 seedance_input_mask.png 行"
+        },
+        {
+          "n": 3,
+          "mark": "框住 seedance_input_pad.json 行"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "full-03-generate-params",
+      "file": "images/full-03-generate-params.png",
+      "section": "4.2 生成",
+      "page": "/next/case/ship_01/generate",
+      "case": "ship_01",
+      "target": "模式、比例、输出分辨率三项",
+      "clip": "提交条左侧三格",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住模式 videoEdit"
+        },
+        {
+          "n": 2,
+          "mark": "框住比例 21:9"
+        },
+        {
+          "n": 3,
+          "mark": "框住输出分辨率 1080p"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "full-04-generate-adopt",
+      "file": "images/full-04-generate-adopt.png",
+      "section": "4.2 生成",
+      "page": "/next/case/ship_01/generate",
+      "case": "ship_01",
+      "target": "生成记录与选用成片",
+      "clip": "生成记录面板一行与最近成片",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住可用标签"
+        },
+        {
+          "n": 2,
+          "mark": "标在选用成片按钮"
+        },
+        {
+          "n": 3,
+          "mark": "框住已采用成片提示"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "full-05-recompose-run",
+      "file": "images/full-05-recompose-run.png",
+      "section": "4.3 裁回原尺寸",
+      "page": "/next/case/ship_01/recompose",
+      "case": "ship_01",
+      "target": "裁回按钮、裁回输出与成片面板",
+      "clip": "左侧裁回按钮与输出区，加右侧成片标签",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "标在裁回原尺寸按钮"
+        },
+        {
+          "n": 2,
+          "mark": "框住裁回原尺寸输出"
+        },
+        {
+          "n": 3,
+          "mark": "框住成片上的整片标签"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "full-06-recompose-output",
+      "file": "images/full-06-recompose-output.png",
+      "section": "4.3 裁回原尺寸",
+      "page": "/next/case/ship_01/recompose",
+      "case": "ship_01",
+      "target": "裁回后的成片面板",
+      "clip": "成片面板",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住成片文件名"
+        },
+        {
+          "n": 2,
+          "mark": "标在播放按钮"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "full-07-compare",
+      "file": "images/full-07-compare.png",
+      "section": "4.4 对比",
+      "page": "/next/case/ship_01/compare",
+      "case": "ship_01",
+      "target": "两路画面与接缝区域",
+      "clip": "两路画面与顶部选择器",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住右路成片下拉"
+        },
+        {
+          "n": 2,
+          "mark": "框住画面左右接缝区域"
+        },
+        {
+          "n": 3,
+          "mark": "标在播放按钮"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "gen-01-create-mode",
+      "file": "images/gen-01-create-mode.png",
+      "section": "5.1 新建时选择生成模式",
+      "page": "/next/cases",
+      "case": null,
+      "target": "新建 case 抽屉里的流程与生成模式下拉",
+      "clip": "抽屉下半部分与展开的选项列表",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住流程里的简单生成"
+        },
+        {
+          "n": 2,
+          "mark": "标在生成模式下拉"
+        },
+        {
+          "n": 3,
+          "mark": "框住展开后的选项列表"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "gen-mode-videoedit",
+      "file": "images/gen-mode-videoedit.png",
+      "section": "5.1 新建时选择生成模式",
+      "page": "/next/case/simple_gen_allMediaRef/generate",
+      "case": "simple_gen_allMediaRef",
+      "target": "VideoEdit 模式下的提交条与条件提示",
+      "clip": "提交条左侧三格与按钮上方的条件提示",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住模式当前值"
+        },
+        {
+          "n": 2,
+          "mark": "标在条件提示"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "gen-mode-allmediaref",
+      "file": "images/gen-mode-allmediaref.png",
+      "section": "5.1 新建时选择生成模式",
+      "page": "/next/case/simple_gen_allMediaRef/generate",
+      "case": "simple_gen_allMediaRef",
+      "target": "AllMediaRef 模式下的提交条与清单角色",
+      "clip": "提交条左侧三格与清单角色下拉",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住模式当前值"
+        },
+        {
+          "n": 2,
+          "mark": "标在提交清单的角色下拉"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "gen-mode-videoextend",
+      "file": "images/gen-mode-videoextend.png",
+      "section": "5.1 新建时选择生成模式",
+      "page": "/next/case/simple_gen_allMediaRef/generate",
+      "case": "simple_gen_allMediaRef",
+      "target": "VideoExtend 模式下的提交条与时长",
+      "clip": "提交条左侧三格与时长一格",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住模式当前值"
+        },
+        {
+          "n": 2,
+          "mark": "标在时长"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "gen-mode-firstlastframe",
+      "file": "images/gen-mode-firstlastframe.png",
+      "section": "5.1 新建时选择生成模式",
+      "page": "/next/case/simple_gen_allMediaRef/generate",
+      "case": "simple_gen_allMediaRef",
+      "target": "FirstLastFrame 模式下的提交条与两张定稿图",
+      "clip": "提交条左侧三格与清单前两项角色",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住模式当前值"
+        },
+        {
+          "n": 2,
+          "mark": "标在第一张图的角色"
+        },
+        {
+          "n": 3,
+          "mark": "标在第二张图的角色"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "gen-02-overview",
+      "file": "images/gen-02-overview.png",
+      "section": "5.2 生成页总览",
+      "page": "/next/case/simple_gen_allMediaRef/generate",
+      "case": "simple_gen_allMediaRef",
+      "target": "简单生成页的三块区域与提交条",
+      "clip": "左侧清单、提示词卡片与右侧结果区",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住左侧提交清单"
+        },
+        {
+          "n": 2,
+          "mark": "框住提示词卡片"
+        },
+        {
+          "n": 3,
+          "mark": "框住右侧最近成片"
+        },
+        {
+          "n": 4,
+          "mark": "框住底部提交条"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "gen-03-list",
+      "file": "images/gen-03-list.png",
+      "section": "5.3 添加素材与选择角色",
+      "page": "/next/case/simple_gen_allMediaRef/generate",
+      "case": "simple_gen_allMediaRef",
+      "target": "素材清单、角色下拉与移动按钮",
+      "clip": "左侧提交清单",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "标在添加素材按钮"
+        },
+        {
+          "n": 2,
+          "mark": "框住角色下拉"
+        },
+        {
+          "n": 3,
+          "mark": "标在上移下移按钮"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "gen-04-prompt",
+      "file": "images/gen-04-prompt.png",
+      "section": "5.4 填写提示词变量",
+      "page": "/next/case/simple_gen_allMediaRef/generate",
+      "case": "simple_gen_allMediaRef",
+      "target": "提示词抽屉",
+      "clip": "抽屉本身",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住只读正文"
+        },
+        {
+          "n": 2,
+          "mark": "标在一个变量输入框"
+        },
+        {
+          "n": 3,
+          "mark": "标在添加变量"
+        },
+        {
+          "n": 4,
+          "mark": "标在保存并关闭"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "gen-05-params",
+      "file": "images/gen-05-params.png",
+      "section": "5.5 设置参数并提交",
+      "page": "/next/case/simple_gen_allMediaRef/generate",
+      "case": "simple_gen_allMediaRef",
+      "target": "提交条参数与两个按钮",
+      "clip": "整条提交条",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住模式"
+        },
+        {
+          "n": 2,
+          "mark": "框住比例"
+        },
+        {
+          "n": 3,
+          "mark": "标在预演检查"
+        },
+        {
+          "n": 4,
+          "mark": "标在提交生成"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "gen-06-dryrun",
+      "file": "images/gen-06-dryrun.png",
+      "section": "5.5 设置参数并提交",
+      "page": "/next/case/simple_gen_allMediaRef/generate",
+      "case": "simple_gen_allMediaRef",
+      "target": "预演通过状态与提交按钮",
+      "clip": "提交条右侧按钮与状态提示",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住预演通过"
+        },
+        {
+          "n": 2,
+          "mark": "标在提交生成"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "gen-07-adopt",
+      "file": "images/gen-07-adopt.png",
+      "section": "5.6 查看结果与选用成片",
+      "page": "/next/case/simple_gen_allMediaRef/generate",
+      "case": "simple_gen_allMediaRef",
+      "target": "生成记录状态、选用成片与最近成片",
+      "clip": "生成记录一行与最近成片播放器",
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "框住可用标签"
+        },
+        {
+          "n": 2,
+          "mark": "标在选用成片"
+        },
+        {
+          "n": 3,
+          "mark": "框住最近成片播放器"
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "id": "flow-compare",
+      "file": "images/flow-compare.svg",
+      "section": "6 三条流程怎么选",
+      "page": null,
+      "case": null,
+      "capture_mode": "script",
+      "target": "三条流程的步骤与产物对照图",
+      "clip": null,
+      "annotations": [
+        {
+          "n": 1,
+          "mark": "标在每行末尾的产物框"
+        },
+        {
+          "n": 2,
+          "mark": "框住三条流程共用的生成盒"
+        },
+        {
+          "n": 3,
+          "mark": "框住局部重绘独有的首尾帧盒"
+        }
+      ],
+      "status": "captured"
+    }
+  ],
+  "screenshots": 42
+}

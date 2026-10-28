@@ -165,7 +165,39 @@ taskkill /PID 16880 /T /F
 - 全量门禁变红且集中在 `test_web_proxy` 时，先看本机 `vrstudio.toml`，不要先动代理实现。
 - 长期做法：这类断言默认值的测试显式传 `config_mod.load(cwd=tmp_path)` 或 monkeypatch `load`，不读开发者本地文件。本次未改，留作独立修复。
 
-## 5. 记录模板
+## 5. 2026-10-28 · 旧进程跑新配置：KeyError 与说谎的 traceback
+
+### 现象
+
+serve 在 `/`、`/case/walk_01`、`/api/case/walk_01` 上连续 500，最后一行是 `KeyError: 'default_frontend'`，栈指向 `config.py` 的 `_validate`。同一条 traceback 里还夹着几句不可能执行的行：`def _media_meta(...)`、`return None`、`return JSONResponse({"error": "no such case"}, status_code=404)`。
+
+### 诊断步骤
+
+1. 把 traceback 里「正在执行的行」对回当前文件：`app.py` 第 398 行的 `_open_roots` 与第 398 行的 `return None` 不是同一段代码，说明行号与源码错位。
+2. 查进程创建时间：监听 8760 的进程建于 18:15:00，报错发生在 18:14:04，报错时跑的是更早的旧进程。
+3. 查 `logs/serve/service-*.jsonl`：同一秒有成对的 `request.error` 与 `Exception in ASGI application`，异常都是同一个 `KeyError`；同一秒还有一条 `TemplateNotFound: 'wizard.html'`，模板已被退役改动删除。
+4. `git grep default_frontend` 为空：新代码与新默认值都没有这个键。
+
+### 根因
+
+配置数据热、Python 代码冷。`Config.load()` 每次调用都重新读 `config/default.toml`，而 `_validate` 是进程启动时导入的函数对象；退役改动把两者一起改了，旧进程读新文件、跑旧校验，每个走到配置的请求都拿到一套与自身代码不匹配的配置。
+
+### 处理
+
+配置改为启动时定格（决策 43）：`config.activate()` 在 `serve` 与 `build_app()` 里装配一次，请求路径只读 `config.active()`；`serve` 装配失败按退出码 2 退出并写明原因。同时把 `_validate` 的缺键改成 `ConfigError`，并把 `uvicorn.error` 与 `request.error` 的重复异常日志合并成一条。
+
+### 验证
+
+`pytest` 418 条通过、`ruff` 干净；坏配置下 `serve` 退出码 2；临时服务上中文昵称可存可取。详见 `docs/test-runs/20261028-config-snapshot-and-log-dedup.md`。
+
+### 预防
+
+- traceback 里出现 `def`、静态 `return`，或者显示的源码与异常类型无关时，先怀疑进程是旧的，再读代码。
+- 删配置键、改默认值、删模板或静态文件之后，所有在跑的服务都要重启；宁可重启，不要指望旧进程兼容新文件。
+- 同一条异常在日志里出现两次，说明中间件与 uvicorn 各记了一遍，查日志一律按 `request.error`（带 rid 与路径）为准。
+- 按消息文本过滤日志记录时，先照抄真实日志里的文案再写判据：uvicorn 的 `Exception in ASGI application` 带尾随换行，第一版过滤器写成精确相等，单元测试用自造的不带换行文案全过，真实路径上照样重复记录。过滤与去重这类改动要用真实进程验证一遍，不能只看 TestClient。
+
+## 6. 记录模板
 
 以后新增经验时按以下结构追加，不覆盖旧记录：
 

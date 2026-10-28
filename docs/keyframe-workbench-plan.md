@@ -357,7 +357,7 @@ asset = "i4"
   - 同角色重复挑选不删除旧素材，但 `keyframe.toml` 只指向最新一次。
   - 保留现有的 16:9 与首尾同宽高校验。
 - 新增 `keyframe.toml` 的读写：`sheet` 指针（默认绑定素材库里唯一的 `subject_ref`）、`first`、`last`。图片步的参考图只从这份文件与原始帧解析，不读 `[submit] selected`。
-- 新增 `GET/PUT /api/case/<name>/keyframe/sheet`：切换图片步绑定的三视图，只写 `keyframe.toml`，不动视频提交集。
+- ~~新增 `GET/PUT /api/case/<name>/keyframe/sheet`：切换图片步绑定的三视图，只写 `keyframe.toml`，不动视频提交集。~~ 该接口在素材库方案里改为 `GET/PUT /api/case/<name>/keyframe/refs`，旧入口已于 2026-10-27 随决策 42 删除。
 - 新增 `GET/PUT /api/case/<name>/keyframe/prompt`：代理 `vrgen prompt show/save --vars-file keyframe-vars.toml`，返回 `template_text`、`placeholders`、`labels`、`help`、`vars`。
 - 新增 `POST /api/case/<name>/keyframe/handoff`：写模式、写 `[submit] selected`、返回 `info`；不提交、不扣费。
 - `_gates` 增加 `keyframe`：没有原始帧时失败并提示「先完成抽取」；没有 `sheet` 时失败并提示「素材库缺少人物三视图」；两张定稿齐全才通过。该门控只决定步骤条的对勾，不阻止用户进入生成步骤。

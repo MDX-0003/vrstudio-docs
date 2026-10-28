@@ -33,7 +33,7 @@
 
 - 后端：`uv run vrstudio serve --host 127.0.0.1 --port 8762 --cases-dir E:\VRAIGC\vrstudio\cases_qa`
 - 新前端：`http://127.0.0.1:8762/next/`
-- 旧前端回退：`http://127.0.0.1:8762/case/<name>`，只做一次打开检查，不作为主验收路径。
+- 旧书签路径：`http://127.0.0.1:8762/case/<name>` 已由决策 42 改为 307 到 `/next/case/<name>`，验收时只确认跳转落地，不再打开旧页面。
 - 前端构建：执行计划前先 `npm run build`，确保 `/next` 使用本次代码。
 - 浏览器：Playwright MCP 或人工浏览器均可；至少一个 1440×900 视口，另开 1280 与 1920 各检查一次布局。
 

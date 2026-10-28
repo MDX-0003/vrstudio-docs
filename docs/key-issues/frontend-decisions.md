@@ -2,7 +2,7 @@
 
 本文记录 E:\VRAIGC 前端（web 模板、静态脚本、页面交互与客户端状态）的关键问题、已拍板决策、被排除的方案和最终解决办法。后端契约与算法决策仍在 `docs/case-model.md`、`docs/decisions.md` 与各自的计划文档里，本文只在它们影响前端交互时引用。
 
-最后更新：2026-10-26。
+最后更新：2026-10-27。
 
 前端技术栈选型的需求与论证见 `20261023-frontend-stack-selection.md`，实施计划见 `../plan/frontend-refactor-plan.md`；本文只记录页面级与交互级问题，不重复选型论证。
 
@@ -596,6 +596,8 @@ KeyframeStep / MergeStep 的任务驱动刷新是同一模式（点击标志 + �
 
 - 新增配置键 `web.proxy_max_w`（默认 4096，int，范围 [256, 8192]，校验进 `_validate`）：选区页的全景代理、对比页左右两路、`_browser_safe` 直连判定共用这一个值——解码能力是机器级属性，所有 4K+ 源统一缩放。
 - `proxy.py` 每次调用现读配置（`proxy_max_w()`）：改 `vrstudio.toml` 即时生效，无需重启 serve。
+
+  > **2026-10-28 修正**：这条已被决策 43 取消。上面「每次调用现读配置、改 `vrstudio.toml` 即时生效、无需重启 serve」不再成立；现在 `proxy_max_w()` 读进程启动时定格的 `config.active()`，改这个值要重启 serve 才生效。修正原因是配置数据热读、Python 代码不热更新，两者能错开：2026-10-27 18:14 旧进程用旧 `_validate` 读删掉 `web.default_frontend` 的新 `default.toml`，每个请求 500。侧车 `max_w` 的判定没有变，重启后旧代理仍按新宽度自动重建，所以「改完重启、代理自动重建」的结果与原来一致，只多一步重启。详见 `../test-runs/20261028-config-snapshot-and-log-dedup.md`。
 - 侧车记录构建时的 `max_w`；ready/disabled 判定要求侧车 `max_w` 与当前配置一致，配置变更后旧代理自动失效、按需按新宽度重建（比 bump `PROXY_VERSION` 精确：只重建真正受影响的）。旧版侧车没有该字段，升级后首次访问会重建一次。
 - 帧率不配置：代理与源帧数/帧率必须一致（选区页按帧号同步），`_encode_proxy` 有校验。
 - 代理宽度暴露给页面：`/api/case` 的 `proxy.width`、outputs 的 `proxy_width`、`/api/case/<>/proxy` 响应的 `width`；对比页"4K 代理"硬编码文案改为跟随实际宽度（"2048 代理"）。
@@ -619,7 +621,81 @@ pytest 新增 5 用例（目标宽度跟随配置、侧车 max_w、配置变更�
 
 本机 `vrstudio.toml`（gitignore）已设 `proxy_max_w = 2048`；换本地有硬解的机器就删掉恢复 4096。若 2048 下对比页判断接缝仍不够细，先试 2560 再考虑对比页单独提清晰度。
 
+## 18. 2026-10-27 · 素材库显示源视频，但仍不作为素材
+
+**问题**
+
+用户在 `case/CYQF_01`（fullredraw）新建时选了一份源视频，进入 case 的素材库页后看不到它：
+
+> case/CYQF_01 里我选择了一份视频作为source，但是进去case页面后素材库里没有这个视频，这是符合设计预期的吗？
+
+排查结论：符合当时的实现，但文档没有把 fullredraw 的理由写下来。`docs/case-model.md` 只写了「与 `[source]` 的哈希契约形成双重真源」，而这条只对 patch 成立（`[source] sha256` 在 merge 前校验；fullredraw 的 sha256 是可选的，pad 之后源不再被读）。`docs/multi-asset-plan.md` 的原话是「patch 与 fullredraw 保持现状」，属于当年的范围划分。源视频在 fullredraw 下只剩对比页 A 路可见，扩充画面步骤上完全看不到。
+
+**决策**
+
+- 数据模型不动：源视频仍只放 `[source]`，不写进 `[[assets]]`。素材库只列 `[[assets]]` 的规则也不动。
+- 素材库在表格上方增加只读「流程文件」组：源视频来自 `info.source_file`，流程母版来自 `asset.source === 'flow'`（fullredraw 的 pad、patch 的 clip），可查名、查路径、打开原片；母版标出「已加入本次提交 / 未加入本次提交」。
+- 前端不按 flow 名字分支：pad 与 clip 走同一条派生规则，pad 产物存在就显示，所以点完 pad 任务、页面拿到新 case info 后它自动出现，不需要在按钮回调里做特殊处理。
+- 素材库为空时区分两种空态：没有任何素材文件（说明上方的流程文件不是素材、需要参考文件就上传）与筛选后为空。
+- 「被引用」计数覆盖素材与流程文件，避免出现「母版已加入本次提交、被引用 0」这种自相矛盾的头部。
+- `docs/case-model.md` 补一条设计说明，写清 patch 与 fullredraw 各自不进 `[[assets]]` 的理由。
+
+**排除的方案**
+
+- 把源视频写成一条 `[[assets]]`（`role = "edit_master"`），与 gen 完全统一：fullredraw 的生成母版是 `pad` 产物（候选 id `pad`、`role_fixed` 的 `edit_master`），并进素材库会出现两个 `edit_master` 视频，而提交几何由 manifest 决定，选中原件就是静默错片；`[[assets]]` 的语义是复制进 `cases/<name>/assets/`，把 2.4 GB 的 6K 原片按 case 复制一份没有收益；patch 还会与 `[source] sha256` 形成双重真源。
+- 只在对比页或扩充画面页显示源视频：用户要在「素材库」这个统一文件入口找文件，分散到步骤页仍然要猜。
+- 把 `pad`/`clip` 当普通素材列进表格（可删除、可改角色、可加进任何清单）：它们是流程产物，删除会破坏 manifest 与 mask 的配对，角色也是固定的；所以只放在只读的「流程文件」组里，主表格仍只列 `[[assets]]`。
+- 在 pad 按钮的完成回调里写「如果是 fullredraw 就把 pad 加进素材库」：显示不需要事件，pad 产物存在就是事实，按 `source === 'flow'` 派生即可；把显示做成按钮副作用会让刷新、直接打开链接、CLI 跑过 pad 这些路径都不一致。
+
+**验证**
+
+单测四条（`case-library-view.spec.ts`）：源视频渲染为只读流程文件且不占素材表格；流程母版显示「已加入本次提交」并计入被引用；未选中的母版显示「未加入本次提交」；空素材库给出带流程文件说明的空态。前端 95 条全绿，`typecheck` 与 `lint` 干净。浏览器实测两处：`CYQF_01`（只有源视频，头部「流程文件 1 · 被引用 0」）与 `walk_01`（源视频 + `seedance_input.mp4` 母版 + 「已加入本次提交」，头部「流程文件 2 · 被引用 1」），截图 `../test-runs/20261027-library-source-video/cyqf01-library-source-only.png` 与 `walk01-library-source-and-pad.png`。
+
+**涉及文件**
+
+`vrstudio/frontend/src/views/case/CaseLibraryView.vue`、`frontend/tests/unit/case-library-view.spec.ts`；`docs/case-model.md`。
+
+**后续入口**
+
+若以后真要让源视频参与生成（例如直接把原片作为可选参考），必须先解决两个 `edit_master` 与 manifest 几何的冲突，再谈并进 `[[assets]]`；不要只改展示。gen 没有流程段也没有母版，源视频就是第一条素材，这条差异不要为了「看起来统一」抹平。
+
+## 19. 2026-10-27 · 旧版控制台整体退役
+
+**问题**
+
+设置页仍有「旧版入口 / 打开旧版控制台」；用户确认今后只维护 Vue 这一版前端，询问旧版后端是否还有真实接口。核对结果：入口指向 `/`，默认配置下 `index()` 直接 307 到 `/next/`，点开只是第二个新前端；但旧版后端仍完整存在——`templates/` 8 个模板、`static/` 10 个旧脚本、`GET /case/{name}` 渲染 `wizard.html`，还有三个为旧版保留的 API 兼容点。
+
+**决策**
+
+整体退役（决策 42）：删除设置页入口、模板与旧静态、`wizard` 路由与 `web.default_frontend` 配置；`/` 固定 307 到 `/next/`，`/case/{name}` 改为 307 到 `/next/case/{name}`，旧书签不 404。同批删除 `keyframe.sheet`/`sheet_candidates` 派生字段、`GET/PUT /api/case/{name}/keyframe/sheet`、`set_asset_role` 对 `[submit.roles]` 的同步。`/api/*`、`/img/{name}/vp.png`（新前端 `PickStep` 在用）、`/file`、`/video/*` 保留。
+
+**排除方案**
+
+只删设置页那两行、保留旧版后端：旧版入口消失后仍可通过 `/case/{name}` 进入旧页面，兼容层还得继续维护，与“只维护一版”矛盾。保留 `/static` 挂载与 Jinja2 依赖：删除旧脚本后没有任何调用方，属于死装配。
+
+**验证**
+
+pytest 332 条全绿（需在无本地 `vrstudio.toml` 的目录跑，见下）；ruff 干净；前端 build、typecheck 与 vitest 95 条全绿。新增 `test_legacy_case_url_redirects_to_next`；旧版页面渲染测试与 `test_set_asset_role_syncs_selected_role` 删除，`sheet` 相关断言改读 `refs`。详细记录见 `docs/test-runs/20261027-legacy-console-retirement.md`。
+
+**涉及文件**
+
+`vrstudio/src/vrstudio/web/app.py`、`case.py`、`config.py`、`config/default.toml`、`pyproject.toml`；`frontend/src/views/SettingsView.vue`、`frontend/src/api/keyframe.ts`、`frontend/src/types/case-info.ts`、`frontend/src/views/wizard/KeyframeStep.vue`；`tests/test_web_console.py`、`tests/test_casemodel.py`、`tests/test_web_media_cache.py`。
+
+**环境注意**
+
+本机 `vrstudio.toml` 设了 `web.proxy_max_w = 2048`，在仓库根跑 pytest 会让 9 条代理测试按 4096 默认值失败；在无本地配置的目录执行 `pytest E:\VRAIGC\vrstudio\tests` 可复现基线全绿。这与本次改动无关。
+
 ## 待决与未做
+
+### fullredraw 的 pad 不自动进提交清单（2026-10-27，待决）
+
+问题：条目 18 之后，pad 已经能在素材库的「流程文件」组里看到，并标出「已加入本次提交 / 未加入本次提交」；但 pad 任务本身不会写 `[submit]`，`walk_01` 与 `ship_01` 的 `selected = ["pad"]` 都是人工点出来的。
+
+原因：`submit_selected` 只有三处写入——生成页手动改清单、首尾帧交接写两帧 id、删除素材后的清理；`pad` 任务本身（`app.py` 的 `_op_argv`）只跑 CLI，不碰提交清单。
+
+当前立场：仍不自动选中。pad 完成后母版身份是确定的（一个 case 只有一份 manifest 与一份 padded 文件），技术上安全；但这条只适用于 fullredraw，patch 的 `clip` 只在 `videoEdit` 下才是母版，`firstLastFrame` 只提交两张定帧，所以不能做成一条通用规则。要做就按 `(flow, mode)` 分流写在 pad 任务完成的后端路径上，不做成前端按钮回调。
+
+触发条件：如果素材库已经标出「未加入本次提交」之后仍然出现漏提交，或 fullredraw 的真实提交因为漏选 pad 失败，就实现自动选中，并把 `_submit_entries` 的装配顺序（pad 固定第一位）一并测到。
 
 ### 选区与对比页的播放卡顿（2026-10-26，已实施配置方案）
 
