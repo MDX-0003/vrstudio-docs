@@ -11,6 +11,14 @@
 - 现有 patch 的视频局部重绘不套用这套辅助：它的生成输入是透视视口裁剪，不是 360 画布；ERP 的左右接缝在 footprint 外，贴回时逐位保留。这一点在 3.5 节单独说明。
 - gen 流程里对整幅 360 视频做 `videoEdit` 的路径目前没有 pad/stitch，按这条原则是一个既有缺口。它需要区分 360 与扁平视频，建议单独立项，不塞进本文。
 
+## 0.1 实施状态（2026-10-29）
+
+- WP1 完成：静图 pad/stitch 核心与 `still_pad.json`（vrstudio `755ed2d`）。
+- WP2 完成：`patchimg` 的 case/pad、提交、adopt 与贴回（vrstudio `4b34d86`、`9f1dd88`）。
+- WP5 完成：vrgen 的 `edit_master`/`mask` 角色文本、`still360-local` 模板与输入限额（vrgen `eb7d6ec`）。
+- WP3（`img2video`）、WP4（前端 `patchimg`）、WP6（gen 整幅 360 缺口）未开始。
+- 验证：vrstudio 与 vrgen 的全量 pytest、ruff 通过；真实 `vrgen image submit --dry-run` 生成 `img-` 轮次并打出 `--ratio 21:9 --resolution 4K --num 4`；`patchimg merge` 的选区外 maxdiff 为 0。
+
 ## 1. 设计原则与适用边界
 
 原则：**凡是交给生成模型、由模型输出 360 画布（整幅 ERP，或包含 ERP 横向环绕的宽画布）的步骤，前后都必须走「左右冗余—左右拼接」**。
