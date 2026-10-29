@@ -40,11 +40,18 @@
    契约原样冻结: clip.json(单段) · _pad.json · index_map 唯一时间重采样 · 像素基线测试
 ```
 
-**正交性**：三条流程互斥（一个 case 只选一条）。三流程给 vrgen 的都是同一份提交
+**正交性**：四条流程互斥（一个 case 只选一条）。四条流程给 vrgen 的都是同一份提交
 清单：用户勾选的素材 + patch 的 clip / fullredraw 的 pad + 装配器自动附带的 mask
-（编辑区域控制图，不参与编号）；gen 的清单就是勾选的 `[[assets]]`。三者归一到同一
-份 `InputPackage`，差异全部由 vrstudio 在"组装候选与几何"时消解；没有默认提交集，
-勾选才提交。
+（编辑区域控制图，不参与编号）；gen 的清单就是勾选的 `[[assets]]`。补丁类流程归一
+到同一份 `InputPackage`，差异全部由 vrstudio 在"组装候选与几何"时消解；没有默认
+提交集，勾选才提交。
+
+`flow = patchimg`（360 静图局部重绘）与 patch 同构：extract 裁出 16:9 透视视口
+`clip.png` + `clip_mask.png` + `still.json`，图片模型（`vrgen image submit`）只重绘
+视口，merge 用 `patch/projection` 与 `patch/composite` 的 `SegmentMaps` 贴回并只写
+inner；没有 pad/recompose。计划中的 `flow = img2video`（360 图片→首尾帧→视频）走
+全幅 21:9 pad/stitch，几何与 `img2video` 的工作包见
+`docs/plan/360-still-gen-flows-plan.md`。
 
 ## 2. vrgen 模块树（目标态）
 

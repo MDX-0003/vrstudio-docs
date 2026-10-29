@@ -52,6 +52,57 @@ round = "dusk-c3a41f90"
 
 patch 与 fullredraw 也可以有 `[[assets]]`（三视图、重绘定稿帧等文件素材）和可选的 `[submit] selected`，格式与 gen 示例相同；源视频仍然只放在 `[source]`。流程产物不写进 `[[assets]]`，路径由 `[extract] current` 或 manifest 决定；其中 patch 的 `clip`、fullredraw 的 `pad` 是用户可勾选的候选，mask 是流程自动附带的控制图，首尾原始帧只进工作台输入区（见 §4 `--refs` 清单）。
 
+### flow = "patchimg"（360 静图局部重绘：视口局部）
+
+```toml
+flow = "patchimg"
+
+[source]
+path = "../sources/pano_8k.png"
+sha256 = "…"            # merge 前校验；源图必须是 2:1 ERP
+
+[viewport]              # 选区草稿：web pick 写入，extract 时冻结进 still.json
+yaw_deg = -101.0
+pitch_deg = 0.0
+fov_h_deg = 70.0
+width = 1920            # 16:9：图片模型支持的档位
+height = 1080
+
+[inner]                 # 视口内坐标：真正要重绘的区域，必须覆盖完整主体
+x = 420
+y = 280
+width = 1080
+height = 800
+
+[extract]
+current = "20261029-101500"
+
+[adopt]
+round = "img-77c1a0e4"
+index = 3               # 图片轮次里被采用的那张（1..N）；patchimg 必填
+```
+
+`still.json`（`extracts/<版本>/still.json`，version=1）是 patchimg 的几何唯一权威，与 `clip.json` 同地位但去掉了时间：
+
+```json
+{
+  "version": 1,
+  "erp_width": 8192,
+  "erp_height": 4096,
+  "viewport": {"yaw_deg": -101.0, "pitch_deg": 0.0, "fov_h_deg": 70.0,
+               "width": 1920, "height": 1080},
+  "inner": {"x": 420, "y": 280, "width": 1080, "height": 800}
+}
+```
+
+设计说明：
+
+- 与 patch 同构：extract 只裁出透视图口 `clip.png`，图片模型只重绘这一张，merge 用与视频 patch 相同的投影与 `composite_frame` 贴回，再只写 inner；不做全幅 pad/recompose。视口跨 ERP 接缝时，投影的环绕采样先把它拼成连续图像，因此不需要冗余带。
+- 视口比例必须是图片模型支持的 16:9；非 16:9 在 extract 与 submit 两处拒绝。视口宽高只是草稿字段（1920×1080 或 3840×2160），不是枚举。
+- inner 必须覆盖完整主体：贴回只写 inner，主体跨出 inner 会在边界被切断。CLI 先看 `clip_mask.png`，web pick 页要画出 inner 边界。
+- mask 是提示不是通道：平台图片命令只有 `--ratio` 与 `1K/2K/4K`，没有 inpaint 参数；选区外严格不变的保证来自贴回，不来自模型。
+- `clip.json`、`_pad.json`、`still_pad.json` 都不属于 patchimg；`still_pad.json` 留给 `img2video` 的全幅路径。
+
 ### flow = "fullredraw"（全景重绘：AI 重绘整个 360°）
 
 ```toml
@@ -219,6 +270,15 @@ cases/<名>/
   out/<版本>_space.mp4           # 空间合并（merge）产物：n_seg 帧中段
   out/<版本>_frame.mp4           # 时间拼接（assemble）产物：整条源片等长
                                  # 整片抽取只有 _space；下游按 _frame → _space 回退
+  # --- flow = patchimg ---
+  extracts/<时间戳>/             # 版本化冻结（单帧；与 patch 同构，没有时间）
+    clip.png                     #   16:9 视口裁剪：送生成的唯一图像
+    clip_mask.png                #   inner mask（黑=重绘，白=保持），作为提示附带
+    still.json                   #   冻结几何：erp_w/h + viewport + inner（version=1）
+    result.png                   #   被采用的那张视口结果（adopt 时拷入）
+    report.json                  #   归一化与贴回统计
+  derived/                       # clip.png + clip_mask.png + still.json 的副本
+  out/<版本>_still.png           # 贴回后的完整 2:1 ERP
   # --- flow = fullredraw ---
   seedance_input.mp4             # pad 画布（无损）
   seedance_input_mask.png
@@ -234,8 +294,9 @@ cases/<名>/
 case 创建入口（vrstudio）：
 
 ```
-vrstudio case new <名> --flow patch|fullredraw|gen [--source <视频>] [--mode <模式>]
-  # patch/fullredraw：--source 必填，--mode 禁止
+vrstudio case new <名> --flow patch|patchimg|fullredraw|gen [--source <文件>] [--mode <模式>]
+  # patch/fullredraw：--source 必填（视频），--mode 禁止
+  # patchimg：--source 必填（2:1 ERP 图片），--mode 禁止；建好即写入默认 16:9 草稿
   # gen：--mode 必填；--source 可选。给了源视频就复制为 assets/v1（edit_master）。
   #      case 写盘后立即以子进程调 vrgen params save --job <名> --mode <模式>；
   #      写模式失败时 case 保留，命令以退出码 2 结束并提示重试。
@@ -273,6 +334,16 @@ vrgen params show --job <名> [--refs <json>] [--canvas WxH] [--source WxH] [--a
                                            # 只读：output/input 档位与模式列表；refs 只用于取母版算输入尺寸
 vrgen params save --job <名> [--resolution <480p|720p|1080p>] [--scale <auto|full|half>] [--mode <模式>] [--aspect-ratio <auto|W:H>] [--session-id <id>] [--project-id <id>] [--episode <n>] [--workdir <dir>]
 vrgen sessions list [--project-id <id>] [--episode <n>]   # 只读：项目/剧集/会话树，JSON 输出
+```
+
+`patchimg` 的图片提交由 `vrstudio generate submit` 组装成 `vrgen image submit`，视口图与 inner mask 由装配器自动附带（mask 不进 `[submit] selected`、不占编号）：
+
+```
+vrgen image submit --job <case 名> --template still360-local --vars-file prompt-vars.toml \
+  --image <extract>/clip.png       --image-role edit_master \
+  --image <extract>/clip_mask.png  --image-role mask \
+  [--image <参考图> --image-role <角色>]… \
+  --ratio 16:9 --resolution 4K --num 4 [--session-id <id>] [--workdir <dir>]
 ```
 
 `prompt show` 与 `prompt save` 在提供 `--refs` / `--mode` / `--canvas` / `--source` 时，会额外返回 `rendered`（展开后的完整提示词）和 `render_error`（缺哪个占位符）。展开只读，不建轮次、不碰平台；前端提示词面板默认显示 `rendered`，模板骨架可切换查看。

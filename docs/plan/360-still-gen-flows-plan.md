@@ -1,6 +1,6 @@
-# 360 静图的两条生成流程（审查稿，待批）
+# 360 静图的两条生成流程
 
-状态：按「局部重绘走视口局部、整幅 360 画布生成才走左右冗余与拼接」重写。上一版把 `patchimg` 做成全幅 21:9 画布，8K 实测暴露局部细节被摊薄；本版把它改回与视频 patch 同构的视口局部，`img2video` 继续使用全幅 pad/stitch。文末列出仍然需要确认的取值。
+状态：已定稿（决策 46，2026-10-29）。按「局部重绘走视口局部、整幅 360 画布生成才走左右冗余与拼接」重写：上一版把 `patchimg` 做成全幅 21:9 画布，8K 实测暴露局部细节被摊薄，本版把它改回与视频 patch 同构的视口局部，`img2video` 继续使用全幅 pad/stitch。文末列出仍然需要确认的取值。
 
 ## 0. 结论
 
@@ -14,9 +14,9 @@
 ## 0.1 实施状态（2026-10-29）
 
 - WP1 完成：静图 pad/stitch 核心与 `still_pad.json`（vrstudio `755ed2d`）。该核心现在服务 `img2video`，不再服务 `patchimg`。
-- WP2 已完成过一版**全幅 patchimg**（vrstudio `4b34d86`、`9f1dd88`、`6927d58`），并用 8192×4096 源做过真实 4 张候选验收：接缝 `wrap 0.437 / percentile 48.1 → ok`，选区外 `maxdiff 0`。验收同时证明全幅方案让局部细节偏软，因此本版把 `patchimg` 改为视口局部；全幅的 extract/submit/merge 代码保留给 `img2video` 与未来的整幅重绘。
-- WP5 完成：vrgen 的 `edit_master`/`mask` 角色文本、`still360-local` 模板与输入限额（vrgen `eb7d6ec`）。
-- WP3（`img2video`）、WP4（前端 `patchimg`）、WP6（gen 整幅 360 缺口）未开始。
+- WP2 曾以全幅实现（vrstudio `4b34d86`、`9f1dd88`、`6927d58`）并用 8192×4096 源做过真实 4 张候选验收：接缝 `wrap 0.437 / percentile 48.1 → ok`，选区外 `maxdiff 0`。验收同时证明全幅方案让局部细节偏软，因此 `patchimg` 改为视口局部：extract 只写 `clip.png` + `clip_mask.png` + `still.json`，merge 走 `SegmentMaps.from_geometry` + `composite_frame` + 只写 inner；全幅的 `patch/still.py`（ERP 空间局部 mask + 局部融合）随之下线，`redraw/still.py` 与上传副本降采样保留给 `img2video`。
+- 模板与角色文本完成：vrgen 的 `edit_master`/`mask` 角色文本、`still360-local` 模板与输入限额（vrgen `eb7d6ec`）。
+- WP3（`img2video`）、WP4（前端 `patchimg`）、WP5（前端 `img2video`）、WP6（gen 整幅 360 缺口）未开始。
 
 ## 1. 设计原则与适用边界
 
@@ -457,11 +457,13 @@ vrstudio merge --case <名>
 
 改动：
 - `case.py` 的 patchimg case/draft（保留）。
+- `patch/sidecar.py` 新增 `StillGeometry`（构造即校验 2:1、16:9、inner 在视口内）与 `still.json` 读写。
+- `patch/composite.py` 新增 `SegmentMaps.from_geometry`（不伪造 `Segment`）与 `paste_inner`（composite 后只写 inner）；`inner_support`/`inner_bbox` 是唯一的贴回支撑区。
 - `extract` 的 patchimg 分支改为视口裁剪 + `make_mask_image` + `still.json`；移除全幅 pad、`padded.png`/`still_pad.json`、冗余带守卫。
-- `generate submit` 的 patchimg 分支改为 `vrgen image submit`，输入 `clip.png` + `clip_mask.png`，ratio 16:9、4K、N。
+- `generate submit` 的 patchimg 分支改为 `vrgen image submit`，输入 `clip.png` + `clip_mask.png`，ratio 16:9、4K、N；`_upload_inputs` 从 patchimg 路径撤出，留给 `img2video` 的关键帧提交。
 - `generate adopt --index`（保留），落 `result.png`（视口结果）。
-- `merge` 的 patchimg 分支改为 `SegmentMaps.from_geometry` + `composite_frame` + 只写 inner；移除全幅 stitch/local composite 的分支。
-- 测试：视口 extract、mask 极性、submit argv、adopt index、贴回选区外逐位不变、跨 ERP 接缝视口不破坏接缝。
+- `merge` 的 patchimg 分支改为 `SegmentMaps.from_geometry` + `composite_frame` + 只写 inner；移除全幅 stitch/local composite 的分支，`patch/still.py` 下线。
+- 测试：视口 extract、mask 极性、非 16:9 与 inner 越界拒绝、submit argv、adopt index、贴回选区外逐位不变、跨 ERP 接缝视口的两半支撑与环绕连续。
 
 验收：五步跑通；选区外 `np.array_equal`；8K 源的局部细节来自 4K 视口输出；真实额度验收一次；无额度路径（`--check` + 注入结果）通过。
 
