@@ -16,6 +16,7 @@
 - WP1 完成：静图 pad/stitch 核心与 `still_pad.json`（vrstudio `755ed2d`）。该核心现在服务 `img2video`，不再服务 `patchimg`。
 - WP2 曾以全幅实现（vrstudio `4b34d86`、`9f1dd88`、`6927d58`）并用 8192×4096 源做过真实 4 张候选验收：接缝 `wrap 0.437 / percentile 48.1 → ok`，选区外 `maxdiff 0`。验收同时证明全幅方案让局部细节偏软，因此 `patchimg` 改为视口局部：extract 只写 `clip.png` + `clip_mask.png` + `still.json`，merge 走 `SegmentMaps.from_geometry` + `composite_frame` + 只写 inner；全幅的 `patch/still.py`（ERP 空间局部 mask + 局部融合）随之下线，`redraw/still.py` 与上传副本降采样保留给 `img2video`。
 - 模板与角色文本完成：vrgen 的 `edit_master`/`mask` 角色文本、`still360-local` 模板与输入限额（vrgen `eb7d6ec`）。
+- WP2 真实额度验收完成（8K 源、4 张候选、选区外 `maxdiff 0`、局部锐度约为全幅方案的 1.7 倍）：见 `docs/test-runs/20261029-patchimg-viewport-local.md`。
 - WP3（`img2video`）、WP4（前端 `patchimg`）、WP5（前端 `img2video`）、WP6（gen 整幅 360 缺口）未开始。
 
 ## 1. 设计原则与适用边界
