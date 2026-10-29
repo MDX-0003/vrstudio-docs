@@ -197,7 +197,75 @@ serve 在 `/`、`/case/walk_01`、`/api/case/walk_01` 上连续 500，最后一�
 - 同一条异常在日志里出现两次，说明中间件与 uvicorn 各记了一遍，查日志一律按 `request.error`（带 rid 与路径）为准。
 - 按消息文本过滤日志记录时，先照抄真实日志里的文案再写判据：uvicorn 的 `Exception in ASGI application` 带尾随换行，第一版过滤器写成精确相等，单元测试用自造的不带换行文案全过，真实路径上照样重复记录。过滤与去重这类改动要用真实进程验证一遍，不能只看 TestClient。
 
-## 6. 记录模板
+## 6. 2026-10-29 · patchimg 8K 真实验收：上传 403、inner 覆盖与冗余带
+
+### 现象
+
+用 8192x4096 的 ERP 图跑 patchimg 全流程。`extract` 生成 9558x4096 的 `padded.png`
+（117.6 MB）与 `padded_mask.png`（39.2 MB）。`generate submit` 在 mglc 上传阶段
+连续两次返回 `code 10101: 上传文件失败: 上传失败 HTTP 403 AccessDenied`，轮次停在
+`prepared`，没有拿到 task id。把提交副本缩到长边 4096（`upload.png` / `upload_mask.png`）
+后同一 session 提交成功，返回 4 张候选。
+
+### 诊断步骤
+
+1. 读 `vrgen_runs/erp_test/img-61002501/mglc.log`：`model --type image --model-id 44`
+   成功，失败发生在 `image generate`；`run.json` 的 stage 仍是 `prepared`。
+2. 直接跑 `mglc model --type image --model-id 44`：只公布 ratios、resolutions、
+   maxReferenceCount、maxPromptLength，没有 `refImageValidator`，所以本地的
+   `_check_input_images` 无从判断。
+3. 重试同一命令，403 立即返回且资源 key 前缀相同；文件大小是唯一异常（117 MB）。
+4. 用 4096 宽的上传副本重试，成功。
+
+### 根因
+
+平台的图片上传接口对超大 PNG 返回通用 403，而不是“尺寸超限”的校验错误；图片模型
+输出只有 4K，9558 宽的全幅输入既超出上传能力，也没有对应的输出分辨率收益。
+
+### 处理
+
+- `assemble_still` 增加上传副本：`padded.png` 与 `padded_mask.png` 超过
+  `generate.image_upload_max_side`（默认 4096）时长边缩到该值，base 用 INTER_AREA，
+  mask 用 INTER_NEAREST 保持二值；写入 `upload.png` / `upload_mask.png`。
+- canonical `padded.png` 与 `still_pad.json` 仍是满分辨率；`stitch_still` 把模型输出
+  还原到画布尺寸，最终 ERP 保持 8192x4096。
+- 实测同时暴露两处约束，已补机制：
+  - 局部 inner 必须覆盖完整主体。第一次 inner 960x540 只到腰部，候选虽然把整身改成
+    金袍，但贴回会在腰线切断；扩到 1080x800（x=420,y=280）后完整。
+  - 局部选区必须落在干净主内容 `[P, W-2P)` 内。第一次选香炉（yaw 110）压到右侧
+    冗余带，pad 把黑区复制到另一侧，mask 变成横贯画布的宽条；`extract` 现在直接
+    拒绝并提示移开接缝或缩小 inner。
+- `vrgen` 的 `RunStore.open` 增加按轮次目录名匹配；`adopt --round img-xxxx` 不再报
+  no run matching。
+
+### 验证
+
+- 源图 `sources/360erp_test.png`，session 2062569522605504，4 张候选，gate ok。
+- 采用 `img-61e3e701` 的第 4 张；`merge` 输出
+  `cases/erp_test/out/20261029-103543_still.png`（8192x4096）。
+- 报告：`d*=-7`，`corr=0.933`，`gate=warn`（代价曲线平，不是失败），
+  接缝 `wrap 0.437 / percentile 48.1 → ok`，选区外 `maxdiff 0`，
+  `changed 700816/701031`。
+- 目视：人物完整换成金袍，柱子、地面、桌子与大殿其他部分保持；8K 局部细节受 4K
+  输出上限影响，贴回后偏软。
+
+### 预防
+
+- patchimg 默认只传 4096 长的上传副本；要确认平台接受原尺寸时用
+  `--set generate.image_upload_max_side=0`，但 117 MB 级输入会 403。
+- 选 inner 时用预览确认框住完整主体，并留在干净主内容内；CLI 先看
+  `padded_mask.png` 或 extract 的报错，不要直接提交。
+- 平台对超限输入可能给通用 403；遇到上传阶段的 403 先查文件大小，再查凭证与 URL。
+
+### 相关文件/命令
+
+- `vrstudio/src/vrstudio/cli/generate.py` `_upload_inputs`
+- `vrstudio/config/default.toml` `generate.image_upload_max_side`
+- `vrstudio/src/vrstudio/cli/extract.py` 冗余带守卫
+- `vrstudio/src/vrstudio/patch/still.py` `changed_inside` 按像素统计
+- `vrgen/src/vrgen/round/ledger.py` `RunStore.open` 目录名匹配
+
+## 7. 记录模板
 
 以后新增经验时按以下结构追加，不覆盖旧记录：
 
