@@ -1,37 +1,37 @@
 # 360 静图的两条生成流程（审查稿，待批）
 
-状态：按「凡是生成模型产出 360 画布，前后都必须有左右冗余与左右拼接」的原则重写，并把图→视频的三种首尾帧组合收敛成一条 `img2video`。上一版把图→图做成视口裁剪加贴回，缺少 pad/recompose；本版改为全幅 21:9 冗余画布 + 拼接。文末列出仍然需要你确认的取值。
+状态：按「局部重绘走视口局部、整幅 360 画布生成才走左右冗余与拼接」重写。上一版把 `patchimg` 做成全幅 21:9 画布，8K 实测暴露局部细节被摊薄；本版把它改回与视频 patch 同构的视口局部，`img2video` 继续使用全幅 pad/stitch。文末列出仍然需要确认的取值。
 
 ## 0. 结论
 
 - 新增两条 flow：`patchimg`（360 图片局部重绘）与 `img2video`（360 图片→首尾帧→视频）。两条都是独立流程，视频 patch 保持不动。
-- 两条流程共用同一套「360 生成辅助」：生成前 `pad`（2:1 ERP 循环冗余到 21:9 画布 + mask + 几何 manifest），生成后 `stitch`（配准、冗余带融合、还原 2:1、接缝闸门）。这套辅助的几何与融合核心在现有 fullredraw 里已经是单帧函数，可以直接复用；需要新写的是静图 I/O、静图 manifest 与两条流程的步骤编排。
-- `patchimg` 在全幅拼接之后再按选区做局部贴回，保证选区外与源图逐位一致。`img2video` 不贴回，输出整幅 360 视频，接缝由拼接步骤负责闭合。
-- `img2video` 用「槽位 + 绑定」统一三种首尾帧组合：两张源图各重绘一次、一张源图重绘一次首尾复用、一张源图分别重绘两次。链上的中间关键帧保持在 padded 域，不做 recompose；只有最终视频（以及要作为 2:1 交付或预览的关键帧）才 recompose。
-- 现有 patch 的视频局部重绘不套用这套辅助：它的生成输入是透视视口裁剪，不是 360 画布；ERP 的左右接缝在 footprint 外，贴回时逐位保留。这一点在 3.5 节单独说明。
-- gen 流程里对整幅 360 视频做 `videoEdit` 的路径目前没有 pad/stitch，按这条原则是一个既有缺口。它需要区分 360 与扁平视频，建议单独立项，不塞进本文。
+- `patchimg` 走**视口局部**：`extract` 从 ERP 裁出 16:9 视口图与 inner mask，图片模型只重绘这张视口图，`merge` 归一化后贴回 ERP，并只写 inner 区域。它与视频 patch 同构，复用 `patch/projection`、`patch/composite`、`patch/scalefit`；不需要全幅 pad/recompose。
+- `img2video` 走**全幅 360 画布**：源图与关键帧 pad 成 21:9 冗余画布，图片模型重绘关键帧，视频模型 firstLastFrame 出 21:9 视频，最后逐帧拼接回 2:1。它复用静图 pad/stitch 核心与 fullredraw 的 recompose。
+- 「所有 360 画布生成都要左右冗余与拼接」的原则保留，但适用对象是**模型输出为 360 画布**的步骤。视口裁剪是透视图像，不是 360 画布；视口跨 ERP 接缝时投影先拼好环绕，模型看到的仍是连续透视图。视频 patch 属于这一类，`patchimg` 也属于。
+- 8K 的 `patchimg` 全幅实测暴露两个问题：全幅 4K 输出摊到 9558 宽后局部偏软；117.6 MB 的全幅 PNG 被平台上传接口 403。视口局部同时解决这两点：输入是 1920×1080（或 4K 视口）的裁剪图，局部拿到完整 4K 输出，上传尺寸也远低于限制。
+- `img2video` 的关键帧仍是整幅 360 图，仍受 4K 输出与上传尺寸限制；它的上传副本降采样与 pad/stitch 继续保留。
 
 ## 0.1 实施状态（2026-10-29）
 
-- WP1 完成：静图 pad/stitch 核心与 `still_pad.json`（vrstudio `755ed2d`）。
-- WP2 完成：`patchimg` 的 case/pad、提交、adopt 与贴回（vrstudio `4b34d86`、`9f1dd88`）。
+- WP1 完成：静图 pad/stitch 核心与 `still_pad.json`（vrstudio `755ed2d`）。该核心现在服务 `img2video`，不再服务 `patchimg`。
+- WP2 已完成过一版**全幅 patchimg**（vrstudio `4b34d86`、`9f1dd88`、`6927d58`），并用 8192×4096 源做过真实 4 张候选验收：接缝 `wrap 0.437 / percentile 48.1 → ok`，选区外 `maxdiff 0`。验收同时证明全幅方案让局部细节偏软，因此本版把 `patchimg` 改为视口局部；全幅的 extract/submit/merge 代码保留给 `img2video` 与未来的整幅重绘。
 - WP5 完成：vrgen 的 `edit_master`/`mask` 角色文本、`still360-local` 模板与输入限额（vrgen `eb7d6ec`）。
-- 真实 8K 验收（2026-10-29）：8192x4096 源、session 2062569522605504、4 张候选；`adopt --index 4` + `merge` 输出 8192x4096 ERP，选区外 `maxdiff 0`，接缝 `wrap 0.437 / percentile 48.1 → ok`。期间补了上传副本降采样（长边 4096）、冗余带守卫与 `changed_inside` 按像素统计。
 - WP3（`img2video`）、WP4（前端 `patchimg`）、WP6（gen 整幅 360 缺口）未开始。
-- 验证：vrstudio 与 vrgen 的全量 pytest、ruff 通过；真实 `vrgen image submit --dry-run` 生成 `img-` 轮次并打出 `--ratio 21:9 --resolution 4K --num 4`；`patchimg merge` 的选区外 maxdiff 为 0。
 
 ## 1. 设计原则与适用边界
 
 原则：**凡是交给生成模型、由模型输出 360 画布（整幅 ERP，或包含 ERP 横向环绕的宽画布）的步骤，前后都必须走「左右冗余—左右拼接」**。
 
-这条原则解决的是同一个问题：模型不知道画布最左与最右是同一圈 360 度，直接生成必然在接缝处出现物体、纹理、光照或运动的不连续。pad 把接缝两侧的真实内容作为冗余带一起交给模型，让它看到完整的环绕邻域；stitch 再用冗余带做配准与融合，把接缝落到模型自己栅格里的相邻列上。
+原因：模型不知道画布最左与最右是同一圈 360 度，直接生成会在接缝处出现物体、纹理、光照或运动的不连续。pad 把接缝两侧的真实内容作为冗余带交给模型；stitch 用冗余带做配准与融合，把接缝落到模型自己栅格里的相邻列上。
 
 适用边界：
 
-- 生成输入是整幅 ERP 或包含 ERP wrap 的宽画布：适用。fullredraw 已经在做；两条新流程按本文做。
-- 生成输入是透视视口裁剪：不适用。视口是普通透视图像，没有 wrap；如果视口跨过 ERP 接缝，投影模块在裁剪前已经把环绕拼好了。现有 patch 属于这一类。
-- 生成输入是首尾帧视口图（keyframe 工作台的 16:9）：不适用，理由同上。
-- 生成输入是整幅 360 视频且直接 `videoEdit`：适用，但 gen 流程目前没有做。见 3.5 节。
+- 模型输出是整幅 ERP 或包含 ERP wrap 的宽画布：适用。fullredraw 已经在做；`img2video` 的关键帧与视频按本版做。
+- 模型输出是透视视口裁剪：不适用。视口是普通透视图像；视口跨 ERP 接缝时，`build_view_map` 的环绕采样在裁剪前已经把接缝拼成连续图像。现有视频 patch 与新的 `patchimg` 都属于这一类。
+- 模型输出是整幅 360 视频且直接 `videoEdit`：适用，但 gen 流程目前没有做。见 3.4 节。
+- 模型输出是首尾帧视口图（keyframe 工作台的 16:9）：不适用，理由同视口裁剪。
+
+因此两条新流程的归档是：`patchimg` 与视频 patch 同构，走视口局部；`img2video` 的关键帧与视频走全幅 pad/stitch。
 
 ## 2. 需求卡
 
@@ -41,15 +41,17 @@
 
 ### 任务与失败路径
 
-`patchimg` 的主任务：当我要修一张 360 全景图里的某个人或物体时，我想框选局部、写提示词、生成 N 张候选、挑一张，以便得到一张接缝闭合、选区外完全没变的完整 ERP 图。
+`patchimg` 的主任务：当我要修一张 360 全景图里的某个人或物体时，我想框选视口与内部区域、写提示词、生成 N 张视口候选、挑一张贴回，以便得到一张接缝保持、选区外完全没变的完整 ERP 图。
 
 `img2video` 的主任务：当我要把一张或两张 360 全景图变成一段 360 视频时，我想按三种首尾帧组合之一生成关键帧、写情节提示词、生成视频，以便得到一段接缝闭合的完整 ERP 视频。
 
 失败路径：
 
 - 源图不是 2:1 时，新建 case 拒绝并报出实际宽高；不静默拉伸或裁切。
+- `patchimg` 的 inner 超出视口时，extract 拒绝；inner 没有覆盖完整主体时，贴回会在主体内部切断，CLI 先看 mask 预览再提交。
+- 视口比例与图片模型支持的比例不一致时，submit 拒绝；本期视口固定 16:9，图片模型支持 16:9。
 - `img2video` 的两张源图尺寸不一致时，拒绝并报出两边尺寸；不静默缩放，因为两张图的 pad 几何必须一致。
-- 生成结果的比例与画布不一致时，拼接步骤先按画布宽度还原，比例漂移超过阈值时告警；模型把画布裁掉或重新构图时，冗余带相关性低于阈值，拼接步骤拒绝出片。
+- 生成结果的比例与画布/视口不一致时，拼接或贴回先按目标尺寸还原，比例漂移超过阈值时告警；模型把画布裁掉或重新构图时，冗余带相关性低于阈值，拼接步骤拒绝出片。
 - `patchimg` 贴回后选区外出现任何像素差异时，pytest 基线失败；CLI 打印差异像素数。
 - 候选没有人工挑选时，adopt 拒绝，要求显式给下标。
 - `img2video` 的首帧或尾帧没有定稿时，视频提交拒绝。
@@ -57,31 +59,31 @@
 ### 约束
 
 - 两仓库分离，跨仓库只走 CLI、退出码与台账。
-- `clip.json`、`_pad.json`、`runs/<轮次>/run.json` 是冻结契约；两条新流程用新的 `still_pad.json`，不改这三个文件。
+- `clip.json`、`_pad.json`、`runs/<轮次>/run.json` 是冻结契约；两条新流程不改这三个文件。`patchimg` 用新的 `still.json`，`img2video` 用新的 `still_pad.json`。
 - 图像按单帧处理；视频按帧流式处理，不整片驻留内存。
 - 平台图片命令只有 `--ratio` 与 `1K/2K/4K`，每轮候选 1..4，没有 mask/inpaint 参数；平台视频命令的模式里没有单图生视频。
 - 提交门禁是 `pytest` 全绿与 `ruff` 干净。
 
 ### 验收
 
-- `patchimg`：CLI 五步跑通，输出完整 ERP PNG；选区外与源图 `np.array_equal`；接缝闸门通过；N 张候选可人工挑。
+- `patchimg`：CLI 五步跑通，输出完整 ERP PNG；选区外与源图 `np.array_equal`；N 张候选可人工挑；8K 源的局部细节来自 4K 视口输出，不再被全幅画布摊薄。
 - `img2video`：三种 mode 都能在 CLI 跑通，输出 2:1 ERP 视频；接缝指标通过；链上关键帧不做 recompose。
-- 两条都不依赖真实平台额度也能跑通：图片走 `image submit --dry-run`，视频走 `submit --dry-run`，拼接用注入的合成结果验证。
+- 两条都不依赖真实平台额度也能跑通：图片走 `image submit --dry-run`，视频走 `submit --dry-run`，贴回/拼接用注入的合成结果验证；真实额度验收按 8K 源补一次。
 - 现有 patch、fullredraw、gen 的测试保持绿色。
 
 ### 范围三栏
 
 现在必须做：
 
-- 共用静图 pad/stitch 核心与 `still_pad.json`。
-- `patchimg` 的 case、pad、图片提交、adopt、拼接、局部贴回、像素基线。
-- `img2video` 的 case、pad、三种槽位组合、首尾帧生成与挑选、firstLastFrame 提交、adopt、视频拼接。
+- `patchimg` 的视口局部链路：case、extract（视口图 + inner mask + `still.json`）、图片提交、adopt、贴回、像素基线。
+- `img2video` 的全幅链路：静图 pad/stitch 核心、三种槽位组合、firstLastFrame 提交、视频拼接。
 - 两条流程的 CLI 端到端测试。
 - 两条流程的 web 与前端步骤链。
 
 以后可以做：
 
-- 8K 源图的分块或局部条带生成，缓解全幅 4K 输出带来的局部细节损失。
+- 跨 ERP 接缝的局部编辑专门方案（视口加宽、21:9 宽条或全幅路径）。
+- 8K 源的分块或局部条带生成，用于 `img2video` 的关键帧。
 - 多区域依次重绘。
 - `gen` 的整幅 360 视频补 pad/stitch。
 
@@ -94,94 +96,95 @@
 
 ### 优先级
 
-CLI 可行性第一。先做共用辅助与 `patchimg`，把 pad/stitch、局部贴回与像素基线钉死；`img2video` 复用同一套辅助，排在第二；前端两条都排在 CLI 之后。
+CLI 可行性第一。先做 `patchimg` 的视口局部链路（它与视频 patch 同构，复用现成投影与合成，风险最低），再做 `img2video` 的全幅链路；前端两条都排在 CLI 之后。
 
-## 3. 共用辅助：pad 与 stitch
+## 3. 两条生成路径
 
-### 3.1 现有 fullredraw 机制
+### 3.1 视口局部（patchimg 与视频 patch）
 
-`redraw/geometry.py` 是纯几何，没有 I/O：
+视口局部不新建几何规则，直接复用视频 patch 的权威模块：
 
-- `plan_pad(PadSpec, ...)` 从源尺寸与目标比例推导画布宽度 `Wc`、每侧冗余 `P`、带宽 `L = 2P`、三块区域 `G/R/B`、wrap 对、预滚量 `preroll`，并在返回前调用 `assert_closure` 断言接缝闭合不变量。
-- 2:1 源到 21:9 目标时 `P = W/12`；画布保持源高度，只横向加宽。
-- `restore_height` 与 `restore_canvas` 负责把模型返回的任意分辨率强制回画布宽度，让区域边界落在整数列上。
+- `patch/projection`：`build_view_map` / `remap_viewport` 把 ERP 重采样成透视视口；`build_paste_map` / `rect_to_erp_bbox` 把视口反投影回 ERP。视口跨 ERP 接缝时，`BORDER_WRAP` 先把环绕拼好。
+- `patch/extract`：`extract_viewport_frame(erp, viewport)` 裁视口；`make_mask_image(viewport, inner)` 生成黑内白外的 mask。mask 极性是黑=重绘、白=保持，图片模板按这个极性写。
+- `patch/composite`：`SegmentMaps` 构建一次 view/paste 采样图与 inner mask；`composite_frame(erp, ai_viewport)` 把 AI 视口多频带融合后贴回 ERP；`normalize_ai_frame` 把模型返回的任意尺寸归一到视口尺寸。
+- `patch/scalefit`：可选的单对帧全局缩放/平移纠偏；图片模型返回漂移时再开，首版可先关闭。
+- `patch/blend`：多频带融合；`patch/sidecar`：`Viewport` / `InnerRect` 数据类。
 
-`redraw/padding.py` 与 `redraw/pipeline.py` 负责真正的像素变换：
+视口局部的数据流：
 
-- `pad_horizontal(frame, P)` 用取模索引把左右各 `P` 列环绕复制到对面。
-- `pre_roll` 取消 recompose 必然引入的整体旋转，保证交付图保持源图的正前方。
-- `apply_chain(frame, chain, ctx)` 对一帧依次执行 `pre_roll` 与 `pad_h`。
+```text
+源 ERP 图
+  → extract：clip.png（视口裁剪）+ clip_mask.png（inner mask）+ still.json（冻结几何）
+  → 图片模型：只重绘 clip.png，mask 为提示
+  → adopt：挑一张视口结果 result.png
+  → merge：normalize → 可选 scalefit → SegmentMaps.composite_frame → 只写 inner
+  → out/<版本>_still.png（完整 ERP）
+```
 
-`redraw/mask.py` 生成给模型的几何提示图；`recompose` 的几何只从 manifest 读，不读 mask，所以模型忽略或涂改 mask 不会让几何出错。
+接缝性质：
 
-`redraw/recompose_core.py` 是拼接的几何主体，全部是单帧函数：
+- 视口不跨 ERP 接缝：接缝在视口 footprint 之外，贴回时逐位保留。
+- 视口跨 ERP 接缝：投影把接缝拼成连续透视图，模型看到的是正常图像；贴回后靠视口的透视连续性保持，不需要冗余带。
+- 最终 ERP 的左右接缝要么是源图的（footprint 外），要么在视口内部由投影与 AI 内容连续承接；不存在“全幅画布被模型重绘后接缝错位”的问题。
 
-- `slice_regions(canvas, spec)` 切出 `G`、`R`、`B`。
-- `recompose(canvas, spec)` 用 `blend_block` 把左右冗余带融合成一个宽度为 `L` 的块，拼在 `R` 后面，得到宽度 `W` 的输出。
-- `finalize(out)` 只做一次 float64 到 uint8 的量化。
-- `restore_canvas(frame, canvas_size, interp)` 把模型返回的帧强制到画布尺寸。
+### 3.2 全幅 pad/stitch（img2video）
 
-`redraw/registration.py` 的 `circular_translate(G, B, ...)` 估计冗余带的相对位移 `d*` 与相关性；`redraw/verify_core.py` 的 `verdict` 把接缝指标变成 ok/warn/fail。fullredraw 的 `recompose` CLI 只是这些单帧函数外面套了一层视频读写与报告。
+全幅路径解决的是整幅 360 画布的生成接缝，`img2video` 的关键帧与视频使用它。几何与融合来自 fullredraw 的单帧核心：
 
-### 3.2 静图变体
-
-静图不需要新的几何或新的融合算法，需要的是四件事：
-
-1. 读图与写图的 I/O，按 8-bit BGR、PNG 无损写出。
-2. 一个静图 manifest `still_pad.json`，复用 `redraw/manifest.py` 里的 `CanvasInfo`、`PadInfo`、`MaskInfo`、`RestoreInfo` 数据类，去掉 `VideoSettings` 与帧率/帧数字段，增加源图哈希与局部选区。
-3. 一个 `pad_still` 步骤：对源图执行 `apply_chain`，得到 21:9 画布；按流程生成 mask；写 manifest。
-4. 一个 `stitch_still` 步骤：对生成图执行 `restore_canvas`、`circular_translate`、`recompose`、`finalize`，跑接缝闸门，写报告。
-
-这两步都是单帧，内存占用是一张画布加一张生成图；8K 源大约各 100 MB 量级，可以接受。
-
-### 3.3 视频变体
-
-`img2video` 的视频拼接不需要新算法，直接复用 fullredraw 的 `recompose` 视频路径：
-
-- 逐帧 `restore_canvas`，逐帧 `slice_regions`。
-- 在闸门 pass 中用 `circular_translate` 估计一个全局 `d*`（与 fullredraw 一样，不做逐帧抖动）。
-- 渲染 pass 用同一个 `d*` 做 `blend_block`，输出宽度 `W` 的 2:1 视频。
-- 复用 `FrameReader`/`FrameWriter` 与 `verify_core` 的接缝报告。
-
-差别只在 manifest：`img2video` 的视频阶段没有源视频，manifest 里的源信息换成"首尾帧 + 画布几何"，不写 `_pad.json`。可以在新 manifest 里复用同一组几何字段，让拼接 CLI 不依赖源视频。
-
-### 3.4 复用矩阵
-
-直接复用，不改：
-
-- `redraw/geometry.py`：`plan_pad`、`assert_closure`、`restore_height`。
-- `redraw/padding.py`：`pad_horizontal`、`canvas_column_index`。
-- `redraw/preroll.py`：`pre_roll`。
-- `redraw/pipeline.py`：`TransformContext`、`build_chain`、`apply_chain`。
-- `redraw/mask.py`：`redundant_white` 等策略，用于整幅关键帧。
+- `redraw/geometry.py`：`plan_pad` 从源尺寸与目标比例推导 `Wc`、`P`、`L=2P`、`G/R/B`、wrap 对、preroll，并 `assert_closure`。
+- `redraw/padding.py` / `pipeline.py`：`pad_horizontal` 环绕复制，`pre_roll` 抵消整体旋转，`apply_chain` 对单帧执行。
 - `redraw/recompose_core.py`：`slice_regions`、`recompose`、`finalize`、`restore_canvas`。
-- `redraw/registration.py`：`circular_translate`、`to_gray`。
-- `redraw/verify_core.py`：`SeamAccumulator`、`verdict`。
-- `redraw/blend.py`：`blend_block`、`weights`。
-- `media/videoio.py`：视频拼接的帧读写。
+- `redraw/registration.py` / `verify_core.py`：`circular_translate` 估 `d*` 与相关性，`verdict` 出接缝判定。
+- `redraw/still.py` / `manifest.py`：`plan_still`、`pad_still`、`stitch_still`、`still_pad.json`。这是 `img2video` 的静图变体；`patchimg` 不再使用。
+
+全幅路径的性质：
+
+- 模型输出必须是 21:9 画布；拼接用冗余带闭合接缝。
+- 4K 图片输出被摊到画布宽度（2:1 8K 源约 9558 宽），关键帧的局部细节受 4K 上限限制。
+- 全幅 PNG 可能超过平台上传限制；`assemble_still` 的上传副本降采样（长边 4096）继续用于 `img2video` 的关键帧提交。
+
+### 3.3 复用矩阵
+
+`patchimg` 直接复用，不改：
+
+- `patch/projection`：`build_view_map`、`remap_viewport`、`build_paste_map`、`rect_to_erp_bbox`。
+- `patch/extract`：`extract_viewport_frame`、`make_mask_image`。
+- `patch/composite`：`SegmentMaps`、`composite_frame`、`normalize_ai_frame`。为 still 增加一个 `SegmentMaps.from_geometry(viewport, inner, erp_w, erp_h)` 类构造，避免为了构造 `SegmentMaps` 伪造一个 `Segment`。
+- `patch/scalefit`：`fit_core` 的单对帧用法（可选）。
+- `patch/blend`：`multiband_blend`（视口内的融合由 `composite_frame` 调用）。
+- `case.py`、`cli/case.py`、`cli/generate.py`、`cli/merge.py` 的流程分支。
+
+`img2video` 直接复用，不改：
+
+- `redraw/geometry.py`、`redraw/padding.py`、`redraw/preroll.py`、`redraw/pipeline.py`。
+- `redraw/recompose_core.py`、`redraw/registration.py`、`redraw/verify_core.py`、`redraw/blend.py`。
+- `redraw/still.py` 的 `plan_still`、`pad_still`、`stitch_still`、`map_erp_mask_to_canvas`（最后一项目前只被全幅局部 mask 用，保留给未来整幅/跨接缝方案）。
+- `media/videoio.py` 的视频拼接帧读写。
+- `vrgen image submit`、`vrgen submit`（firstLastFrame）。
 
 需要新写：
 
-- 静图读写：`cv2.imread`/`cv2.imwrite` 的小封装，固定 8-bit BGR、PNG 无损。
-- `still_pad.json` 的读写与校验。
-- `pad_still` 与 `stitch_still` 两个单帧步骤。
-- `patchimg` 的局部 mask（ERP 空间）与局部贴回。
+- `patchimg` 的 `still.json` sidecar（version、erp_w/h、viewport、inner；没有 fps/时间）。
+- `patchimg` 的 extract 分支：视口裁剪 + mask + `still.json`。
+- `patchimg` 的图片提交分支：`vrgen image submit`，视口图 + mask。
+- `patchimg` 的贴回分支：`SegmentMaps.from_geometry` + `composite_frame` + 只写 inner。
 - `img2video` 的槽位状态机与 firstLastFrame 提交装配。
 - 两条流程的 CLI 与 web 步骤。
 
 不复制：
 
-- 时间重采样只在 `patch/framealign.index_map`；两条新流程不涉及时间重采样，视频拼接保持生成视频自己的帧率与帧数。
-- ERP 与透视的投影只在 `patch/projection`；`patchimg` 的局部选区到 ERP 掩码仍走这里。
-- 画布与源图映射只在 manifest；`patchimg` 的贴回也以 manifest 为准。
+- 时间重采样只在 `patch/framealign.index_map`；`patchimg` 是单帧，`img2video` 的视频拼接保持生成视频自己的帧率与帧数。
+- ERP 与透视的投影只在 `patch/projection`。
+- 画布与源图映射只在 manifest；`patchimg` 的 `still.json` 与 `img2video` 的 `still_pad.json` 各自是唯一权威。
 
-### 3.5 适用边界审计
+### 3.4 适用边界审计
 
 - fullredraw：已符合。pad/recompose 是现有主路径。
-- patch（视频局部重绘）：不适用。生成输入是 `extract` 出来的透视视口裁剪，不是 360 画布；视口跨 ERP 接缝时由 `build_view_map`/`build_paste_map` 的环绕采样处理。最终 ERP 的左右接缝在视口 footprint 之外，`composite_frame` 原样复制，逐位保留。如果为了统一而给视口也加冗余带，不但没有收益，还会改变现有像素基线。
+- 视频 patch：不适用。视口裁剪不是 360 画布；视口跨接缝时投影处理，footprint 外逐位保留。
+- `patchimg`：不适用。与视频 patch 同构，视口局部。
 - keyframe 工作台（16:9 视口首尾帧）：不适用，理由同上。
+- `img2video`：适用。关键帧与视频都是整幅 360 画布，走 pad/stitch。
 - gen 的整幅 360 `videoEdit`/`allMediaRef`：**缺口**。源视频是整幅 ERP 时，模型输出也是整幅 360 视频，但没有 pad/recompose。按原则应当补，但需要先区分 360 源与扁平源，且会影响现有 gen case。建议单独立项，本文只登记。
-- 新的 `patchimg` 与 `img2video`：按本文执行。
 
 ## 4. Flow A：patchimg（360 图片局部重绘）
 
@@ -190,39 +193,44 @@ CLI 可行性第一。先做共用辅助与 `patchimg`，把 pad/stitch、局部
 ```text
 case new（源 ERP 图）
   → pick（视口 + inner，定义局部区域）
-  → extract / pad（全幅 21:9 冗余画布 + 局部 mask + still_pad.json）
-  → generate（vrgen image submit，N 张候选）
-  → adopt --index（挑一张 21:9 生成图）
-  → merge / stitch（配准 + 冗余带融合 + 还原 2:1 + 局部贴回）
+  → extract（视口裁剪 clip.png + inner mask + still.json）
+  → generate（vrgen image submit，N 张视口候选）
+  → adopt --index（挑一张视口结果 result.png）
+  → merge（normalize + 可选 scalefit + composite_frame + 只写 inner）
   → compare（源图 vs 结果）
 ```
 
-没有 keyframe，没有 assemble。`extract` 在本流程里做的是 pad，不是视频抽帧；命令名复用是为了让 web 的 op 注册表与用户习惯不变，文档里写明语义。
+没有 pad/recompose，没有 keyframe，没有 assemble。`extract` 在本流程里做的是**视口裁剪**，不是时间抽帧，也不是全幅 pad。
 
-### 4.2 生成画布、mask 与局部区域
+### 4.2 生成输入与选区
 
-生成输入是整幅 21:9 冗余画布，不是视口裁剪。这样模型能看到 ERP 接缝两侧的真实内容，局部编辑在接缝附近也能保持连续。
+生成输入是透视视口图 `clip.png`，不是全幅 21:9 画布。视口用 `pick` 的 yaw/pitch/fov/宽高定义；inner 用视口坐标定义要改的区域。`make_mask_image` 生成黑内白外的 mask，图片模板说明“黑色区域需要重绘，白色区域保持原样”。
 
-`pick` 仍然用视口加 inner 定义"要改哪里"，但它只用于两件事：
+视口宽高：
 
-- 生成 mask：mask 全白，局部区域涂黑。白色表示保持，黑色表示重绘；左右两条冗余带保持白色。这个极性与现有视频 mask 一致，图片模型是否按同样方式理解需要一次单帧 A/B 确认，见第 9 节。
-- 拼接后的局部贴回：把 inner 反投影成 ERP 空间掩码，只在这个掩码内用拼接结果覆盖源图。
+- 默认 1920×1080（16:9），与视频 patch 的默认视口一致。
+- 图片模型支持 16:9 与 4K；8K 源可以把视口设到 3840×2160，让局部拿到完整的 4K 输出，再贴回 ERP。视口宽高只是 case 草稿字段，不需要新增枚举。
+- 视口比例必须是图片模型支持的 ratio；本期固定 16:9，非 16:9 在 extract/submit 拒绝并说明原因。
 
-局部区域必须落在干净主内容 `[P, W-2P)` 内，不能压到左右冗余带。压到带上时 `pad_h` 会把黑区复制到另一侧，mask 变成横贯画布的宽条；`extract` 现在直接拒绝并提示把视口移离接缝或缩小 inner。跨接缝的局部编辑需要专门方案，本期不做。
+视口跨 ERP 接缝时，投影会先把环绕拼成连续透视图；模型看到的是正常透视图像，不需要冗余带。视口不跨接缝时，ERP 接缝在 footprint 之外，贴回时逐位保留。
 
-### 4.3 拼接与像素保证
+inner 必须覆盖完整主体。inner 只到腰部时，模型可能把整身改掉，但贴回只写 inner，腰线以下会切断；CLI 用户要先看 `clip_mask.png` 或 extract 的预览，web pick 页要画出 inner 边界。
 
-`merge` 分支做三件事：
+### 4.3 贴回与像素保证
 
-1. 读 `still_pad.json`，对 adopted 的 21:9 结果做 `restore_canvas`。
-2. 用 `circular_translate` 估计 `d*` 与冗余带相关性，跑闸门；`recompose` 得到宽度 `W` 的 2:1 完整图，`finalize` 量化一次。
-3. 局部贴回：把 inner 反投影成 ERP 空间掩码，向内羽化；用 `multiband_blend(源图, 拼接图, 掩码)` 融合，然后把掩码支撑之外的像素从源图原样复制，保证逐位一致。
+`merge` 分支：
 
-验收写成：
+1. 读 `still.json` 的视口/inner 与 ERP 尺寸，读源 ERP、`result.png`（视口结果）。
+2. 用 `normalize_ai_frame` 把结果归一到视口尺寸；比例不一致时默认拒绝，显式 `--allow-crop` 才居中裁切。
+3. 可选 `scalefit.fit_core`：用单对 `(clip, result)` 估计全局缩放/平移；环带 NCC 低于阈值时跳过并记日志。首版可以先关闭。
+4. `SegmentMaps.from_geometry(viewport, inner, erp_w, erp_h, feather_px)`，`composite_frame(source_erp, ai_viewport)` 得到贴回后的 ERP。
+5. 只写 inner：用 `local_erp_mask` 的 support，把 `composited[support]` 覆盖到源图，其他像素从源图原样复制。
 
-- `np.array_equal(out[~local_support], src[~local_support])` 为真。
-- `local_support` 内至少有一部分像素发生变化。
-- 接缝闸门的相关性不低于阈值；低于阈值时拒绝出片并提示"模型裁掉了画布或重新构图"。
+验收：
+
+- `np.array_equal(out[~support], src[~support])` 为真。
+- `support` 内至少有一部分像素变化。
+- 不要求 `maxdiff_outside` 之外的近似阈值；`composite_frame` 的视口融合已经处理 inner 边界的颜色差，只写 inner 保证选区外严格不变。
 
 ### 4.4 数据与产物
 
@@ -230,37 +238,40 @@ case new（源 ERP 图）
 cases/<名>/
   case.toml
   extracts/<版本>/
-    padded.png            # 21:9 冗余画布，交给模型
-    padded_mask.png       # 局部 mask（黑=重绘，白=保持）
-    still_pad.json        # 几何、源图哈希、局部选区、mask 信息
-    result.png            # adopted 的 21:9 生成图
-    closed.png            # 拼接后的 2:1 完整图
-    local.png             # 局部贴回后的最终图
-    report.json           # d*、相关性、接缝指标、选区外差异
-  derived/                # padded.png、padded_mask.png、still_pad.json 的副本
+    clip.png              # 视口裁剪图（16:9，8-bit BGR）
+    clip_mask.png         # inner mask（黑=重绘，白=保持）
+    still.json            # 冻结几何：erp_w/h、viewport、inner
+    result.png            # adopted 的视口结果
+    report.json           # 归一化、可选 scalefit、差异统计
+  derived/                # clip.png、clip_mask.png、still.json 的副本
   out/<版本>_still.png    # 交付图
 ```
 
-`case.toml` 与 patch 共用 `[viewport]`、`[inner]`、`[extract]`、`[submit]`、`[adopt]`，不写 `[frames]`。`[adopt]` 增加可选的 `index`，只对 `patchimg` 有意义。
+`still.json`：
 
-`still_pad.json` 复用 `CanvasInfo`、`PadInfo`、`MaskInfo`、`RestoreInfo`，另外记录：
+```json
+{
+  "version": 1,
+  "erp_width": 8192,
+  "erp_height": 4096,
+  "viewport": {"yaw_deg": -101.0, "pitch_deg": 0.0, "fov_h_deg": 70.0,
+               "width": 1920, "height": 1080},
+  "inner": {"x": 420, "y": 280, "width": 1080, "height": 800}
+}
+```
 
-- `source.path`、`source.size`、`source.sha256_16`。
-- `local.viewport`、`local.inner`。
-- `output.width`、`output.height`（等于源图 2:1 尺寸）。
+不复用 `clip.json`：`clip.json` 的字段集冻结，`fps`、`frame_start`、`frame_end` 对静图没有意义；`still.json` 只放静图需要的几何。`still_pad.json` 属于 `img2video` 的全幅路径，`patchimg` 不写它。
 
 ### 4.5 CLI
 
 ```text
 vrstudio case new <名> --flow patchimg --source <erp.png>
-vrstudio case draft --case <名> --file <draft.json>     # 视口与 inner，可手填
+vrstudio case draft --case <名> --file <draft.json>
 vrstudio extract name --case <名>
 vrstudio generate submit --case <名> [--check] [--num 4] [--resolution 4K]
 vrstudio generate adopt --case <名> [--round latest] --index <1..N>
 vrstudio merge --case <名>
 ```
-
-`case draft` 是为了 CLI 先行而加的薄命令：web 的 pick 与它共用 `case_mod.set_draft`，不新增几何逻辑。
 
 `generate submit` 组装 `vrgen image submit`：
 
@@ -268,31 +279,26 @@ vrstudio merge --case <名>
 --job <case 名>
 --template still360-local
 --vars-file <job>/prompt-vars.toml
---image extracts/<版本>/padded.png       --image-role edit_master
---image extracts/<版本>/padded_mask.png  --image-role mask
---ratio 21:9
+--image extracts/<版本>/clip.png       --image-role edit_master
+--image extracts/<版本>/clip_mask.png  --image-role mask
+--ratio 16:9
 --resolution 4K
 --num 4
 --session-id <项目会话 ID>
 --workdir <vrgen workdir>
 ```
 
-`--check` 对应 `vrgen image submit --dry-run`。不传视频参数。
+视口图默认 1920×1080，上传尺寸远低于平台限制；不需要全幅上传副本降采样。`--check` 走 `vrgen image submit --dry-run`。
 
-### 4.6 分辨率取舍
+### 4.6 分辨率与 8K 源
 
-全幅 21:9 画布的总宽度是按源图高度与 21:9 算出来的。2:1 的 4K 源（4096×2048）对应画布约 4780×2048；2:1 的 8K 源（8192×4096）对应画布约 9558×4096。平台图片生成最高档是 4K，返回图的像素预算由平台决定；如果 4K 档的长边约 4096，那么全幅画布会被模型显著降采样，局部区域的细节密度随之下降。
+视口局部把模型输出集中在视口上：
 
-量级：
+- 视口 1920×1080，图片模型 4K 输出约 3840×2160，贴回时降采样到 1920×1080，局部细节来自完整的 4K 输出。
+- 视口 3840×2160，模型 4K 输出约 1:1，局部细节最高；ERP 仍是 8K，贴回由投影重采样。
+- 全幅方案把 4K 输出摊到 9558 宽，局部只剩约 0.4 倍密度；这是本版改回视口局部的原因。
 
-- 4K 源：画布 4780 宽，模型 4K 输出约 4096 宽，比例约 0.86，局部细节损失约一成多，通常可接受。
-- 8K 源：画布 9558 宽，比例约 0.43，局部细节损失过半，生成的人脸或物体在贴回后可能显得糊。
-
-本版默认支持 4K ERP 源，8K 源的细节补救放到后续：分块生成、以视口为中心的局部宽条生成、或等平台提供更高输出档。这个取舍必须在方案里写明，避免上线后才发现 8K 素材的效果不达预期。
-
-平台上传接口对超大 PNG 返回通用 403：117.6 MB 的 9558x4096 `padded.png` 在真实提交时被拒，缩到长边 4096 的 `upload.png`/`upload_mask.png` 后成功。`assemble_still` 现在自动生成这两个提交副本（`generate.image_upload_max_side`，默认 4096），canonical pad 与最终 ERP 仍是源分辨率；模型输出 3840x1648，贴回 8192x4096 后局部偏软，这是 8K 源的预期上限。
-
-已确认：`patchimg` 提交给图片模型的输入图使用全幅 21:9 冗余画布。局部宽条保留为后续优化，只在 8K 源细节不达预期时再评估；它不改变本文的几何与拼接主路径。
+8K 源的 ERP 只在 extract 时读一次并裁视口；不整幅驻留到提交。`img2video` 的关键帧仍是全幅 4K 输出，8K 细节上限问题保留在那里。
 
 ## 5. Flow B：img2video（360 图片→首尾帧→视频）
 
@@ -315,8 +321,6 @@ vrstudio merge --case <名>
 因此只需要一条 flow=`img2video`，用 `keyframes.toml` 的 `mode` 表达三种预设，不需要三条流程或三个页面。
 
 ### 5.2 padded 域与 recompose 规则
-
-这是对你"是否可以少做一次 recompose"的回答。
 
 规则可以写成三句话：
 
@@ -415,55 +419,63 @@ vrstudio merge --case <名>
 ### 5.7 验收
 
 - 三种 mode 都能在无额度路径上跑通：图片 `--check`、视频 `--check`、拼接用注入结果。
-- `one_reuse` 的视频提交里，首帧与尾帧是同一个 padded 文件。
+- `one_reuse` 的视频提交里，首帧与尾帧是同一个 padded 文件，同一路径提交两次不报错且台账能区分 first/last 两条角色。
 - `one_two_pass` 的尾帧生成 argv 里包含首帧 padded 作为参考图，且首帧没有被 recompose。
 - 最终视频拼接通过接缝闸门，输出 2:1；关键帧预览（如果生成）也能通过。
 - 现有 keyframe web 测试不回退。
 
 ## 6. 两条流程的复用与顺序
 
-- 共用：`case.py`、`redraw/geometry.py`、`redraw/padding.py`、`redraw/pipeline.py`、`redraw/recompose_core.py`、`redraw/registration.py`、`redraw/verify_core.py`、`redraw/blend.py`、`media/videoio.py`、`vrgen image submit`、`vrgen submit`（firstLastFrame）。
-- 分叉：`patchimg` 有视口/inner 与局部贴回；`img2video` 有槽位状态机与视频提交。
-- 顺序：先做共用静图 pad/stitch 与 `patchimg`，它把几何、manifest、拼接闸门、像素基线全部钉死；再做 `img2video`，它复用这些产物，只多一层槽位与视频提交。反过来做会让 `img2video` 先造一套临时 I/O，后面还要改。
+- `patchimg` 共用：`case.py`、`patch/projection`、`patch/extract`、`patch/composite`、`patch/blend`、`patch/scalefit`、`vrgen image submit`。
+- `img2video` 共用：`case.py`、`redraw/geometry`、`redraw/padding`、`redraw/preroll`、`redraw/pipeline`、`redraw/recompose_core`、`redraw/registration`、`redraw/verify_core`、`redraw/blend`、`redraw/still`、`media/videoio`、`vrgen image submit`、`vrgen submit`（firstLastFrame）。
+- 顺序：先做 `patchimg` 的视口局部，它复用现成视频 patch 模块，风险最低；再做 `img2video` 的全幅 pad/stitch。全幅 `still_pad.json`/`stitch_still` 已在 WP1 完成，保留给 `img2video`。
+- 全幅 patchimg 的代码（`padded.png`、`still_pad.json`、`stitch_still` 的 patchimg 分支、上传副本、冗余带守卫）不直接删除，而是从 `patchimg` 路径撤出，转为 `img2video` 的 keyframe 全幅路径与未来整幅重绘的基础；移除 `patchimg` 专用的分支与测试。
 
 ## 7. 契约与不动的东西
 
-- 新增 `still_pad.json`；字段与 `_pad.json` 的几何部分同构，但没有视频属性。两条新流程的拼接都以它为准。
+- 新增 `still.json`（`patchimg` 的视口局部几何）：version、erp_w/h、viewport、inner；没有 fps/时间。
+- 新增 `still_pad.json`（`img2video` 的全幅几何）：字段与 `_pad.json` 的几何部分同构，但没有视频属性。
 - `clip.json`、`_pad.json`、`run.json` 不动。图片轮次的 `run.json` 已经能表达 `params.images`、`results`、`gate`；首尾帧的角色由顺序与模板固定，不新增字段。
-- `roles.json` 不动。底图、mask、首尾帧都是流程产物，不进入 `[submit]` 的角色校验；`vrgen image submit --image-role` 是自由文本，只需在 `IMAGE_ROLE_TEXT` 里补 `edit_master` 与 `mask` 两条文本。
-- case.toml 只增加两个 `FLOWS` 值与可选的 `[adopt] index`；不新增 `target` 字段，目标种类由 flow 值编码。`img2video` 的 `two_source` 需要第二个源图字段，放在 `[source]` 旁边，具体形状在 WP0 定。
+- `roles.json` 不动。底图、mask、首尾帧都是流程产物，不进入 `[submit]` 的角色校验；`vrgen image submit --image-role` 是自由文本，只需在 `IMAGE_ROLE_TEXT` 里补 `edit_master` 与 `mask` 两条文本（已完成）。
+- case.toml 增加两个 `FLOWS` 值与可选的 `[adopt] index`；`img2video` 的 `two_source` 需要第二个源图字段，放在 `[source]` 旁边，具体形状在 WP0 定。
 
 ## 8. 工作包
 
 ### WP0：文档与契约
 
-改动：`docs/case-model.md` 增加两条 flow、`still_pad.json`、`[adopt] index`、`img2video` 的三种 mode、CLI 示例；`docs/decisions.md` 增加决策记录（含排除方案与验证方式）；`docs/architecture.md` 的流程总图补两条；本文转为正式计划。
+改动：`docs/case-model.md` 增加两条 flow、`still.json`、`still_pad.json`、`[adopt] index`、`img2video` 的三种 mode、CLI 示例；`docs/decisions.md` 更新决策 46（patchimg 视口局部、img2video 全幅）；`docs/architecture.md` 的流程总图补两条；本文转为正式计划。
 
 验收：文档索引可追溯；排除方案的理由写在决策记录里。
 
-### WP1：共用静图 pad/stitch 核心
+### WP1：静图 pad/stitch 核心（img2video 全幅）
 
-改动：新增静图 I/O；新增 `still_pad.json` 读写；新增 `pad_still`/`stitch_still`；复用 `redraw` 的单帧函数。
+改动：静图 I/O；`still_pad.json` 读写；`pad_still`/`stitch_still`；复用 `redraw` 的单帧函数。
 
-验收：2:1 → 21:9 → 2:1 的恒等往返在合成图上前提下闭合；`P`、`L`、`regions`、`wrap_pair` 与 `plan_pad` 一致；剪裁或重新构图的生成图被闸门拒绝。
+验收：2:1 → 21:9 → 2:1 的恒等往返在合成图上前提下闭合；`P`、`L`、`regions`、`wrap_pair` 与 `plan_pad` 一致；剪裁或重新构图的生成图被闸门拒绝。（已完成，`755ed2d`）
 
-### WP2：patchimg（CLI）
+### WP2：patchimg 视口局部（CLI）
 
-改动：case 模型、`case draft`、`extract` 的 pad 分支、图片提交、adopt `--index`、`merge` 的拼接与局部贴回。
+改动：
+- `case.py` 的 patchimg case/draft（保留）。
+- `extract` 的 patchimg 分支改为视口裁剪 + `make_mask_image` + `still.json`；移除全幅 pad、`padded.png`/`still_pad.json`、冗余带守卫。
+- `generate submit` 的 patchimg 分支改为 `vrgen image submit`，输入 `clip.png` + `clip_mask.png`，ratio 16:9、4K、N。
+- `generate adopt --index`（保留），落 `result.png`（视口结果）。
+- `merge` 的 patchimg 分支改为 `SegmentMaps.from_geometry` + `composite_frame` + 只写 inner；移除全幅 stitch/local composite 的分支。
+- 测试：视口 extract、mask 极性、submit argv、adopt index、贴回选区外逐位不变、跨 ERP 接缝视口不破坏接缝。
 
-验收：五步跑通；选区外 `np.array_equal`；接缝闸门通过；候选下标显式；无额度路径（`--check` + 注入结果）通过。
+验收：五步跑通；选区外 `np.array_equal`；8K 源的局部细节来自 4K 视口输出；真实额度验收一次；无额度路径（`--check` + 注入结果）通过。
 
 ### WP3：img2video（CLI）
 
 改动：keyframe 逻辑从 web 抽到共享模块并加 CLI；`img2video` case 与两种源的 pad；三种 mode 的槽位状态机；首尾帧生成/挑选；firstLastFrame 提交；视频拼接。
 
-验收：三种 mode 都能跑通；`one_reuse` 的首尾是同一 padded 文件，同一路径提交两次不报错且台账能区分 first/last 两条角色；`one_two_pass` 的尾帧参考首帧 padded 且首帧未 recompose；最终视频 2:1 闭合；无额度路径（图片与视频各 `--check` + 注入结果）通过；现有 keyframe web 测试不回退。
+验收：三种 mode 都能跑通；`one_reuse` 的首尾是同一 padded 文件，同一路径提交两次不报错且台账能区分 first/last；`one_two_pass` 的尾帧参考首帧 padded 且首帧未 recompose；最终视频 2:1 闭合；无额度路径（图片与视频各 `--check` + 注入结果）通过；现有 keyframe web 测试不回退。
 
 ### WP4：web 与前端（patchimg）
 
-改动：flow 类型、步骤表、静图 pick、pad 产物展示、候选网格、拼接与局部贴回展示、静图对比、候选结果接口、源图入口。
+改动：flow 类型、步骤表、静图 pick、视口 extract 产物展示、候选网格、贴回展示、静图对比、候选结果接口、源图入口；pick 页画出 inner 边界并提示覆盖完整主体。
 
-验收：Playwright 跑通新建→pick→pad→生成→挑选→拼接→对比；现有 patch 页面不回退。
+验收：Playwright 跑通新建→pick→extract→生成→挑选→贴回→对比；现有 patch 页面不回退。
 
 ### WP5：web 与前端（img2video）
 
@@ -485,25 +497,31 @@ vrstudio merge --case <名>
 
 ## 9. 风险
 
-- 图片模型没有 mask/inpaint 通道。mask 只是提示，模型可能重绘整幅画布；局部保证来自贴回，不来自模型。生成页与文档必须写清楚。
-- 图片模型的 mask 极性未知。现有约定是黑=重绘、白=保持；需要在真实模型上做一次单帧 A/B。极性错误只影响模型是否听话，不影响贴回的像素保证。
-- 全幅 21:9 画布与 4K 输出的分辨率矛盾。4K 源可接受，8K 源细节损失过半；缓解手段是分块、局部宽条或更高输出档。真实 8K 验收确认：模型输出 3840x1648，贴回 8192x4096 后局部偏软；并且 117.6 MB 的全幅上传被平台 403，已改为 4096 长边上传副本。
-- 局部 inner 必须覆盖完整主体。第一轮 inner 只到腰部，贴回会在腰线切断；CLI 用户应先看 `padded_mask.png` 或预览，web pick 页要画出 inner 边界。
-- 局部选区压到冗余带会让 `pad_h` 复制黑区，mask 变成横贯画布的宽条；`extract` 已拒绝并提示移开接缝或缩小 inner。
-- 模型可能裁掉画布或重新构图。拼接的冗余带相关性闸门会拒绝出片；错误信息要指向"模型改动了画布构图"，而不是笼统的失败。
+`patchimg`：
+
+- 视口局部复用了视频 patch 的投影与合成；跨 ERP 接缝的视口依赖 `build_view_map` 的 `BORDER_WRAP`，已有投影基线测试守护。
+- inner 必须覆盖完整主体。上一轮全幅验收中，inner 960×540 只到腰部，贴回会在腰线切断；CLI 用户应先看 `clip_mask.png` 或预览，web pick 页要画出 inner 边界。
+- 图片模型没有 mask/inpaint 通道。mask 只是提示，模型可能重绘整个视口；选区外保证来自贴回，不来自模型。
+- 视口比例必须是模型支持的 ratio；本期固定 16:9，图片模型支持 16:9 与 4K。
+- 8K 源的局部细节来自视口图与 4K 输出；视口 1920×1080 时贴回 ERP 后仍是 1920 级细节，要更高细节把视口设为 3840×2160。
+
+`img2video`：
+
+- 全幅 21:9 画布与 4K 输出的分辨率矛盾。4K 源可接受，8K 源细节损失过半；真实 8K 验收确认模型输出 3840×1648，贴回 8192×4096 后局部偏软。
+- 117.6 MB 的全幅 PNG 被平台上传接口 403；`assemble_still` 的上传副本降采样（长边 4096）继续用于 `img2video` 的关键帧提交。
+- 模型可能裁掉画布或重新构图。拼接的冗余带相关性闸门会拒绝出片；错误信息要指向"模型改动了画布构图"。
 - 首帧身份漂移。`one_two_pass` 的尾帧生成以首帧为参考，仍可能在长动作后漂移；需要在提示词与参考图上约束，并在验收里目测。
 - 视频拼接的 `d*` 是全局值。与 fullredraw 一样，不做逐帧抖动；如果生成视频的接缝缓慢漂移，需要后续加逐帧模式，但会引入呼吸感。
-- 8K 源图的单帧内存约 100 MB 量级，可以接受；但 PNG 写出慢，且 16-bit 输入会被降到 8-bit。本期要求源图已经是摆正的 8-bit sRGB ERP。
 - 关键帧与视频共用一组 pad 几何。`P`、`L`、preroll、画布尺寸任何一项不一致都会让接缝错位；`still_pad.json` 必须是唯一权威，两层都从它读。
-- 中间关键帧不 recompose 意味着它的 canonical 形态是带有冗余带的 21:9 图。如果后续有别的流程直接消费这张图并把它当 2:1 用，会出错；状态文件必须记录每个产物的域（padded 还是 2:1），消费方按域处理。
-- `one_reuse` 把同一个 padded 文件同时作为首帧与尾帧提交。已确认平台接受同文件做首尾帧；WP3 仍加一条 argv 与台账测试，防止上传与台账因哈希相同而回归。
-- `firstLastFrame` 的 21:9 输入已确认可用，pad 的 `P` 与画布几何不需要为首尾帧模式单独调整。
+- 中间关键帧不 recompose 意味着它的 canonical 形态是带有冗余带的 21:9 图。如果后续有别的流程直接消费这张图并把它当 2:1 用，会出错；状态文件必须记录每个产物的域（padded 还是 2:1）。
+- `one_reuse` 把同一个 padded 文件同时作为首帧与尾帧提交。已确认平台接受同文件做首尾帧；WP3 仍加一条 argv 与台账测试。
 
 ## 10. 已确认与待确认
 
 已确认：
 
-- `patchimg` 提交给图片模型的输入图使用全幅 21:9 冗余画布。
+- `patchimg` 走视口局部（本版修订，取代上一版的“全幅 21:9”）。理由：与视频 patch 同构；8K 实测证明全幅 4K 输出摊到 9558 宽后局部偏软，且 117.6 MB 全幅 PNG 被平台 403。
+- `img2video` 的关键帧与视频走全幅 21:9 pad/stitch。
 - `firstLastFrame` 接受 21:9 输入。
 - `one_reuse` 可以用同一个 padded 文件同时做首尾帧。
 
@@ -514,3 +532,4 @@ vrstudio merge --case <名>
 3. gen 的整幅 360 `videoEdit` 缺口本轮修不修？默认单独立项，因为它要区分 360 与扁平源，并影响现有 case。
 4. flow 值用 `patchimg` 与 `img2video`（默认）。备选是 `imgpatch`/`imgvideo`；只影响标识符。
 5. `two_source` 的两张源图是否强制同尺寸（默认强制，避免两套 pad 几何）？如果允许不同尺寸，需要先约定归一到谁的尺寸。
+6. `patchimg` 的默认视口宽高用 1920×1080（默认，与视频 patch 一致），还是 3840×2160（8K 源局部细节更高，但上传和生成成本更高）？
