@@ -53,6 +53,10 @@ inner；没有 pad/recompose。计划中的 `flow = img2video`（360 图片→�
 全幅 21:9 pad/stitch，几何与 `img2video` 的工作包见
 `docs/plan/360-still-gen-flows-plan.md`。
 
+8K 静图重绘另有两条路线在实测，尚未定为正式流程：分段局部链式（多个
+`patchimg` case 沿 360 分段、链式传递）与全幅 4K + 关键区块参考（`fullRedrawImg`，
+CLI 已实现）。取舍、开发前置与评测指标见 `docs/plan/360-still-ab-routes-plan.md`。
+
 ## 2. vrgen 模块树（目标态）
 
 ```
@@ -87,6 +91,7 @@ vrstudio/
       pad.py               # ← vrpad cli/pad 原样
       recompose.py         # ← vrpad cli/recompose 原样
       calib.py / verify.py / seam_center.py / plan.py   # ← vrpad 辅助命令原样
+      relight.py           # ★新增：两张图进一张图出（GT + 氛围图 → 重打光图，决策 48）
     patch/                 # ← vrpatch 核心库原样（局部重绘域）
       projection.py        #    ERP↔rectilinear 唯一权威
       extract.py  composite.py  sidecar.py  case.py
@@ -98,6 +103,9 @@ vrstudio/
     media/                 # ★合并：vrpad videoio/binres + vrpatch media.py
       ffmpeg.py            #    发现（bin/ > PATH）+ probe
       videoio.py           #    统一帧泵（bgr24 流式；输出恒为 H.264 8-bit yuv420p）
+    relight/               # ★新增：重打光（GT 持结构，AI 氛围图只提供低频光照，决策 48）
+      align.py             #    相似变换唯一权威（SIFT+RANSAC、相位相关回退、水平 wrap warp）
+      fields.py  compose.py  report.py   # 引导滤波/亮度增益/可见度/白点、合成与软裁切、报告
     case.py               # ★新增：case.toml 读写/校验的唯一权威（CLI / generate / web 三方共用）
     config.py              # ← vrpad 分层 toml（default + 本机覆盖 + --set）
     progress.py            # 日志/RateMeter（两边合并为一份）

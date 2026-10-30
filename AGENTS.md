@@ -25,6 +25,7 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
    的字段集是对外契约；要改先在 `docs/` 立项，同步改两侧测试。
 3. **唯一权威点**：时间重采样只在 `vrstudio/patch/framealign.index_map`；ERP↔rectilinear
    投影只在 `vrstudio/patch/projection`；全景几何只在 `vrstudio/redraw/geometry`；
+   重打光的对齐相似变换只在 `vrstudio/relight/align`；
    画布↔源映射只在 `_pad.json` manifest。别处不得复制这些规则。
 4. **像素基线**：几何/编码相关改动必须 pytest 全绿（含随迁的恒等式与 maxdiff==0 基线测试）
    才能提交。编码语义以 `vrstudio/media` 的显式 profile 为准（决策 19 起全流程只有
@@ -85,6 +86,7 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 | `docs/plan/save-conflict-resolution-plan.md` | 保存冲突三条修复：弹窗加「仍要保存（覆盖对方）」出口、同轮冲突收敛为一次、几何草稿落定帧带 revision 校验（已实施，Playwright 端到端验证通过） |
 | `docs/plan/upload-source-video-plan.md` | 新建 case 支持上传源视频：复用分片上传管线，`api_cases` 加 `upload_id` 分支，上传弹窗解耦终点，入口在新建弹窗源视频旁（待实施） |
 | `docs/plan/360-still-gen-flows-plan.md` | 360 静图的两条新流程：patchimg 走视口局部（与视频 patch 同构，复用投影/合成），img2video 走全幅 pad/stitch（槽位模型统一三种首尾帧组合，链上关键帧不 recompose），CLI 先行工作包与像素基线（决策 46 已定稿；WP1/WP2 已实施，WP3–WP7 待做） |
+| `docs/plan/360-still-ab-routes-plan.md` | 8K 静图重绘的两条路线：分段局部链式（多 case 沿 360 传递、需 case 分组与子目录识别）vs 全幅 4K + 氛围参考（`fullRedrawImg` 流程，21:9 pad + mask + X 张 lighting_ref），含开发前置、CLI 工作包、评测指标与成本（决策 47；审查稿，待批） |
 | `docs/key-issues/frontend-decisions.md` | 前端关键问题与决策记录：逐条记录问题、决策、排除方案、验证与涉及文件（持续更新） |
 | `docs/key-issues/20261027-windows-process-port-management.md` | Windows 下进程与端口占用的排查与治理：uv venv 跳板的 exe 陷阱、运行中 exe 锁 venv、serve 启动接管旧实例（portguard） |
 | `docs/key-issues/20261023-frontend-stack-selection.md` | 前端技术栈选型：需求、方案对比、概念对齐与用户确认记录 |
