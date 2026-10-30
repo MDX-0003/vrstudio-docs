@@ -1,6 +1,6 @@
 # patch 4K 大区域重绘：fov 与分辨率、两条 4K 生成路线与全流程操作
 
-状态：已批准（2026-10-30）。P1 代码已实现并全绿；真实额度试点（源片 0–449 帧）待执行；P2 Web 全链路待实施。
+状态：已批准（2026-10-30）。P1/P2 代码已实现并全绿；真实额度试点（源片 0–449 帧）待执行。
 关联：决策 49；`docs/case-model.md` §2/§4；决策 26（首尾帧管线）。
 
 ## 0. 结论与范围
@@ -17,7 +17,7 @@ patch 的重绘区域要覆盖角色移动范围，单块 1080p 不够。区域�
 
 ### 0.1 实施状态（2026-10-30）
 
-P1 代码已落地并全绿：vrgen 的 4K 档（`OUTPUT_TIERS`、16:9 标称、`output_options` 容错、提交前能力预检）、vrstudio 的 4K 视口与 `/fov` 端点/coverage 读数、`template_for` 对 allMediaRef 的修正、Pick 页 fov 滑杆与读数、Keyframe 的 4K 默认与原始帧体积显示。真实额度试点（0–449 帧、A/B 各一轮）尚未执行；P2 的 `generation.toml model_id` 与 Web 全链路未开始。
+P1/P2 代码已落地并全绿：vrgen 的 4K 档（`OUTPUT_TIERS`、16:9 标称、`output_options` 容错、提交前能力预检）与 `generation.toml model_id`、vrstudio 的 4K 视口与 `/fov` 端点/coverage 读数、`template_for` 对 allMediaRef 的修正、Pick 页 fov 滑杆与读数、Keyframe 的 4K 默认与原始帧体积显示、Generate 底栏的「切到 4K」/「切回 1080p」预设。真实额度试点（0–449 帧、A/B 各一轮）尚未执行。
 
 ## 1. 平台事实
 
@@ -203,6 +203,8 @@ vrstudio generate submit --case <名> --model-id 22 --mode firstLastFrame --reso
 
 `--duration` 省略时，firstLastFrame 由 vrstudio 按 clip 的帧范围取整秒，allMediaRef 由 vrgen 取最长视频；两者都必须不超过 15 秒，`--check` 会显示实际采用值。需要固定某一秒数时再显式传。
 
+Web 上等价的操作是 Generate 底栏的「切到 4K」：写 `model_id=22`，当前模式是 firstLastFrame 或 allMediaRef 就保持，否则落到 firstLastFrame，同时写 4K 与 16:9；「切回 1080p」写回 37/videoEdit/auto，用于对照。
+
 5. 采用结果：`vrstudio generate adopt --case <名> --round <轮次>`。
 6. 贴回：`vrstudio merge --case <名>`，产物是 `out/<版本>_space.mp4`；Web 队列会自动接 assemble（产物 `out/<版本>_frame.mp4`），CLI 手动执行 `vrstudio assemble --case <名>`。assemble 对从 0 帧开始的段直接支持：前段 0 帧、中段 450 帧、后段 120 帧，输出仍是 570 帧；最终成片的音频从源片复用，AI 段不带音频。整片抽取时只有 `_space`。
 7. 检查：result 栅格是 16:9（3840×2160 或 4096×2304）、帧数/fps 合规、merge 报告的边界与静态背景指标。
@@ -263,7 +265,7 @@ vrstudio generate submit --case <名> --model-id 22 --mode allMediaRef --resolut
 
 - P0（本文）：决策 49、case-model 的 4K 行随 P1 一起落地。
 - P1 CLI 试点：vrgen 4K 档；视口 4K；fov 端点/滑杆/读数；keyframe 4K；CLI 视频提交；4K merge；在源片 0–449 帧上按 A、B 各跑一次。
-- P2 Web 全链路：generation.toml 的 model_id；params show/save；4K 首尾帧预设；对齐与时长守卫。
+- P2 Web 全链路（已实现）：generation.toml 的 model_id；params show/save；Generate 底栏的 4K/1080p 预设。
 - P3 条件项：把 19 秒全片切成多段 4K 生成；多视口/分块。
 
 ## 9. 风险与待确认

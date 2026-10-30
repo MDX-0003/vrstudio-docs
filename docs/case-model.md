@@ -377,7 +377,7 @@ vrgen prompt save --job <名> [--set k=v]… [--unset k]… [--template <id>] [-
                  [--canvas WxH] [--source WxH] [--workdir <dir>]
 vrgen params show --job <名> [--refs <json>] [--canvas WxH] [--source WxH] [--aspect-ratio auto] [--workdir <dir>]
                                            # 只读：output/input 档位与模式列表；refs 只用于取母版算输入尺寸
-vrgen params save --job <名> [--resolution <480p|720p|1080p|4K>] [--scale <auto|full|half>] [--mode <模式>] [--aspect-ratio <auto|W:H>] [--session-id <id>] [--project-id <id>] [--episode <n>] [--workdir <dir>]
+vrgen params save --job <名> [--model-id <id>] [--resolution <480p|720p|1080p|4K>] [--scale <auto|full|half>] [--mode <模式>] [--aspect-ratio <auto|W:H>] [--session-id <id>] [--project-id <id>] [--episode <n>] [--workdir <dir>]
 vrgen sessions list [--project-id <id>] [--episode <n>]   # 只读：项目/剧集/会话树，JSON 输出
 ```
 
@@ -538,14 +538,14 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
   即恢复完整结果。省略 `--refs` 时若显式给了 `--canvas`/`--source`，只用于计算 `output`。
 - `modes` 是模型能力里筛出的、本期支持的模式（`videoEdit` / `allMediaRef` / `videoExtend` / `firstLastFrame`）；筛选不再要求模式“接受视频”，否则纯图片的 `firstLastFrame` 不会出现在列表里。页面用它填充模式下拉框，不在前端写死。`max_videos` / `max_images` 取对应 validator 的 `maxCount`；`takes_video=false` 时 `max_videos` 返回 0。角色选项不在 `modes` 里回显：按模式的角色数量矩阵已退役，本地只保留 §2「素材角色与校验」的四条语义规则；前端从全局角色词表按素材种类渲染。
 - `params show` 的 `takes_video` 闸门只拦“`--refs` 清单里有视频、当前模式却不接受视频”的情况：不传 `--refs`、或清单里没有视频时，无论当前模式是什么都返回 `modes` 与 `current`。否则纯图片 case 一旦把当前模式存成 `firstLastFrame`，页面连模式列表和时长范围都读不到。
-- `current` 优先读 `runs/<job>/generation.toml`，没有则回退配置默认值；`saved` 表示草稿是否存在。`current` 里的 `session_id` 是项目生成会话（0 表示个人额度）。
+- `current` 优先读 `runs/<job>/generation.toml`，没有则回退配置默认值；`saved` 表示草稿是否存在。`current` 里的 `session_id` 是项目生成会话（0 表示个人额度）。`fixed.model_id` 是生效的视频模型：优先 `generation.toml` 的 `model_id`，没有则用配置默认值；4K 路线把它设为 22（Seedance 2.0）。
 - `current.mode` 是本次提交使用的模式；`current.aspect_ratio` 是解析后的比例。没有比例选项的模式显示 `auto`，页面写“跟随输入”；`allMediaRef` 这类有比例列表的模式从列表里选择。
 - `fixed.duration_s` 不再表示保存的草稿偏好：页面时长下拉按 `modes[].duration` 渲染，“自动”不传 `--duration`，实际采用值以轮次台账 `params.duration_s` 为准。patch 的 `firstLastFrame` 另下发 `auto_duration_s`（由 clip 帧范围与帧率推导的整秒），页面据此把“自动”显示成“自动（约 N 秒）”；提交仍由 vrstudio 显式传 `--duration`。`fixed.duration_s` 此时回显同一个推导值，只是提示，不是草稿。
 - 项目额度的接法：`mglc project list` 拿项目 ID，`mglc episode list --project-id <id>` 拿剧集序号，`mglc session list --project-id <id> --episode <n>` 拿 `sessionId`；把 `sessionId` 写进 `generation.toml`（`params save --session-id`）后，所有 submit 都走项目额度。不传 `--session-id` 时 `params save` 保留已有会话。层级、额度行为与失败边界详见 `docs/sessions.md`。
-- `params save` 的 `--resolution` / `--scale` 可省略；省略时保留 `generation.toml` 已有值，
+- `params save` 的 `--model-id` / `--resolution` / `--scale` 可省略；省略时保留 `generation.toml` 已有值，
   没有草稿时回退配置默认值。新建 gen case 只传 `--mode`，其余字段等素材选好后再写。
-  接受 `480p|720p|1080p|4K`、`auto|full|half`、任意模式名与 `auto` 或 `W:H` 比例，写
-  `runs/<job>/generation.toml`，回显 `{"resolution": …, "scale": …, "mode": …, "aspect_ratio": …,
+  接受正整数模型 ID、`480p|720p|1080p|4K`、`auto|full|half`、任意模式名与 `auto` 或 `W:H` 比例，写
+  `runs/<job>/generation.toml`，回显 `{"model_id": …, "resolution": …, "scale": …, "mode": …, "aspect_ratio": …,
   "session_id": …, "project_id": …, "episode": …}`。模式是否被模型支持由 submit 阶段的
   模型能力校验负责；`vrstudio case new` 在创建时只接受本期四种模式。
 - submit 的取值优先级：命令行显式参数 > `generation.toml` > `config/default.toml`。`--scale` 的 quarter/显式 WxH 仍保留在 config 里给内部调试；CLI `--scale`、`params save` 与前端只接受 `auto|full|half`。
@@ -636,7 +636,7 @@ gen 流程统一使用 `gen-multi`（旧 `gen-edit` 保留，供历史轮次重�
 ```
 runs/<job>/
   prompt-vars.toml      # job 级草稿：template 选择 + 提示词可变块（vrgen 侧唯一可写的"当前值"）
-  generation.toml       # job 级草稿：mode/aspect_ratio/resolution/scale/session_id/project_id/episode（决策 20/22/23；不含时长）
+  generation.toml       # job 级草稿：model_id/mode/aspect_ratio/resolution/scale/session_id/project_id/episode（决策 20/22/23；不含时长）
   <轮次key>/              # 视频轮次
     run.json            # 台账：stage/params/prompt/assets/task_id/result/gate/notes
     prompt.txt          # 实际发出的提示词（模板展开后）
