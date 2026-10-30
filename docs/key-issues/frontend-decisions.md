@@ -729,6 +729,30 @@ vitest 107 条全绿（generate-results 新增：逐行选用携带轮次载荷�
 
 `vrstudio/frontend/package.json`（typecheck 脚本）、`frontend/src/views/wizard/GenerateStep.vue`（类型兜底）；对应提交 `b833954` 与 `bb50380`。
 
+## 22. 2026-10-30 · 生成页换模型后输出档位不刷新（Seedance 2.0 看不到 4K）
+
+**问题**
+
+在生成页把视频模型切到 Seedance 2.0 后，输出分辨率下拉仍然只有 480p/720p/1080p，选不到 4K；刷新页面后 4K 出现。服务端是实时的：`params show` 读 `generation.toml` 里保存的模型，再按该模型当前模式的 `resolutions` 过滤档位（`vrgen/src/vrgen/cli.py:844-845`、`vrgen/src/vrgen/prep/params.py:68-81`）。实测 `GET /api/case/dance_walk_01` 返回 `video_model_id=22` 且 `output` 含 4K，新标签页打开同一 URL 下拉也有 4K，说明模型切换本身已写入、服务端已按新模型重算。
+
+根因在前端保存时序：保存回调只把返回的 `generation_params` 写进 `generationParams`，没有更新 `resolutionOptions` 等清单，然后 `emit('updated')`；父组件回传后 `applyInfo` 先算 `paramsDirty = paramsSaveQueue.has(caseName)`，而保存队列是先 `await save(entry)`、后 `pending.delete(id)`（`frontend/src/composables/useCaseSaveQueue.ts:57-61`），`emit` 发生在保存返回之前，条目仍在队列里，`has()` 为真，整个参数块被跳过，之后没有第二次应用。结果是模型 id 与 `generation.toml` 都更新了，下拉却停在上一个模型的档位列表。同类后果：从支持 1080p 的模型切到只支持 480p/720p 的模型时，`resolution` 会保留无效值，提交时才被平台退回。
+
+**决策**
+
+把档位与模型清单的整组赋值抽成 `applyParamsLists(params)`，整页刷新（`applyInfo`）与两条保存路径（防抖队列回调、提交前 `persistParams`）都调用它：保存返回的就是新模型的结果，直接生效，不等下一次刷新。另加 `watch(resolutionOptions)`：当前 `resolution` 不在新清单里就回落到第一档，避免把该模型不支持的档位留在下拉里再发出去。`paramsDirty` 守卫保留，它防的是「未保存的本地选择被服务端旧值覆盖」，不适用于一次已经完成的保存。
+
+**排除方案**
+
+把队列改成先删条目再回调：能绕过本次现象，但 `applyInfo` 仍只在非脏状态下更新清单，其他路径（并发刷新、提示词保存回传）还会再踩；改队列表义也会影响提示词保存。只在前端给 4K 加一条补丁：等于把档位规则复制到前端，违反「档位以模型清单为准」的唯一权威点。要求用户切模型后手动刷新：把机制问题留给使用者。
+
+**验证**
+
+`npm run typecheck`（`vue-tsc -b`）、`npm run lint`、vitest 117 条全绿；`generate-step.spec.ts` 新增两条：保存返回后 `resolutionOptions` 立即变成 480p/720p/1080p/4K；新模型只支持 480p/720p 时 `resolution` 回落到 480p。pytest 全绿。ruff 对仓库根目录 3 个未跟踪的 `.tmp_*.py` 诊断脚本报错，与本次改动无关。线上证据：`GET /api/case/dance_walk_01` 的 `generation_params.output` 含 4K；新标签页打开生成页下拉含 4K，页内切换后才缺失。
+
+**涉及文件**
+
+`vrstudio/frontend/src/views/wizard/GenerateStep.vue`（`applyParamsLists`、两条保存路径、`watch(resolutionOptions)`）、`frontend/tests/unit/generate-step.spec.ts`。
+
 ## 待决与未做
 
 ### fullredraw 的 pad 不自动进提交清单（2026-10-27，待决）
