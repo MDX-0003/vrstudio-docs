@@ -685,6 +685,28 @@ pytest 332 条全绿（需在无本地 `vrstudio.toml` 的目录跑，见下）�
 
 本机 `vrstudio.toml` 设了 `web.proxy_max_w = 2048`，在仓库根跑 pytest 会让 9 条代理测试按 4096 默认值失败；在无本地配置的目录执行 `pytest E:\VRAIGC\vrstudio\tests` 可复现基线全绿。这与本次改动无关。
 
+## 20. 2026-10-30 · 选用成片改为按轮次逐行选用
+
+**问题**
+
+生成页只有一个「选用成片」按钮，固定采用最新一个可用轮次（`latestUsableRound`），按钮不带轮次参数；一旦最新可用轮次就是已采用轮次，按钮禁用并提示「当前成片已是采用结果」，想换回旧一轮在页面上没有任何入口。dance_move 上用户连生两轮后，把成片文件名里的抽段时间戳（`20261030-120614`）误读成「第一次生成」，又因为合并产物早于第二次采用、面板仍播旧画面，得出「选用只对第一次生效」的结论——实际上第二次采用已成功（`extracts/<抽段>/result.mp4` 与第二轮结果哈希一致），只是没重新合并。后端契约本就支持按轮采用：op=adopt 透传 `body.round`（`app.py` 的 `_op_argv`），CLI `generate adopt --round`；缺的只是前端入口。
+
+**决策**
+
+选用动作下沉到「生成记录」每一行：可用轮次（`result=yes`）行内放「选用」按钮，点击以 `round_dir` 调 adopt；当前采用轮次显示「已采用」标签、不显示按钮；任一采用进行中时所有选用按钮禁用。「最近成片」面板变纯展示，只显示当前采用轮次名（无则「尚未采用任何轮次」），不放按钮、不做「成片落后于采用」之类的判断——采用的不是最新轮次不是需要修复的问题，只说清必要信息。轮次行同时展示轮次目录名（如 `gen-multi-c205667f`），让面板里的「当前采用轮次：…」能对到具体行，抽段时间戳与轮次名两套标识不再混用。顺带删除 `recentOutput` 里 `version === adopted` 的死匹配：version 是抽段时间戳（非 patch 流为 undefined），adopt_round 是轮次名，永远不匹配，实际一直走「取最后一个成片」的兜底。
+
+**排除方案**
+
+保留单按钮改成「采用最新并合并」：点击少，但选不了旧轮，不满足逐轮独立选用。按钮原地弹轮次选择器：多一跳弹窗，轮次列表就在同页，不划算。
+
+**验证**
+
+vitest 107 条全绿（generate-results 新增：逐行选用携带轮次载荷、已采用轮次显示标签不出按钮、无可用结果的轮次不出按钮、采用进行中互斥禁用、未采用提示；generate-step 新增：点击行内选用以 `round_dir` 调 `runOperation`、已采用轮次标记）。typecheck、eslint、pytest、ruff 全绿。真实数据核对：dance_move 第二次采用（14:38）后指针与 `extracts/20261030-120614/result.mp4` 哈希均指向第二轮。
+
+**涉及文件**
+
+`vrstudio/frontend/src/components/generate/GenerateResults.vue`、`frontend/src/views/wizard/GenerateStep.vue`、`frontend/tests/unit/generate-results.spec.ts`、`frontend/tests/unit/generate-step.spec.ts`。
+
 ## 待决与未做
 
 ### fullredraw 的 pad 不自动进提交清单（2026-10-27，待决）
