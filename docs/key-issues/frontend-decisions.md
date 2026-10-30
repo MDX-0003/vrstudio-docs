@@ -707,6 +707,28 @@ vitest 107 条全绿（generate-results 新增：逐行选用携带轮次载荷�
 
 `vrstudio/frontend/src/components/generate/GenerateResults.vue`、`frontend/src/views/wizard/GenerateStep.vue`、`frontend/tests/unit/generate-results.spec.ts`、`frontend/tests/unit/generate-step.spec.ts`。
 
+## 21. 2026-10-30 · typecheck 脚本空转：vue-tsc --noEmit 在 solution 式 tsconfig 下不检查任何文件
+
+**问题**
+
+条目 20 提交后用户跑 `npm run build`（`vue-tsc -b && vite build`）报出 TS2322：`adoptedRoundName` 的 `split().pop()` 返回 `string | undefined`，与 `GenerateResults` prop 声明的 `string` 不符——这是条目 20 引入的类型错误，提交门禁却没拦住。原因：`frontend/package.json` 的 `typecheck` 脚本是 `vue-tsc --noEmit`，而 `tsconfig.json` 是 solution 式配置（`files: []`，只挂 `tsconfig.app.json` 与 `tsconfig.node.json` 两个 references）；不带 `-b` 时 vue-tsc 没有任何输入文件，静默退出 0。核对 git 历史：这个写法从 Phase 0 前端脚手架（`5f22c6a`）起就是这样，此前所有报告「typecheck 全绿」的提交，实际只被 vitest 与 eslint 检查过。
+
+**决策**
+
+`typecheck` 脚本改为 `vue-tsc -b`：跟随 references 真检查，与 build 的第一步完全一致；被引用的 tsconfig 均为 `noEmit`，不落盘产物。同时给 `adoptedRoundName` 补 `?? ''` 兜底，修掉 TS2322 本身。
+
+**教训（门禁层）**
+
+「某条命令退出 0」不等于「它检查了东西」：solution 式 tsconfig 加无 `-b` 是静默空转的典型形态，门禁里的每个检查命令要么能证明它真的在查，要么删掉。本次暴露的另一个缺口是门禁顺序：提交前跑了 vitest、eslint 与（假绿的）typecheck，唯独没跑 build，而 `vue-tsc -b` 只有 build 才执行；typecheck 修复后两者等价，缺口随之补上。
+
+**验证**
+
+`npm run typecheck`（修复后）、`npm run build`、vitest 107 条、eslint 全绿；build 产物目录 `src/vrstudio/web/static/next/` 不受 git 跟踪，工作区干净。
+
+**涉及文件**
+
+`vrstudio/frontend/package.json`（typecheck 脚本）、`frontend/src/views/wizard/GenerateStep.vue`（类型兜底）；对应提交 `b833954` 与 `bb50380`。
+
 ## 待决与未做
 
 ### fullredraw 的 pad 不自动进提交清单（2026-10-27，待决）
