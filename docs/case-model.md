@@ -103,6 +103,41 @@ index = 3               # 图片轮次里被采用的那张（1..N）；patchimg
 - mask 是提示不是通道：平台图片命令只有 `--ratio` 与 `1K/2K/4K`，没有 inpaint 参数；选区外严格不变的保证来自贴回，不来自模型。
 - `clip.json`、`_pad.json`、`still_pad.json` 都不属于 patchimg；`still_pad.json` 留给 `img2video` 的全幅路径。
 
+### flow = "fullRedrawImg"（360 静图全幅重绘：21:9 画布 + 氛围参考）
+
+```toml
+flow = "fullRedrawImg"
+
+[source]
+path = "../sources/pano_8k.png"
+sha256 = "…"            # extract 前校验；源图必须是 2:1 ERP
+
+[[assets]]                     # 氛围参考；可多张，都用 lighting_ref
+id = "i1"
+kind = "image"
+path = "assets/i1_palace_light_ref_01.png"
+role = "lighting_ref"
+
+[submit]
+selected = ["i1"]
+
+[extract]
+current = "20261029-141749"
+
+[adopt]
+round = "img-…"
+index = 2               # 图片候选下标，必填
+```
+
+设计说明：
+
+- 没有 `[viewport]/[inner]/[frames]`：几何全部由 extract 决定——整幅 pad 成 21:9。改几何等于换源或改 pad 配置重新 extract，不是改草稿。
+- 提交顺序固定为 基图 → mask → `[submit] selected` 里的氛围参考（全部 `lighting_ref`）。基图与 mask 由装配器自动附带，不写进 `selected`。
+- **必须提交 mask**：`redundant_white` 把左右两条冗余带标白，它们是同一条全景接缝的两份拷贝，也是 `stitch_still` 的配准锚点。代价是横跨接缝的那条带（源图 `[6826,8192)`，约占 ERP 的 16.7%）保持源图像素、不参与重绘；换来的是接缝稳定闭合。实测不交 mask 时 4 张候选只有 1 张过 band correlation 闸门。
+- 参考图总数受模型上限约束（mglc 模型 44 的 `maxReferenceCount = 13`），vrstudio 在装配时按 `generate.image_max_refs` 断言；基图与 mask 占 2 张，所以氛围参考最多 11 张。
+- 比例只能是 21:9：模型的比例表里没有 2:1（最宽 21:9）。merge 用 `stitch_still` 还原 2:1 到源图分辨率。
+- 最终细节上限是 4K：模型输出 4K 21:9，还原到 8K 是约 2.1 倍上采样；实测区块细节只剩源图的 9%（纯重采样对照组 19%）。这是整幅重绘路线的固有代价。
+
 ### flow = "fullredraw"（全景重绘：AI 重绘整个 360°）
 
 ```toml
@@ -279,6 +314,15 @@ cases/<名>/
     report.json                  #   归一化与贴回统计
   derived/                       # clip.png + clip_mask.png + still.json 的副本
   out/<版本>_still.png           # 贴回后的完整 2:1 ERP
+  # --- flow = fullRedrawImg ---
+  extracts/<时间戳>/             # 版本化冻结（单帧、全幅）
+    padded.png                   #   21:9 画布，源分辨率（8K 源约 117 MB）
+    padded_mask.png              #   redundant_white：两条冗余带白、主内容黑
+    still_pad.json               #   全幅几何唯一权威
+    upload.png / upload_mask.png #   提交副本（长边 ≤ generate.image_upload_max_side）
+    result.png                   #   被采用的 4K 21:9 结果
+    report.json                  #   配准、接缝闸门与 aspect drift
+  out/<版本>_still.png           # stitch 还原的 2:1 成片
   # --- flow = fullredraw ---
   seedance_input.mp4             # pad 画布（无损）
   seedance_input_mask.png
@@ -294,9 +338,10 @@ cases/<名>/
 case 创建入口（vrstudio）：
 
 ```
-vrstudio case new <名> --flow patch|patchimg|fullredraw|gen [--source <文件>] [--mode <模式>]
+vrstudio case new <名> --flow patch|patchimg|fullRedrawImg|fullredraw|gen [--source <文件>] [--mode <模式>]
   # patch/fullredraw：--source 必填（视频），--mode 禁止
   # patchimg：--source 必填（2:1 ERP 图片），--mode 禁止；建好即写入默认 16:9 草稿
+  # fullRedrawImg：--source 必填（2:1 ERP 图片），--mode 禁止；没有选区草稿
   # gen：--mode 必填；--source 可选。给了源视频就复制为 assets/v1（edit_master）。
   #      case 写盘后立即以子进程调 vrgen params save --job <名> --mode <模式>；
   #      写模式失败时 case 保留，命令以退出码 2 结束并提示重试。
@@ -308,7 +353,7 @@ vrgen models [--refresh]                   # 平台模型清单
 vrgen submit --job <名> --refs <提交资产清单.json> \
            [--canvas WxH] [--source WxH] \
            [--template <id>] [--set theme=…,style=…] \
-           [--model-id 37] [--mode videoEdit] [--resolution 1080p] \
+           [--model-id 37] [--mode videoEdit] [--resolution <480p|720p|1080p|4K>] \
            [--duration <秒>] [--num <1..4>] [--aspect-ratio auto|W:H] \
            [--scale auto|full|half] [--session-id <项目生成会话>] [--workdir <dir>] [--dry-run]
                                            # 三个流程共用的唯一提交入口；断点续跑、task_id 防重发
@@ -332,7 +377,7 @@ vrgen prompt save --job <名> [--set k=v]… [--unset k]… [--template <id>] [-
                  [--canvas WxH] [--source WxH] [--workdir <dir>]
 vrgen params show --job <名> [--refs <json>] [--canvas WxH] [--source WxH] [--aspect-ratio auto] [--workdir <dir>]
                                            # 只读：output/input 档位与模式列表；refs 只用于取母版算输入尺寸
-vrgen params save --job <名> [--resolution <480p|720p|1080p>] [--scale <auto|full|half>] [--mode <模式>] [--aspect-ratio <auto|W:H>] [--session-id <id>] [--project-id <id>] [--episode <n>] [--workdir <dir>]
+vrgen params save --job <名> [--resolution <480p|720p|1080p|4K>] [--scale <auto|full|half>] [--mode <模式>] [--aspect-ratio <auto|W:H>] [--session-id <id>] [--project-id <id>] [--episode <n>] [--workdir <dir>]
 vrgen sessions list [--project-id <id>] [--episode <n>]   # 只读：项目/剧集/会话树，JSON 输出
 ```
 
@@ -345,6 +390,18 @@ vrgen image submit --job <case 名> --template still360-local --vars-file prompt
   [--image <参考图> --image-role <角色>]… \
   --ratio 16:9 --resolution 4K --num 4 [--session-id <id>] [--workdir <dir>]
 ```
+
+`fullRedrawImg` 的提交由同一条命令发出，模板与角色不同：基图是 21:9 上传副本，mask 是冗余带掩膜，之后是 `[submit] selected` 里的氛围参考：
+
+```
+vrgen image submit --job <case 名> --template fullRedrawImg --vars-file prompt-vars.toml \
+  --image <extract>/upload.png       --image-role edit_master \
+  --image <extract>/upload_mask.png  --image-role mask \
+  [--image <氛围参考图> --image-role lighting_ref]… \
+  --ratio 21:9 --resolution 4K --num 4 [--session-id <id>] [--workdir <dir>]
+```
+
+`fullRedrawImg` **必须**提交 mask：它把两条冗余带冻成源图像素，作为 `stitch_still` 的配准锚点，接缝因此稳定闭合；代价是横跨接缝的约 16.7% 不参与重绘。
 
 `prompt show` 与 `prompt save` 在提供 `--refs` / `--mode` / `--canvas` / `--source` 时，会额外返回 `rendered`（展开后的完整提示词）和 `render_error`（缺哪个占位符）。展开只读，不建轮次、不碰平台；前端提示词面板默认显示 `rendered`，模板骨架可切换查看。
 
@@ -414,7 +471,7 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
 | `--model-id` | mglc `--model-id` | 模型 ID；fullredraw 固定 37（Seedance 2.5） |
 | `--mode` | mglc `--type` | 生成模式；fullredraw 固定 `videoEdit` |
 | `--duration` | mglc `--duration` | 整数秒；显式值优先，按当前模式的 duration 范围校验。缺省时 `videoEdit` / `videoExtend` 取母版时长，`allMediaRef` 取最长视频，`firstLastFrame` 与纯图片提交取 4。patch 的 `firstLastFrame` 由 vrstudio 从当前 `clip.json` 的帧范围与帧率推导整秒后显式传 `--duration`，所以 vrgen 的纯图片默认 4 只覆盖 gen。时长不写进 `generation.toml`，实际值只记台账 `params.duration_s` |
-| `--resolution` | mglc `--resolution` | **输出档位**，480p / 720p / 1080p；不是输入文件尺寸。图片命令另用 1K / 2K / 4K 词表 |
+| `--resolution` | mglc `--resolution` | **输出档位**，480p / 720p / 1080p / 4K；不是输入文件尺寸。4K 只在模型详情的该模式 `resolutions` 里发布时可用（当前 22 的 `firstLastFrame` / `allMediaRef`；37 的 `videoEdit` 最高 1080p）。图片命令另用 1K / 2K / 4K 词表 |
 | `--num` | mglc `--num` | 生成数量 1..4；视频轮次当前只取第一个结果，前端固定 1；图片轮次下载全部候选 |
 | `--aspect-ratio` | mglc `--aspect-ratio` | 输出比例；fullredraw 固定 21:9，gen 用 `auto` 表示不传该 flag（videoEdit 的输出比例跟随输入）。`firstLastFrame` 不传该 flag，比例跟随首尾图 |
 | `--scale` | **vrgen 自有** | 上传前的输入缩放：`auto`（限额内最大）/ `full`（画布原尺寸）/ `half`（画布一半）；没有对应的 mglc flag |
@@ -442,6 +499,8 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
 | 480p | 992×432 | 平台公开像素表 |
 | 720p | 1470×630 | ship_01 实测返回 |
 | 1080p | 2206×946 | 平台公开像素表 |
+
+16:9 的 4K 档标称 3840×2160（`prep/params.py` 的 `OUTPUT_SIZES_16_9`）；21:9 4K 没有已核对的标称值，`output_options` 暂不提供这一档，`params show` 也不会列它。
 
 `params show` 输出单个 JSON 对象：
 
@@ -485,7 +544,7 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
 - 项目额度的接法：`mglc project list` 拿项目 ID，`mglc episode list --project-id <id>` 拿剧集序号，`mglc session list --project-id <id> --episode <n>` 拿 `sessionId`；把 `sessionId` 写进 `generation.toml`（`params save --session-id`）后，所有 submit 都走项目额度。不传 `--session-id` 时 `params save` 保留已有会话。层级、额度行为与失败边界详见 `docs/sessions.md`。
 - `params save` 的 `--resolution` / `--scale` 可省略；省略时保留 `generation.toml` 已有值，
   没有草稿时回退配置默认值。新建 gen case 只传 `--mode`，其余字段等素材选好后再写。
-  接受 `480p|720p|1080p`、`auto|full|half`、任意模式名与 `auto` 或 `W:H` 比例，写
+  接受 `480p|720p|1080p|4K`、`auto|full|half`、任意模式名与 `auto` 或 `W:H` 比例，写
   `runs/<job>/generation.toml`，回显 `{"resolution": …, "scale": …, "mode": …, "aspect_ratio": …,
   "session_id": …, "project_id": …, "episode": …}`。模式是否被模型支持由 submit 阶段的
   模型能力校验负责；`vrstudio case new` 在创建时只接受本期四种模式。
