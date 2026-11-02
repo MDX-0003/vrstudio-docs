@@ -776,6 +776,40 @@ Case 列表的流程筛选是 5 条手写 `<el-option>`（`CaseListView.vue:215-
 
 `vrstudio/src/vrstudio/case.py`、`vrstudio/src/vrstudio/web/app.py`、`vrstudio/src/vrstudio/web/tasks.py`、`vrstudio/frontend/src/constants/flow.ts`、`vrstudio/frontend/src/views/CaseListView.vue`、`vrstudio/frontend/src/api/cases.ts`、`vrstudio/tests/test_web_case_delete.py`、`vrstudio/frontend/tests/unit/case-list-view.spec.ts`。
 
+## 24. 2026-11-02 · 图片流程生成页缺任务日志与状态回显，候选只认 mtime 最新一轮
+
+**问题**
+
+relight_01 提交成功后，生成页只看到候选缩略图与「已采用」标签，没有进程日志，也没有「已生成」的状态。
+
+- 图片流程不渲染 `GenerateResults`（`GenerateStep.vue` 的 `v-else` 只给视频流程），它里面的「最近任务」与「技术详情」不会出现在图片面板；`ImageGeneratePanel` 只有一行 `status/statusDetail`，日志文件写了也没入口看。
+- 页面加载后状态固定回「未预演」：`status` 是组件内 `ref`，只在本次页面点过预演/提交才更新，刷新页面或重启 serve 后不从轮次台账反推，已经出了成片仍显示未预演。
+- 候选按目录 mtime 取 `rounds[0]`（后端 `app.py` 的 `_image_rounds` 按 `st_mtime` 倒序，前端 `latestImageRound` 直接取第一条）。本次先建的空 prepared 轮次 `img-59e3901c` 只因 mtime 更旧才没遮住 `img-556ed938`；一旦空轮次更新，候选区就是「还没有候选图」。
+- 已采用轮次只剩「已采用」标签，没有查看大图、去拼接、去对比的入口，采用后用户不知道下一步在哪。
+- 任务历史全在内存（`web/tasks.py` 的 `current/pending/history`），serve 一重启任务中心与生成页都拿不到日志。
+
+**决策**
+
+1. 把 `GenerateResults` 的任务块抽成共用组件 `components/common/TaskPanel.vue`：props 为 `task`、可选 `title`、`emptyText`，行为保持原样（kind+状态 tag、摘要、失败 alert、技术详情折叠、tail pre）。`GenerateResults` 与 `ImageGeneratePanel` 都用它，图片流程在候选面板之后渲染。
+2. 状态以台账为准：图片流程有本地运行态时用本地状态，否则按 `image_rounds` 里最新有结果的轮次反推（有结果 = 已完成，`stage=failed` = 失败，只有 prepared = 仅预演）；「未预演」只在没有任何轮次时出现。视频流程的状态回显不动，避免把视频预演语义混进来。
+3. 候选改用「最新有结果的轮次」而不是纯 mtime 最新（`utils/rounds.ts` 新增 `latestResultRound`）；已采用轮次在候选面板底部常驻一行「当前采用 + 查看大图 + 去拼接 + 去对比」，查看走 `/img/round/<case>/<round>/<index>`，去拼接/去对比走步骤路由。
+4. 任务历史落盘：任务结束时向 `logs/tasks/<day>/tasks.jsonl` 追加 `view()` 记录，`TaskQueue` 启动时回填最近 50 条；只回填有日志文件的 finished 任务，running/queued 不复活。
+
+**排除方案**
+
+- 只给图片面板复制一份任务块：tail 渲染与失败行处理会有两份，下一次改文案或加字段要改两处，违背共用优先。
+- 把状态写进 `generation.toml`：状态是轮次台账的推导值，落盘会多出第二个真源，轮次被删或覆盖后对不上。
+- 候选继续按 mtime：空 prepared 轮次会遮住真实结果，且 mtime 依赖结果写盘时序，不稳定。
+- 已采用轮次只在缩略图上保留链接：拼接与对比是流程的下一步，行内不给入口用户还得自己找步骤。
+
+**验证**
+
+vitest：`rounds.spec.ts` 补 `latestResultRound`、`adoptedImageRound`、`imageRoundStatus`；`image-generate.spec.ts` 补状态反推（显示已完成、不出现未预演）、空 prepared 轮次不遮住结果、已采用行的查看大图/去拼接/去对比、最近任务与日志尾巴；`generate-step.spec.ts` 原有用例保持。前端 127 条 vitest、typecheck、lint、build 全绿；`tests/test_web_console.py` 新增 `test_task_history_survives_restart`（落盘后重建队列仍能列出 done 任务与 tail，日志被删后不再回填），pytest 与 ruff 全绿。浏览器实测 `/next/case/relight_01/generate`：状态显示「已完成」、候选为 `img-556ed938 · gate=ok`、已采用行有「查看大图 / 去拼接 / 去对比」，点两个按钮分别跳到 `/merge` 与 `/compare`；「最近任务」面板已在图片页出现（该 case 的历史早于本功能，显示空提示）。
+
+**涉及文件**
+
+`vrstudio/frontend/src/components/common/TaskPanel.vue`、`frontend/src/components/generate/GenerateResults.vue`、`frontend/src/components/generate/ImageGeneratePanel.vue`、`frontend/src/views/wizard/GenerateStep.vue`、`frontend/src/utils/rounds.ts`、`vrstudio/src/vrstudio/web/tasks.py`、`frontend/tests/unit/*.spec.ts`。
+
 ## 待决与未做
 
 ### fullredraw 的 pad 不自动进提交清单（2026-10-27，待决）
