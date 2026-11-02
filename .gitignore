@@ -13,5 +13,12 @@ wizard-pick.png
 # 超分实验目录：venv、输入副本与 8K 输出，可整个删除
 /upscale_lab/
 
+# 本地临时帧、编辑器附件、实验素材与探针输出：数据不进 git，可整个删除
+/.tmp_frames/
+/.zcode/
+/relight_video_test/
+/tmp_green_probe/
+/docs/relight-explain/
+
 # 系统
 Thumbs.db
