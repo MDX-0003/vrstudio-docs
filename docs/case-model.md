@@ -127,6 +127,9 @@ current = "20261029-141749"
 [adopt]
 round = "img-…"
 index = 2               # 图片候选下标，必填
+
+[merge]                 # 拼接输入；整段缺省 = extracts/<current>/result.png（adopt 落点）
+input = "i2"            # 本 case 素材库里 kind = image 的一条，必须是 21:9 画布图
 ```
 
 设计说明：
@@ -137,12 +140,14 @@ index = 2               # 图片候选下标，必填
 - 参考图总数受模型上限约束（mglc 模型 44 的 `maxReferenceCount = 13`），vrstudio 在装配时按 `generate.image_max_refs` 断言；基图与 mask 占 2 张，所以氛围参考最多 11 张。
 - 比例只能是 21:9：模型的比例表里没有 2:1（最宽 21:9）。merge 用 `stitch_image` 还原 2:1 到源图分辨率。
 - 最终细节上限是 4K：模型输出 4K 21:9，还原到 8K 是约 2.1 倍上采样；实测区块细节只剩源图的 9%（纯重采样对照组 19%）。这是整幅重绘路线的固有代价。
+- 拼接输入不必是本轮生成的候选：`[merge] input` 指向素材库里的一条图片，用于美术在外部工具改完、按 21:9 画布导回的结果。指针只认本 case 的 `kind = image` 素材，删除该素材时清空指针并回退到 adopt 结果；拼接前按 manifest 的 `canvas.size` 校验输入宽高比，2:1 源图或成片会以退出码 2 拒绝，而不是交给 `restore_canvas` 拉伸后靠冗余带相关性兜底。只有 fullRedrawImg 有这一段，patchimg 的贴回仍只接受 adopt 结果。
 
 ### 图片两条流程的共同契约（web 视角，2026-10-30 起）
 
 - 源与建案例：`[source] path/sha256`，源文件是 2:1 ERP 图片。`vrstudio case new --flow patchimg|fullRedrawImg --source <erp.png>` 与 web 建案例走同一条校验：比例绝对偏差超过 0.001 拒绝并报实际宽高；web 的图片源来自 `sources/` 目录或上传，后缀取 `_IMAGE_EXTS`。patchimg 建好即写入默认 16:9 草稿，fullRedrawImg 没有选区草稿、建完即可 extract。
 - 五步以 case 为单位：`case draft`（仅 patchimg）→ `extract name --case` → `generate submit --case [--num N] [--resolution 1K|2K|4K] [--image-model-id <id>] [--session-id <id>]` → `generate adopt --case --index N` → `merge --case`。web 复用现有 op（extract / submit / dry_run / adopt / merge），不新增 op 或子命令。
 - `[adopt] index` 两条流程都必填：`generate adopt` 在缺下标时直接拒绝，web 的 adopt 必须透传下标。
+- `[merge] input` 只属于 fullRedrawImg：`merge --case` 先按它取拼接输入，缺省或清空后回退 `extracts/<current>/result.png`；web 的 merge 门控接受这两种来源，步骤页显示实际要用的那个文件。
 - 产物：patchimg 写 `clip.png`、`clip_mask.png`、`image.json`；fullRedrawImg 写 `padded.png`、`padded_mask.png`、`image_pad.json`，提交时另存 `upload.png`/`upload_mask.png` 副本。两条流程的交付物都是 `out/<版本>_image.png`（不是 mp4）。
 - `image.json` 与 `image_pad.json` 的字段集不变；后者 manifest 的 `kind` 值为 `image`。
 - 图片提交的提示词变量写在 job 的 `prompt-vars.toml`：`generate submit` 对两条图片流程拒绝 `--var`，也拒绝 `--mode/--duration/--aspect-ratio/--scale`。
