@@ -4,6 +4,8 @@
 视频版的实施与验收见 `docs/test-runs/20261030-relight-video.md`（含与本文的差异）。
 本轮只做 CLI：用「当前图打光」同一套 v2 引擎，把一张氛围图的光照搬到一段真 GT 视频上。
 case / web 接入与固定机位之外的场景都不在本轮。
+后续优化见 `docs/plan/relight-decode-cache-plan.md`（决策 64：删除同位检查、单遍取参考帧、
+按输入缓存参考帧与相似变换）。
 
 ## 1. 需求与边界
 
@@ -41,6 +43,8 @@ probe 视频 → 读第 N 帧作对齐参考帧 → estimate_similarity(参考�
 - GT 里有运动物体时，参考帧的物体位置决定可见度项落在哪里，其余帧的物体可能不在该阴影/高光下。固定机位、GT 的静态结构远多于运动物体时影响有限；机位移动则整条不成立，必须逐帧重估加时间平滑，单独立项。
 - 依据固定变换，光照不会随时间变化。真实的闪光、火光变化传不过来。
 
+**决策 64 的修正（2026-11-02）。** 重打光素材都是固定机位，原先“其余帧与参考帧按同一坐标比结构重合度、低于 0.94 警告”的整片同位检查已删除；它只警告不阻断，却要额外读一遍全片。报告同时去掉 `frames_checked`/`min_hold`。机位移动只作为适用范围约束，不再运行时检测。
+
 ## 4. 输入校验与退出码
 
 | 码 | 条件 |
@@ -69,7 +73,7 @@ vrstudio relight-video --gt GT.mp4 --atmo ATMO.png --out OUT.mp4
 - 参数名、默认值、场景预设、退出码语义全部与 `vrstudio relight` 相同，直接复用 `resolve_params` 与输入校验函数，不另写一套。
 - 编码参数只读 `config.video`（`encoder`/`crf`/`preset`/`pix_fmt`/`audio`/`metadata`），不新增配置键；音频默认从 GT 视频 `copy`。`--crf` 只为像素基线测试覆盖 `video.crf` 而存在。
 - `--dump-light` 不提供：诊断图是单帧概念，需要时对参考帧单独跑 `vrstudio relight`。
-- 报告字段固定：`{gt, atmo, size, frames, fps, ref_frame, ref_matched, frames_checked, min_hold, params, align, clip, light, seconds}`。`params`/`align`/`clip`/`light` 与图像版同构，新增的是帧数、帧率、参考帧与同位检查（`ref_matched` 是参考帧与氛围图的重合度，`frames_checked`/`min_hold` 是其余帧与参考帧的最低重合度）。报告不是跨仓库契约（沿用决策 48）。
+- 报告字段（决策 64 起）：`{gt, atmo, size, frames, fps, ref_frame, ref_matched, params, align, clip, light, seconds}`。`params`/`align`/`clip`/`light` 与图像版同构，新增的是帧数、帧率与参考帧（`ref_matched` 是参考帧与氛围图未对齐时的重合度）。v1 的 `frames_checked`/`min_hold` 已随同位检查删除。报告不是跨仓库契约（沿用决策 48）。
 
 ## 6. 代码落点
 
@@ -93,3 +97,6 @@ vrstudio relight-video --gt GT.mp4 --atmo ATMO.png --out OUT.mp4
 - 多张氛围图随时间切换。
 - 21:9 padded 域输入、超分、内容回填。
 - case 与 web 接入：等 CLI 在真实 8K 素材上试跑通过再定。
+
+决策 64 的后续优化见 `docs/plan/relight-decode-cache-plan.md`：删除同位检查、单遍取参考帧、
+按输入缓存参考帧与相似变换。
