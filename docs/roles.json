@@ -141,6 +141,16 @@
       "modes": [],
       "open": false,
       "reserved": false
+    },
+    {
+      "name": "merge_input",
+      "label": "拼接输入",
+      "help": "拼接输入（外部工具改完的 21:9 画布图；只用于 fullRedrawImg 的拼接，不进生成提交）",
+      "prompt": "拼接输入，外部工具改完的 21:9 画布图，只用于拼接。",
+      "kinds": ["image"],
+      "modes": [],
+      "open": false,
+      "reserved": false
     }
   ]
 }

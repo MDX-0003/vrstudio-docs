@@ -140,7 +140,7 @@ input = "i2"            # 本 case 素材库里 kind = image 的一条，必须�
 - 参考图总数受模型上限约束（mglc 模型 44 的 `maxReferenceCount = 13`），vrstudio 在装配时按 `generate.image_max_refs` 断言；基图与 mask 占 2 张，所以氛围参考最多 11 张。
 - 比例只能是 21:9：模型的比例表里没有 2:1（最宽 21:9）。merge 用 `stitch_image` 还原 2:1 到源图分辨率。
 - 最终细节上限是 4K：模型输出 4K 21:9，还原到 8K 是约 2.1 倍上采样；实测区块细节只剩源图的 9%（纯重采样对照组 19%）。这是整幅重绘路线的固有代价。
-- 拼接输入不必是本轮生成的候选：`[merge] input` 指向素材库里的一条图片，用于美术在外部工具改完、按 21:9 画布导回的结果。指针只认本 case 的 `kind = image` 素材，删除该素材时清空指针并回退到 adopt 结果；拼接前按 manifest 的 `canvas.size` 校验输入宽高比，2:1 源图或成片会以退出码 2 拒绝，而不是交给 `restore_canvas` 拉伸后靠冗余带相关性兜底。只有 fullRedrawImg 有这一段，patchimg 的贴回仍只接受 adopt 结果。
+- 拼接输入不必是本轮生成的候选：`[merge] input` 指向素材库里的一条图片，用于美术在外部工具改完、按 21:9 画布导回的结果。指针只认本 case 的 `kind = image` 素材，删除该素材时清空指针并回退到 adopt 结果；拼接前按 manifest 的 `canvas.size` 校验输入宽高比，2:1 源图或成片会以退出码 2 拒绝，而不是交给 `restore_canvas` 拉伸后靠冗余带相关性兜底。只有 fullRedrawImg 有这一段，patchimg 的贴回仍只接受 adopt 结果。拼接页的「上传并用作拼接输入」会把文件以 `merge_input` 角色加入素材库并选中它；该角色 `kinds = ["image"]`、`modes = []`、`open = false`，不参与生成提交，也不能在生成页下拉里被选到。
 
 ### 图片两条流程的共同契约（web 视角，2026-10-30 起）
 
