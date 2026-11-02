@@ -433,8 +433,10 @@ vrgen submit --job <名> --refs <提交资产清单.json> \
            [--template <id>] [--set theme=…,style=…] \
            [--video-model-id 37] [--mode videoEdit] [--resolution <480p|720p|1080p|4K>] \
            [--duration <秒>] [--num <1..4>] [--aspect-ratio auto|W:H] \
-           [--scale auto|full|half] [--session-id <项目生成会话>] [--workdir <dir>] [--dry-run]
+           [--scale auto|full|half] [--audio keep|none] \
+           [--session-id <项目生成会话>] [--workdir <dir>] [--dry-run]
                                            # 三个流程共用的唯一提交入口；断点续跑、task_id 防重发
+                                           # --audio none：平台无「不生成声音」参数，结果下载后去音轨
 vrgen image submit --job <名> (--prompt <文本> | --template <id> [--vars-file <文件名>]) \
            [--image-role <角色>]… [--image-note <说明>]… [--image-model-id <图片模型 id>] \
            --image <路径> [--image <路径>]… \
@@ -553,6 +555,7 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
 | `--num` | mglc `--num` | 生成数量 1..4；视频轮次当前只取第一个结果，前端固定 1；图片轮次下载全部候选 |
 | `--aspect-ratio` | mglc `--aspect-ratio` | 输出比例；fullredraw 固定 21:9，gen 用 `auto` 表示不传该 flag（videoEdit 的输出比例跟随输入）。`firstLastFrame` 不传该 flag，比例跟随首尾图 |
 | `--scale` | **vrgen 自有** | 上传前的输入缩放：`auto`（限额内最大）/ `full`（画布原尺寸）/ `half`（画布一半）；没有对应的 mglc flag |
+| `--audio` | **vrgen 自有** | `keep`（默认）保留结果音轨；`none` 在结果下载后去掉音轨。mglc 没有「不生成声音」的参数（`--keep-original-sound` 只控制参考音频），所以只能本地后处理；`none` 时同时不传 `--keep-original-sound` |
 | `--session-id` | mglc `--session-id` | 项目生成会话 ID（>0）；提交落在该项目下，计费走项目额度；0/不传 = 个人额度 |
 
 `--scale` 决定上传文件的实际像素，也就决定提示词里的 `{canvas_w}×{canvas_h}` 和冗余带列号；`--resolution` 只决定平台输出档位，**不会改变提示词里的输入像素数字**。
