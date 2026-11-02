@@ -810,6 +810,42 @@ vitest：`rounds.spec.ts` 补 `latestResultRound`、`adoptedImageRound`、`image
 
 `vrstudio/frontend/src/components/common/TaskPanel.vue`、`frontend/src/components/generate/GenerateResults.vue`、`frontend/src/components/generate/ImageGeneratePanel.vue`、`frontend/src/views/wizard/GenerateStep.vue`、`frontend/src/utils/rounds.ts`、`vrstudio/src/vrstudio/web/tasks.py`、`frontend/tests/unit/*.spec.ts`。
 
+## 25. 2026-11-02 · 图片对比页与视频不同构，成片不能打开或下载
+
+**问题**
+
+patchimg / fullRedrawImg 的对比页是两套实现里唯一没和视频对齐的一处，浏览器实测（relight_01 的 `/compare`）：
+
+- 页面只有两个 `<img>`（左 `light_source.png` 8192×4096、右 `out/<版本>_image.png` 8192×4096），全页没有指向 `/file` 的链接，也没有「打开」「下载」按钮。
+- 图片分支是两个可滚动面板、图片按 `width: zoom%` 缩放、同步方式是抄 `scrollLeft/scrollTop`（`CompareStep.vue` 的 `.image-pane` 与 `syncPaneScroll`）。没有缩放滑杆以外的视角控制，没有分割线，也没有 ERP→透视投影，所以既不是「两侧共用一个窗口」，也不是 360 环绕。
+- 后端 `/file` 固定 `content_disposition_type="inline"`（`app.py` 的 `file_open`），前端全仓没有任何 download 元素；视频能下载靠的是浏览器原生 video 控件，不是流程能力。
+- 图片成片按 `sorted(odir.glob("*.png"))` 升序下发（`_outputs`），对比页又取 `outputs[0]`，显示的是最旧一份；图片分支没有成片下拉。
+
+原因：`CompareStep` 的图片分支是 WP6 为「先能看」单独写的静态并排，而 `Erp360Compare` 从构造到纹理上传都写死视频元素（`[HTMLVideoElement, HTMLVideoElement]`、`videoWidth/readyState/currentTime`），当时没有抽象纹理来源，图片这条线就没有接进查看器。
+
+**决策**
+
+1. `Erp360Compare` 的纹理来源抽象为 `ErpSource = HTMLVideoElement | HTMLImageElement`：视频仍按 `currentSrc:currentTime` 去重；图片按 `complete/naturalWidth` 判断，`src` 不变就只上传一次。投影、分割线、拖拽与滚轮逻辑一行不改。
+2. 纹理尺寸兜底：上传前比对 `MAX_TEXTURE_SIZE`，超限的源（9558 宽的 padded 画布在 8192 上限的 GPU 上必然超限）按比例降采样到离屏 canvas 再上传，避免整块黑屏。
+3. 图片对比页与视频共用同一个 stage：一块 canvas、分割线拖动、拖动转头、滚轮变焦、视角复位、全屏；删除 2D 并排滚动、缩放滑杆与差异高亮（用户决定不做）。
+4. 成片选择与视频一致：右路默认最新一份，下拉可切换；图片底版的 relight 仍用 `relight.current`。
+5. 打开与下载：右路放「打开原图」（新标签）与「下载」；后端 `/file` 增加 `download=1` → `Content-Disposition: attachment`，前端下载链接带该参数并加 `download` 属性（同源）。
+
+**排除方案**
+
+- 保留 2D 并排只补按钮：两套对比逻辑永久并存，正是本次要消除的不一致。
+- 只加一个 360 预览抽屉：看得到但对比仍不在同一视角，问题没解。
+- 前端各写一份下载逻辑：没有服务端 attachment 兜底，且大图在各浏览器的行为不一致。
+- 直接把原始 8K 图当纹理上传：超过 `MAX_TEXTURE_SIZE` 时纹理创建失败，画面整块黑。
+
+**验证**
+
+vitest 新增 `compare-step.spec.ts` 4 条：只渲染一块 canvas 与分割线（`.image-pane` 为 0）、右路默认最新成片并把两张图交给查看器、切换下拉后重建查看器、打开/下载链接（下载带 `download=1` 与 `download` 属性）；前端 131 条全绿，typecheck、lint、build 全绿。pytest 在 `test_file_route_serves_each_whitelist_root` 补 `download=1` → `attachment; filename="clip_mask.png"`，不带参数仍是 inline；vrstudio 全量 pytest 与 ruff 全绿。浏览器实测 relight_01 对比页：`.compare-canvas` 1600×720、WebGL 可用，拖拽后视角转动、滚轮后视场收窄，左右两半同属一个 camera；`curl` 复核两种 Content-Disposition 与预期一致。
+
+**涉及文件**
+
+`vrstudio/frontend/src/legacy/Erp360Compare.ts`、`frontend/src/views/wizard/CompareStep.vue`、`frontend/tests/unit/compare-step.spec.ts`、`vrstudio/src/vrstudio/web/app.py`、`vrstudio/tests/test_web_console.py`。
+
 ## 待决与未做
 
 ### fullredraw 的 pad 不自动进提交清单（2026-10-27，待决）

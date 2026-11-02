@@ -163,6 +163,7 @@ v2 修订依据（2026-10-30 评审）：flow 值保留 `patchimg` 与 `fullRedr
 - `_case_info` 新增 `adopt_index`、`image_rounds`（轮次与候选下标/URL）、`image_report`（merge 报告），供前端候选网格与对比页使用。
 - WP6：前端已完成（`Flow` 类型与两条步骤链、新建弹窗按 flow 收源文件、patchimg 选区页去时间轴、图片生成面板（图片档/候选张数/图片模型/项目会话/候选网格与带下标的 adopt）、贴回与拼接页的大图与报告数字、图片对比页与 patchimg 差异高亮、列表与任务标签、`flowMeta` 统一切成媒体前缀）。图片流程的角色下拉用 `IMAGE_ROLE_MODE` 作词表上下文，并排除装配器自动附带的 `edit_master`。前端 `typecheck`/`lint`/`test`（115 条）/`build` 全绿。
 - WP6 收尾（2026-11-02，条目 24）：图片生成页补任务日志与状态回显。任务块从 `GenerateResults` 抽成共用 `TaskPanel`，图片面板复用；状态在有本地运行态时用本地状态、否则按 `image_rounds` 最新有结果的轮次反推；候选改取「最新有结果的轮次」，已采用轮次常驻「查看大图 / 去拼接 / 去对比」入口；任务历史落盘到 `logs/tasks/<day>/tasks.jsonl`，serve 重启后仍能查日志尾巴。
+- WP6 收尾（2026-11-02，条目 25）：图片对比页与视频同构。`Erp360Compare` 纹理来源抽象成视频或图片，图片对比页改为同一块 canvas、分割线、拖动转头、滚轮变焦、视角复位、全屏；右路默认最新成片并带下拉，新增「打开原图 / 下载」，`/file?download=1` 返回 attachment；不做差异高亮。
 - 真实 case 冒烟（只读，新增四个修复）：
   - patchimg 的「重置选区」原来只认 `clip.json`，图片流程必定 400；`api_reset_draft` 改为按 flow 读 `image.json`，并对 fullRedrawImg 明确返回「没有选区草稿」。
   - `image_rounds` 的 `gate` 在台账里是对象（verdict/kind/images），原样下发会让页面显示 `[object Object]`；改为只下发 verdict 词。
