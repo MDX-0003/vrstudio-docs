@@ -93,6 +93,7 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 | `docs/plan/relight-decode-cache-plan.md` | 视频重打光消除重复解码与固定光照缓存：删除同位检查、单遍取参考帧、按 GT/氛围图/参考帧缓存全精度相似变换、运行时间与分段计时（决策 64/65；代码已实施，8K 冷/热验收待补） |
 | `docs/test-runs/20261030-relight-frontend.md` | 重打光前端接入的实施与验收：落点、合并后的 CLI 契约、槽位模型从「角色即槽位」改成「候选库 + 指针」的原因、8K 真实素材的 CLI 与浏览器两轮验收指标、`prompt` 短路修掉的 500、未做的浏览器上传与代理限制 |
 | `docs/test-runs/20261030-relight-space-e2e.md` | 视频重打光闭环验收：视频首帧 → 一次 4 张 4K 生成 → 画布闸门与拼接选型 → 整段重打光；含三处修复（提示词带宽只有白带一半、选帧前置闸门误杀、扫描解码器泄漏）与四张候选的逐项指标 |
+| `docs/test-runs/20261102-relight-decode-cache.md` | 视频重打光去重、缓存与运行计时验收：378 帧 8K 小样冷 66.6 秒/热 30.3 秒（原 128.1 秒）、换氛围图重新选帧、20 帧整段冷/热逐帧 maxdiff 0、各阶段耗时与门禁 |
 | `docs/plan/fullredraw-img-prompt-vars.md` | fullRedrawImg 提示词变量的按场景取值：静态场景只写光影、不写原图没有的物体，氛围参考图标成 `lighting_ref`，取值为 `vrgen_runs/<case>/prompt-vars.toml` 的模板（审查稿） |
 | `docs/plan/img-flows-frontend-plan.md` | patchimg / fullRedrawImg 两条 360 图片流程前端接入：命名统一（flow 值不变，契约文件/产物/模板改 image/img）、CLI 已就绪的证据、web 与前端缺口清单（建案例图片源、op 透传 num/index/model/session、门控去 else 兜底、草稿段单一判定、素材挂载、候选网格、静图对比与差异视图）、WP0–WP7 与真实额度前置（WP0–WP5 已实施，WP6 进行中，WP1/WP7 待平台额度） |
 | `docs/key-issues/frontend-decisions.md` | 前端关键问题与决策记录：逐条记录问题、决策、排除方案、验证与涉及文件（持续更新） |

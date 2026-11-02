@@ -1,7 +1,7 @@
 # 视频重打光：消除重复解码与固定光照缓存
 
-状态：代码已实施，单测与 ruff 已通过；8K 冷/热验收待补（线上重打光进程结束后执行）。
-验收见 `docs/test-runs/20261102-relight-decode-cache.md`（待补）。
+状态：已实施（2026-11-02）。8K 冷/热验收、缓存失效与像素一致性见
+`docs/test-runs/20261102-relight-decode-cache.md`。
 
 ## 1. 问题
 

@@ -115,7 +115,8 @@ relit 0/189/377）：梁架、柱身花纹、人物、陈设与前景器皿都�
   可行的省法是给这两遍解码加 `-vf scale=2048:-2`，读出量降到 1/16；本轮没改，因为它会
   换掉阈值实测所依据的重采样方式，等下一轮连同阈值一起复测。
   后续：决策 64 先走“单遍取参考帧 + 删除同位检查 + 输入不变时缓存参考帧与变换”，
-  见 `docs/plan/relight-decode-cache-plan.md`；本轮记录的耗时不改写。
+  见 `docs/plan/relight-decode-cache-plan.md`；验收见
+  `docs/test-runs/20261102-relight-decode-cache.md`。本轮记录的耗时不改写。
 - 浏览器端没有驱动：两个 case 的建、pad、提交、采纳、拼接与重打光全部走 CLI；web 与 CLI
   共用同一条 op 路径（`relight --case`），但本轮的截图证据只有产物与报告。
 - 视频底版仍按原分辨率播放，没有代理（沿用上一轮限制）。
