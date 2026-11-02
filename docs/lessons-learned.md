@@ -227,7 +227,7 @@ serve 在 `/`、`/case/walk_01`、`/api/case/walk_01` 上连续 500，最后一�
 - `assemble_still` 增加上传副本：`padded.png` 与 `padded_mask.png` 超过
   `generate.image_upload_max_side`（默认 4096）时长边缩到该值，base 用 INTER_AREA，
   mask 用 INTER_NEAREST 保持二值；写入 `upload.png` / `upload_mask.png`。
-- canonical `padded.png` 与 `still_pad.json` 仍是满分辨率；`stitch_still` 把模型输出
+- canonical `padded.png` 与 `image_pad.json` 仍是满分辨率；`stitch_image` 把模型输出
   还原到画布尺寸，最终 ERP 保持 8192x4096。
 - 实测同时暴露两处约束，已补机制：
   - 局部 inner 必须覆盖完整主体。第一次 inner 960x540 只到腰部，候选虽然把整身改成
@@ -242,7 +242,7 @@ serve 在 `/`、`/case/walk_01`、`/api/case/walk_01` 上连续 500，最后一�
 
 - 源图 `sources/360erp_test.png`，session 2062569522605504，4 张候选，gate ok。
 - 采用 `img-61e3e701` 的第 4 张；`merge` 输出
-  `cases/erp_test/out/20261029-103543_still.png`（8192x4096）。
+  `cases/erp_test/out/20261029-103543_image.png`（8192x4096）。
 - 报告：`d*=-7`，`corr=0.933`，`gate=warn`（代价曲线平，不是失败），
   接缝 `wrap 0.437 / percentile 48.1 → ok`，选区外 `maxdiff 0`，
   `changed 700816/701031`。

@@ -61,7 +61,7 @@ flow = "patchimg"
 path = "../sources/pano_8k.png"
 sha256 = "…"            # merge 前校验；源图必须是 2:1 ERP
 
-[viewport]              # 选区草稿：web pick 写入，extract 时冻结进 still.json
+[viewport]              # 选区草稿：web pick 写入，extract 时冻结进 image.json
 yaw_deg = -101.0
 pitch_deg = 0.0
 fov_h_deg = 70.0
@@ -82,7 +82,7 @@ round = "img-77c1a0e4"
 index = 3               # 图片轮次里被采用的那张（1..N）；patchimg 必填
 ```
 
-`still.json`（`extracts/<版本>/still.json`，version=1）是 patchimg 的几何唯一权威，与 `clip.json` 同地位但去掉了时间：
+`image.json`（`extracts/<版本>/image.json`，version=1）是 patchimg 的几何唯一权威，与 `clip.json` 同地位但去掉了时间：
 
 ```json
 {
@@ -101,7 +101,7 @@ index = 3               # 图片轮次里被采用的那张（1..N）；patchimg
 - 视口比例必须是图片模型支持的 16:9；非 16:9 在 extract 与 submit 两处拒绝。视口宽高只是草稿字段（1920×1080 或 3840×2160），不是枚举。
 - inner 必须覆盖完整主体：贴回只写 inner，主体跨出 inner 会在边界被切断。CLI 先看 `clip_mask.png`，web pick 页要画出 inner 边界。
 - mask 是提示不是通道：平台图片命令只有 `--ratio` 与 `1K/2K/4K`，没有 inpaint 参数；选区外严格不变的保证来自贴回，不来自模型。
-- `clip.json`、`_pad.json`、`still_pad.json` 都不属于 patchimg；`still_pad.json` 留给 `img2video` 的全幅路径。
+- `clip.json`、`_pad.json`、`image_pad.json` 都不属于 patchimg；`image_pad.json` 留给 `img2video` 的全幅路径。
 
 ### flow = "fullRedrawImg"（360 静图全幅重绘：21:9 画布 + 氛围参考）
 
@@ -133,10 +133,19 @@ index = 2               # 图片候选下标，必填
 
 - 没有 `[viewport]/[inner]/[frames]`：几何全部由 extract 决定——整幅 pad 成 21:9。改几何等于换源或改 pad 配置重新 extract，不是改草稿。
 - 提交顺序固定为 基图 → mask → `[submit] selected` 里的氛围参考（全部 `lighting_ref`）。基图与 mask 由装配器自动附带，不写进 `selected`。
-- **必须提交 mask**：`redundant_white` 把左右两条冗余带标白，它们是同一条全景接缝的两份拷贝，也是 `stitch_still` 的配准锚点。代价是横跨接缝的那条带（源图 `[6826,8192)`，约占 ERP 的 16.7%）保持源图像素、不参与重绘；换来的是接缝稳定闭合。实测不交 mask 时 4 张候选只有 1 张过 band correlation 闸门。
+- **必须提交 mask**：`redundant_white` 把左右两条冗余带标白，它们是同一条全景接缝的两份拷贝，也是 `stitch_image` 的配准锚点。代价是横跨接缝的那条带（源图 `[6826,8192)`，约占 ERP 的 16.7%）保持源图像素、不参与重绘；换来的是接缝稳定闭合。实测不交 mask 时 4 张候选只有 1 张过 band correlation 闸门。
 - 参考图总数受模型上限约束（mglc 模型 44 的 `maxReferenceCount = 13`），vrstudio 在装配时按 `generate.image_max_refs` 断言；基图与 mask 占 2 张，所以氛围参考最多 11 张。
-- 比例只能是 21:9：模型的比例表里没有 2:1（最宽 21:9）。merge 用 `stitch_still` 还原 2:1 到源图分辨率。
+- 比例只能是 21:9：模型的比例表里没有 2:1（最宽 21:9）。merge 用 `stitch_image` 还原 2:1 到源图分辨率。
 - 最终细节上限是 4K：模型输出 4K 21:9，还原到 8K 是约 2.1 倍上采样；实测区块细节只剩源图的 9%（纯重采样对照组 19%）。这是整幅重绘路线的固有代价。
+
+### 图片两条流程的共同契约（web 视角，2026-10-30 起）
+
+- 源与建案例：`[source] path/sha256`，源文件是 2:1 ERP 图片。`vrstudio case new --flow patchimg|fullRedrawImg --source <erp.png>` 与 web 建案例走同一条校验：比例绝对偏差超过 0.001 拒绝并报实际宽高；web 的图片源来自 `sources/` 目录或上传，后缀取 `_IMAGE_EXTS`。patchimg 建好即写入默认 16:9 草稿，fullRedrawImg 没有选区草稿、建完即可 extract。
+- 五步以 case 为单位：`case draft`（仅 patchimg）→ `extract name --case` → `generate submit --case [--num N] [--resolution 1K|2K|4K] [--image-model-id <id>] [--session-id <id>]` → `generate adopt --case --index N` → `merge --case`。web 复用现有 op（extract / submit / dry_run / adopt / merge），不新增 op 或子命令。
+- `[adopt] index` 两条流程都必填：`generate adopt` 在缺下标时直接拒绝，web 的 adopt 必须透传下标。
+- 产物：patchimg 写 `clip.png`、`clip_mask.png`、`image.json`；fullRedrawImg 写 `padded.png`、`padded_mask.png`、`image_pad.json`，提交时另存 `upload.png`/`upload_mask.png` 副本。两条流程的交付物都是 `out/<版本>_image.png`（不是 mp4）。
+- `image.json` 与 `image_pad.json` 的字段集不变；后者 manifest 的 `kind` 值为 `image`。
+- 图片提交的提示词变量写在 job 的 `prompt-vars.toml`：`generate submit` 对两条图片流程拒绝 `--var`，也拒绝 `--mode/--duration/--aspect-ratio/--scale`。
 
 ### flow = "fullredraw"（全景重绘：AI 重绘整个 360°）
 
@@ -221,6 +230,70 @@ round = "dusk-3c1a4b2d"
 - 数值限制（格式、时长、帧率、像素、体积、数量上限）只在 vrgen 提交前校验；
   vrstudio 前端不重复实现。视频与超限图片在 vrgen 内缩放到限额内再上传。
 
+### flow = "relight"（重打光：一张氛围图打到真 GT 上，不调平台）
+
+```toml
+flow = "relight"
+
+[[assets]]                     # 素材库：同角色可以有多条候选，顺序无关
+id = "v1"
+kind = "video"                 # 底版可以是视频或图片；决定走整段还是单帧
+path = "assets/v1_dance_move.mp4"
+role = "relight_gt"            # 重打光底版：结构与细节的来源
+sha256 = "…"
+
+[[assets]]                     # 氛围图候选一：美术上传的第一版
+id = "i1"
+kind = "image"                 # 氛围图只接受图片
+path = "assets/i1_atmo_v1.png"
+role = "relight_atmo"
+sha256 = "…"
+
+[[assets]]                     # 氛围图候选二：手工提亮后的正式版
+id = "i2"
+kind = "image"
+path = "assets/i2_atmo_v2.png"
+role = "relight_atmo"
+sha256 = "…"
+
+[relight]                      # 唯一草稿段：两把槽位指针 + 成片指针 + 上次参数
+gt = "v1"                      # 槽位指向哪一条候选
+atmo = "i2"
+current = "out/20261030-171530_relit.mp4"
+scene = "night"
+strength = 1.0
+local_shading = 0.35
+highlight_clip = false
+clip_knee = 0.72
+clip_max = 0.98
+ref_frame = 12
+```
+
+设计说明：
+
+- 建 case 不绑源文件：`vrstudio case new --flow relight` 可以不给 `--source`，`case.toml` 不写 `[source]`。
+  这和 gen 同构（gen 从 2026-10-19 起就是「无源 + `[[assets]]`」），GT 与氛围图由用户在素材步选定。
+  不给源时 case 名必须由用户填写，不能再从文件名推导。
+- **素材库与槽位分离**：`[[assets]]` 是候选池，同一角色可以有多条（美术每改一版氛围图就多一条，
+  便于来回切换）；`[relight]` 的 `gt`/`atmo` 是两把指针，用素材 id 指向当前选中的那一条。
+  早期实现把「槽位」直接等同于角色、限制每种角色只能一条，结果是「从素材库选」永远没有候选可挑。
+- 角色由 flow 钉死，用户不能改：`relight_gt` 接受视频或图片，`relight_atmo` 只接受图片。
+  两个角色在词表里是 `open = false`、`modes = []`、`reserved = false`——不进任何生成页下拉、不进任何
+  提交清单，但因为是普通角色，`add_assets` 的上传与复制管线原样可用（`reserved = true` 会被
+  `_add_assets_to` 明确拒绝，所以这两个角色不能标 reserved）。
+- 指针必须指对角色：`gt` 指向的素材角色必须是 `relight_gt`，`atmo` 必须是 `relight_atmo`；
+  指向不存在的素材或角色不符时在 `load`/`save` 两处按真实原因拒绝。
+- 媒体类型由指针指向的底版决定，不写进 case.toml：底版是图片走单帧路径，是视频走整段路径。
+  步骤链因此只有一条：素材 → 重打光 → 对比，视频专属的参考帧与小样在同一页里按底版类型出现。
+- `[relight]` 是 flow 的唯一草稿段。`current` 指向最近一次成片（相对 case 目录），对比步认它；
+  其余键是上一次运行的参数，用来回填面板。不复用 `[adopt]`：那两个字段的语义是 vrgen 台账轮次，
+  而 relight 没有轮次。写入只发生在 vrstudio，未知键按真实原因拒绝。
+- relight 不调 vrgen、不花额度、不需要项目会话，所以没有 `[submit]`、`[adopt]`、`generation.toml`
+  与提示词；`/api/case` 对这条流程不下发 prompt 与 generation_params。
+- 产物目录沿用 `out/`：整段写 `out/<时间戳>_relit.mp4`，单帧写 `out/<时间戳>_relit.png`，
+  报告写同名 `.json`，小样写 `out/samples/<时间戳>/sample_<帧号>.png`。产物命名与 `current`
+  的回写都在 `vrstudio relight --case` 一处，web 只把面板参数翻成 flag。
+
 ### 素材角色与校验
 
 角色只承载提示词里的职责声明，不再承载按模式的数量限制；数量、格式、时长、帧率、
@@ -258,6 +331,11 @@ round = "dusk-3c1a4b2d"
   （轮次、候选序号、素材 id）。旧格式的单值 `sheet` 读取时视为只有一项
   `subject_ref` 的清单。图片步的参考图由这份文件与原始帧解析，不读 `[submit]`；
   视频提交清单只由生成页的引用条目决定，两者互不影响。
+- 每帧的定稿有两条路：从生成候选里挑（`[first].round` 是轮次目录名），或
+  「直接用原始帧」——把当前抽取的 `*_frame_raw.png` 复制进 `[[assets]]`、角色
+  写 `first_frame` / `last_frame`，`round` 记为 `extract`、`index` 为 1。
+  两条路写出的都是普通素材角色，所以交接与 `--refs` 的行为完全一致；
+  `first_frame_raw` / `last_frame_raw` 这两个保留角色仍然不进提交清单。
 
 `space_ref` 与 `motion_ref` 的分工是“空间”和“身体动作”的分工：`space_ref` 只提供机位、构图、起点与终点位置，不提供人物动作；`motion_ref` 提供动作节奏与路径。白模视频只锁空间时用 `space_ref`，需要继承动作节奏时用 `motion_ref`。
 
@@ -309,20 +387,20 @@ cases/<名>/
   extracts/<时间戳>/             # 版本化冻结（单帧；与 patch 同构，没有时间）
     clip.png                     #   16:9 视口裁剪：送生成的唯一图像
     clip_mask.png                #   inner mask（黑=重绘，白=保持），作为提示附带
-    still.json                   #   冻结几何：erp_w/h + viewport + inner（version=1）
+    image.json                   #   冻结几何：erp_w/h + viewport + inner（version=1）
     result.png                   #   被采用的那张视口结果（adopt 时拷入）
     report.json                  #   归一化与贴回统计
-  derived/                       # clip.png + clip_mask.png + still.json 的副本
-  out/<版本>_still.png           # 贴回后的完整 2:1 ERP
+  derived/                       # clip.png + clip_mask.png + image.json 的副本
+  out/<版本>_image.png           # 贴回后的完整 2:1 ERP
   # --- flow = fullRedrawImg ---
   extracts/<时间戳>/             # 版本化冻结（单帧、全幅）
     padded.png                   #   21:9 画布，源分辨率（8K 源约 117 MB）
     padded_mask.png              #   redundant_white：两条冗余带白、主内容黑
-    still_pad.json               #   全幅几何唯一权威
+    image_pad.json               #   全幅几何唯一权威
     upload.png / upload_mask.png #   提交副本（长边 ≤ generate.image_upload_max_side）
     result.png                   #   被采用的 4K 21:9 结果
     report.json                  #   配准、接缝闸门与 aspect drift
-  out/<版本>_still.png           # stitch 还原的 2:1 成片
+  out/<版本>_image.png           # stitch 还原的 2:1 成片
   # --- flow = fullredraw ---
   seedance_input.mp4             # pad 画布（无损）
   seedance_input_mask.png
@@ -353,12 +431,12 @@ vrgen models [--refresh]                   # 平台模型清单
 vrgen submit --job <名> --refs <提交资产清单.json> \
            [--canvas WxH] [--source WxH] \
            [--template <id>] [--set theme=…,style=…] \
-           [--model-id 37] [--mode videoEdit] [--resolution <480p|720p|1080p|4K>] \
+           [--video-model-id 37] [--mode videoEdit] [--resolution <480p|720p|1080p|4K>] \
            [--duration <秒>] [--num <1..4>] [--aspect-ratio auto|W:H] \
            [--scale auto|full|half] [--session-id <项目生成会话>] [--workdir <dir>] [--dry-run]
                                            # 三个流程共用的唯一提交入口；断点续跑、task_id 防重发
 vrgen image submit --job <名> (--prompt <文本> | --template <id> [--vars-file <文件名>]) \
-           [--image-role <角色>]… [--image-note <说明>]… --model-id <图片模型 id> \
+           [--image-role <角色>]… [--image-note <说明>]… [--image-model-id <图片模型 id>] \
            --image <路径> [--image <路径>]… \
            --ratio <16:9> --resolution <1K|2K|4K> [--num <1..4>] \
            [--step first|last] \
@@ -377,14 +455,14 @@ vrgen prompt save --job <名> [--set k=v]… [--unset k]… [--template <id>] [-
                  [--canvas WxH] [--source WxH] [--workdir <dir>]
 vrgen params show --job <名> [--refs <json>] [--canvas WxH] [--source WxH] [--aspect-ratio auto] [--workdir <dir>]
                                            # 只读：output/input 档位与模式列表；refs 只用于取母版算输入尺寸
-vrgen params save --job <名> [--model-id <id>] [--resolution <480p|720p|1080p|4K>] [--scale <auto|full|half>] [--mode <模式>] [--aspect-ratio <auto|W:H>] [--session-id <id>] [--project-id <id>] [--episode <n>] [--workdir <dir>]
+vrgen params save --job <名> [--video-model-id <id>] [--image-model-id <id>] [--resolution <480p|720p|1080p|4K>] [--scale <auto|full|half>] [--mode <模式>] [--aspect-ratio <auto|W:H>] [--session-id <id>] [--project-id <id>] [--episode <n>] [--workdir <dir>]
 vrgen sessions list [--project-id <id>] [--episode <n>]   # 只读：项目/剧集/会话树，JSON 输出
 ```
 
 `patchimg` 的图片提交由 `vrstudio generate submit` 组装成 `vrgen image submit`，视口图与 inner mask 由装配器自动附带（mask 不进 `[submit] selected`、不占编号）：
 
 ```
-vrgen image submit --job <case 名> --template still360-local --vars-file prompt-vars.toml \
+vrgen image submit --job <case 名> --template img360-local --vars-file prompt-vars.toml \
   --image <extract>/clip.png       --image-role edit_master \
   --image <extract>/clip_mask.png  --image-role mask \
   [--image <参考图> --image-role <角色>]… \
@@ -401,7 +479,7 @@ vrgen image submit --job <case 名> --template fullRedrawImg --vars-file prompt-
   --ratio 21:9 --resolution 4K --num 4 [--session-id <id>] [--workdir <dir>]
 ```
 
-`fullRedrawImg` **必须**提交 mask：它把两条冗余带冻成源图像素，作为 `stitch_still` 的配准锚点，接缝因此稳定闭合；代价是横跨接缝的约 16.7% 不参与重绘。
+`fullRedrawImg` **必须**提交 mask：它把两条冗余带冻成源图像素，作为 `stitch_image` 的配准锚点，接缝因此稳定闭合；代价是横跨接缝的约 16.7% 不参与重绘。
 
 `prompt show` 与 `prompt save` 在提供 `--refs` / `--mode` / `--canvas` / `--source` 时，会额外返回 `rendered`（展开后的完整提示词）和 `render_error`（缺哪个占位符）。展开只读，不建轮次、不碰平台；前端提示词面板默认显示 `rendered`，模板骨架可切换查看。
 
@@ -468,7 +546,7 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
 
 | vrgen 参数 | 来源 | 语义 |
 |---|---|---|
-| `--model-id` | mglc `--model-id` | 模型 ID；fullredraw 固定 37（Seedance 2.5） |
+| `--video-model-id` | mglc `--model-id` | 视频模型 ID；fullredraw 固定 37（Seedance 2.5），4K 路线用 22（Seedance 2.0） |
 | `--mode` | mglc `--type` | 生成模式；fullredraw 固定 `videoEdit` |
 | `--duration` | mglc `--duration` | 整数秒；显式值优先，按当前模式的 duration 范围校验。缺省时 `videoEdit` / `videoExtend` 取母版时长，`allMediaRef` 取最长视频，`firstLastFrame` 与纯图片提交取 4。patch 的 `firstLastFrame` 由 vrstudio 从当前 `clip.json` 的帧范围与帧率推导整秒后显式传 `--duration`，所以 vrgen 的纯图片默认 4 只覆盖 gen。时长不写进 `generation.toml`，实际值只记台账 `params.duration_s` |
 | `--resolution` | mglc `--resolution` | **输出档位**，480p / 720p / 1080p / 4K；不是输入文件尺寸。4K 只在模型详情的该模式 `resolutions` 里发布时可用（当前 22 的 `firstLastFrame` / `allMediaRef`；37 的 `videoEdit` 最高 1080p）。图片命令另用 1K / 2K / 4K 词表 |
@@ -482,7 +560,7 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
 `vrgen image submit` 的参数面：
 
 - `--prompt` 与 `--template` 二选一：直接给正文，或给模板 id 由 vrgen 展开。模板路径读 `--vars-file` 指定草稿（默认 `prompt-vars.toml`），并接受 `--image-role` 生成的 `image_roles`；展开后的正文原样写入轮次的 `prompt.txt`，台账与直接给正文时同构。
-- `--model-id` 指向图片模型（首期默认专业图片-2.5，备选 Seedream 4.5）。
+- `--image-model-id` 指向图片模型。取值优先级：显式参数 > `generation.toml` 的 `image_model_id` > 配置 `mglc.image_model_id`（首期默认 44 专业图片-2.5，备选 Seedream 4.5 = 25）。
 - `--image` 可重复，直接传本地路径；图片模型不需要 SD 合规素材登记。
 - `--image-role` 可重复，条数必须与 `--image` 相同，按顺序对应；仅用于 `--template` 渲染，不发给平台。
 - `--image-note` 可重复，条数必须与 `--image` 相同，按顺序对应；空字符串表示这张图没有用途。它只用于 `--template`，由 vrgen 展开进 `image_roles`，不发给平台；与 `--prompt` 同用时报参数错。
@@ -528,7 +606,11 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
             "takes_video": false, "ratios": [], "max_count": 2,
             "max_videos": 0, "max_images": 2,
             "duration": {"type": "range", "min": 4, "max": 30}}],
- "fixed": {"model_id": 37, "duration_s": 8, "num": 1},
+ "models": [{"id": 22, "name": "Seedance 2.0", "description": "…"},
+            {"id": 37, "name": "Seedance 2.5", "description": "…"}],
+ "image_models": [{"id": 44, "name": "专业图片-2.5", "description": "…"},
+                  {"id": 25, "name": "Seedream 4.5", "description": "…"}],
+ "fixed": {"video_model_id": 37, "image_model_id": 44, "duration_s": 8, "num": 1},
  "saved": true}
 ```
 
@@ -538,14 +620,16 @@ submit 显式参数的来源必须能一一对回 mglc 的 `video generate`，�
   即恢复完整结果。省略 `--refs` 时若显式给了 `--canvas`/`--source`，只用于计算 `output`。
 - `modes` 是模型能力里筛出的、本期支持的模式（`videoEdit` / `allMediaRef` / `videoExtend` / `firstLastFrame`）；筛选不再要求模式“接受视频”，否则纯图片的 `firstLastFrame` 不会出现在列表里。页面用它填充模式下拉框，不在前端写死。`max_videos` / `max_images` 取对应 validator 的 `maxCount`；`takes_video=false` 时 `max_videos` 返回 0。角色选项不在 `modes` 里回显：按模式的角色数量矩阵已退役，本地只保留 §2「素材角色与校验」的四条语义规则；前端从全局角色词表按素材种类渲染。
 - `params show` 的 `takes_video` 闸门只拦“`--refs` 清单里有视频、当前模式却不接受视频”的情况：不传 `--refs`、或清单里没有视频时，无论当前模式是什么都返回 `modes` 与 `current`。否则纯图片 case 一旦把当前模式存成 `firstLastFrame`，页面连模式列表和时长范围都读不到。
-- `current` 优先读 `runs/<job>/generation.toml`，没有则回退配置默认值；`saved` 表示草稿是否存在。`current` 里的 `session_id` 是项目生成会话（0 表示个人额度）。`fixed.model_id` 是生效的视频模型：优先 `generation.toml` 的 `model_id`，没有则用配置默认值；4K 路线把它设为 22（Seedance 2.0）。
+- `current` 优先读 `runs/<job>/generation.toml`，没有则回退配置默认值；`saved` 表示草稿是否存在。`current` 里的 `session_id` 是项目生成会话（0 表示个人额度）。
+- `fixed.video_model_id` 是生效的视频模型：优先 `generation.toml` 的 `video_model_id`，没有则用配置 `mglc.video_model_id`（默认 37）。`fixed.image_model_id` 是生效的图片模型：优先 `generation.toml` 的 `image_model_id`，没有则用配置 `mglc.image_model_id`（默认 44）。旧的 `generation.toml` 键 `model_id` 读取时按视频模型兼容。
+- `models` 是视频模型清单（`{id, name, description}`，全部列出、按 id 去重——平台会把同一 id 列成样片/完整两条，取能力多的那条），供生成页模型下拉框使用；来源是 `model_list_url` 的免鉴权 GET，24h 缓存在 `models.json`。`image_models` 是图片模型清单，来源 `mglc model list --type image`（需登录态），24h 缓存在 `models_image.json`；取不到时返回空数组并附 `image_models_error` 说明原因，不影响其余字段。**模型 id 只在类型内唯一**（22 既是视频 Seedance 2.0 也是图片 Seedream 4.0，25 既是视频 Vidu Q3 Turbo 也是图片 Seedream 4.5），任何存储与界面都以 (类型, id) 为准。
 - `current.mode` 是本次提交使用的模式；`current.aspect_ratio` 是解析后的比例。没有比例选项的模式显示 `auto`，页面写“跟随输入”；`allMediaRef` 这类有比例列表的模式从列表里选择。
 - `fixed.duration_s` 不再表示保存的草稿偏好：页面时长下拉按 `modes[].duration` 渲染，“自动”不传 `--duration`，实际采用值以轮次台账 `params.duration_s` 为准。patch 的 `firstLastFrame` 另下发 `auto_duration_s`（由 clip 帧范围与帧率推导的整秒），页面据此把“自动”显示成“自动（约 N 秒）”；提交仍由 vrstudio 显式传 `--duration`。`fixed.duration_s` 此时回显同一个推导值，只是提示，不是草稿。
 - 项目额度的接法：`mglc project list` 拿项目 ID，`mglc episode list --project-id <id>` 拿剧集序号，`mglc session list --project-id <id> --episode <n>` 拿 `sessionId`；把 `sessionId` 写进 `generation.toml`（`params save --session-id`）后，所有 submit 都走项目额度。不传 `--session-id` 时 `params save` 保留已有会话。层级、额度行为与失败边界详见 `docs/sessions.md`。
-- `params save` 的 `--model-id` / `--resolution` / `--scale` 可省略；省略时保留 `generation.toml` 已有值，
-  没有草稿时回退配置默认值。新建 gen case 只传 `--mode`，其余字段等素材选好后再写。
+- `params save` 的 `--video-model-id` / `--image-model-id` / `--resolution` / `--scale` 可省略；省略时保留 `generation.toml` 已有值，
+  没有草稿时回退配置默认值（`--image-model-id` 不写 resolution/scale 那些视频草稿键，只改图片模型）。新建 gen case 只传 `--mode`，其余字段等素材选好后再写。
   接受正整数模型 ID、`480p|720p|1080p|4K`、`auto|full|half`、任意模式名与 `auto` 或 `W:H` 比例，写
-  `runs/<job>/generation.toml`，回显 `{"model_id": …, "resolution": …, "scale": …, "mode": …, "aspect_ratio": …,
+  `runs/<job>/generation.toml`，回显 `{"video_model_id": …, "image_model_id": …, "resolution": …, "scale": …, "mode": …, "aspect_ratio": …,
   "session_id": …, "project_id": …, "episode": …}`。模式是否被模型支持由 submit 阶段的
   模型能力校验负责；`vrstudio case new` 在创建时只接受本期四种模式。
 - submit 的取值优先级：命令行显式参数 > `generation.toml` > `config/default.toml`。`--scale` 的 quarter/显式 WxH 仍保留在 config 里给内部调试；CLI `--scale`、`params save` 与前端只接受 `auto|full|half`。
@@ -636,7 +720,7 @@ gen 流程统一使用 `gen-multi`（旧 `gen-edit` 保留，供历史轮次重�
 ```
 runs/<job>/
   prompt-vars.toml      # job 级草稿：template 选择 + 提示词可变块（vrgen 侧唯一可写的"当前值"）
-  generation.toml       # job 级草稿：model_id/mode/aspect_ratio/resolution/scale/session_id/project_id/episode（决策 20/22/23；不含时长）
+  generation.toml       # job 级草稿：video_model_id/image_model_id/mode/aspect_ratio/resolution/scale/session_id/project_id/episode（决策 20/22/23；不含时长；旧键 model_id 读取时按视频模型兼容）
   <轮次key>/              # 视频轮次
     run.json            # 台账：stage/params/prompt/assets/task_id/result/gate/notes
     prompt.txt          # 实际发出的提示词（模板展开后）
@@ -659,6 +743,7 @@ gen 多素材与图片轮次的 run.json 字段扩展（其余字段与旧格式
 - `params.step`：可选，`"first"` | `"last"`；图片轮次属于首尾帧工作台的哪一步，供页面分组。缺省表示未标注（旧轮次或非工作台图片轮次）。
 - `task_ids`：可选整数数组；图片批次在平台侧对应多个并列任务时，记录全部任务 ID，`task_id` 仍保留第一个以兼容旧读取方。逐个任务的图按 URL 去重后写入 `results`。
 - `params.duration_s`：本次实际采用的时长（整数秒），是审计事实，不是偏好；不写 `generation.toml`。
+- `params.video_model_id` / `params.image_model_id`：本次实际采用的模型，按轮次类型各记其一（视频轮次记 `video_model_id`，图片轮次记 `image_model_id`）。历史轮次的 `params.model_id` 读取时按轮次类型兼容。
 - `assets`：按素材 id 分组，例如
   `{"video:clip": 123, "image:mask": 456, "image:i1": 789}`。patch/fullredraw 的
   `"video"` / `"image"` 两个旧键退役，三流程统一为 `kind:id` 键。

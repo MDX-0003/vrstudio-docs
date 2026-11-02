@@ -121,6 +121,26 @@
       "modes": [],
       "open": false,
       "reserved": true
+    },
+    {
+      "name": "relight_gt",
+      "label": "重打光底版",
+      "help": "重打光底版（提供结构与细节的 2:1 ERP 真 GT，视频或图片）",
+      "prompt": "重打光底版，只提供结构与细节。",
+      "kinds": null,
+      "modes": [],
+      "open": false,
+      "reserved": false
+    },
+    {
+      "name": "relight_atmo",
+      "label": "氛围图",
+      "help": "氛围图（只提供低频光照、色温与遮挡；与底版同宽高）",
+      "prompt": "氛围图，只提供低频光照、色温与遮挡。",
+      "kinds": ["image"],
+      "modes": [],
+      "open": false,
+      "reserved": false
     }
   ]
 }

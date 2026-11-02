@@ -161,6 +161,7 @@ gen 的首尾帧入口尚未接。gen 没有 extract，需要「上传两张原�
 **决策**
 
 - vrgen 新增 `keyframe-first.md` 与 `keyframe-last.md` 两个模板，共用 `figure`（人物外观）、`pose_first`（首帧姿态）、`pose_last`（尾帧姿态）、`preserve`（必须保持）四个变量。
+- 2026-10-30 起改为槽位架构（决策 50）：四个变量扩展为 `target`、`source_first` / `source_last`、`figure`、`subject_last`、`pose_first` / `pose_last`、`preserve`、`cleanup`；「界面清理」改为可空的 `cleanup` 槽位，页面按模板占位符自动出六张卡。
 - 「局部编辑」「界面清理」「画质」「禁止项」写成模板固定段落，不占输入框。
 - 尾帧模板额外固定三处：图3 的身份锚点、「必须与图2、图3是同一个人」、「与图3同一光照与色调」。
 - `image submit` 支持 `--template`、`--vars-file`、`--step`、`--image-role`；渲染后的正文写入轮次 `prompt.txt`，台账可审计。
@@ -752,6 +753,28 @@ vitest 107 条全绿（generate-results 新增：逐行选用携带轮次载荷�
 **涉及文件**
 
 `vrstudio/frontend/src/views/wizard/GenerateStep.vue`（`applyParamsLists`、两条保存路径、`watch(resolutionOptions)`）、`frontend/tests/unit/generate-step.spec.ts`。
+
+## 23. 2026-11-02 · case 列表筛不到新流程；case 增加删除入口
+
+**问题**
+
+Case 列表的流程筛选是 5 条手写 `<el-option>`（`CaseListView.vue:215-222`），不含 `relight`；而 `flowMeta` 与 `Flow` 联合类型早已有该流程，表格 tag 显示正常。结果是 relight 的 case 只能看不能筛。同期 case 级没有任何删除能力：`/api/case/{name}` 只支持 GET，CLI 的 `case` 子命令也只有新建与查看。
+
+**决策**
+
+筛选选项改为遍历 `flowMeta` 生成的 `flowOptions`，与 tag 共用同一份词表；今后加流程只改 `constants/flow.ts`，漏改 `Flow` 会由 typecheck 拦下。删除新增 `DELETE /api/case/{name}`，清 `cases/<name>/` 与 `vrgen_runs/<name>/` 两棵目录，`sources/` 与 `logs/` 不动；前端在行尾「打开」旁放「删除」，`ElMessageBox.confirm` 普通确认，任务运行中/排队时按钮置灰。后端两道闸门：case 被他人持锁（心跳有效）或该 case 有运行中/排队任务时返回 409。`case_mod.delete` 先直接删除，Windows 句柄占用时改名进 `cases/.trash/` 再删，仍删不动则报残留路径。
+
+**排除方案**
+
+筛选只补一条 relight：下一次新增流程还会漏，且选项与 tag 继续两处维护。删除只清 `cases/<name>/`：`vrgen_runs/<name>/` 残留会让同名重建读到旧轮次，也继续占盘。输入 case 名二次确认：用户当次选择普通确认弹窗即可，不额外加交互。只允许负责人删除：当前没有管理员角色，负责人为 demo 的历史 case 其他人会删不掉。
+
+**验证**
+
+`tests/test_web_case_delete.py` 5 条（两棵目录清空、缺 case 404、他人持锁 409、任务在跑 409、rmtree 失败后改名重试仍删净）；`case-list-view.spec.ts` 2 条（选项覆盖 `flowMeta`、删除走确认并刷新列表）。typecheck、vitest、pytest、ruff 全绿。
+
+**涉及文件**
+
+`vrstudio/src/vrstudio/case.py`、`vrstudio/src/vrstudio/web/app.py`、`vrstudio/src/vrstudio/web/tasks.py`、`vrstudio/frontend/src/constants/flow.ts`、`vrstudio/frontend/src/views/CaseListView.vue`、`vrstudio/frontend/src/api/cases.ts`、`vrstudio/tests/test_web_case_delete.py`、`vrstudio/frontend/tests/unit/case-list-view.spec.ts`。
 
 ## 待决与未做
 

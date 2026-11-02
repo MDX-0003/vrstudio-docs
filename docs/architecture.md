@@ -35,27 +35,47 @@
    gen（多素材生成）：assets/ 素材清单 ──refs.json──▶ vrgen → adopt → case/result.mp4
                     （素材并入生成页侧边栏；没有 pad/extract/recompose/merge 等前后步骤）
 
+   patchimg（360 图片局部重绘）：extract 视口 clip.png + clip_mask.png + image.json
+                    ──▶ vrgen image submit ──▶ adopt --index ──▶ merge（只写 inner）
+   fullRedrawImg（360 图片全幅重绘）：extract padded.png + padded_mask.png + image_pad.json
+                    ──▶ vrgen image submit ──▶ adopt --index ──▶ merge（stitch 还原 2:1）
+
+   relight（重打光）：assets/ 的 GT + 氛围图 ──▶ vrstudio relight（不调 vrgen、不花额度）
+                    ──▶ out/ 成片（视频整段或单帧）+ 报告 JSON
+
    共享底座(vrstudio): media/(ffmpeg 发现+probe+统一帧泵, 单一 H.264 420 delivery 档)
      · 分层 config · progress 日志
    契约原样冻结: clip.json(单段) · _pad.json · index_map 唯一时间重采样 · 像素基线测试
 ```
 
-**正交性**：四条流程互斥（一个 case 只选一条）。四条流程给 vrgen 的都是同一份提交
-清单：用户勾选的素材 + patch 的 clip / fullredraw 的 pad + 装配器自动附带的 mask
-（编辑区域控制图，不参与编号）；gen 的清单就是勾选的 `[[assets]]`。补丁类流程归一
-到同一份 `InputPackage`，差异全部由 vrstudio 在"组装候选与几何"时消解；没有默认
-提交集，勾选才提交。
+**正交性**：六条流程互斥（一个 case 只选一条）。前五条流程给 vrgen 的都是同一份提交
+清单：用户勾选的素材 + patch 的 clip / fullredraw 的 pad / 两条图片流程自动附带的
+基图与 mask + 装配器附带的 mask（编辑区域控制图，不参与编号）；gen 的清单就是勾选
+的 `[[assets]]`。补丁类流程归一到同一份 `InputPackage`，差异全部由 vrstudio 在"组装
+候选与几何"时消解；没有默认提交集，勾选才提交。`relight` 是唯一不产提交清单的一条：
+它只把 GT 与氛围图交给本地重打光引擎，不调用 vrgen。
 
-`flow = patchimg`（360 静图局部重绘）与 patch 同构：extract 裁出 16:9 透视视口
-`clip.png` + `clip_mask.png` + `still.json`，图片模型（`vrgen image submit`）只重绘
+`flow = patchimg`（360 图片局部重绘）与 patch 同构：extract 裁出 16:9 透视视口
+`clip.png` + `clip_mask.png` + `image.json`，图片模型（`vrgen image submit`）只重绘
 视口，merge 用 `patch/projection` 与 `patch/composite` 的 `SegmentMaps` 贴回并只写
-inner；没有 pad/recompose。计划中的 `flow = img2video`（360 图片→首尾帧→视频）走
-全幅 21:9 pad/stitch，几何与 `img2video` 的工作包见
-`docs/plan/360-still-gen-flows-plan.md`。
+inner；没有 pad/recompose。
 
-8K 静图重绘另有两条路线在实测，尚未定为正式流程：分段局部链式（多个
-`patchimg` case 沿 360 分段、链式传递）与全幅 4K + 关键区块参考（`fullRedrawImg`，
-CLI 已实现）。取舍、开发前置与评测指标见 `docs/plan/360-still-ab-routes-plan.md`。
+`flow = fullRedrawImg`（360 图片全幅重绘）走整幅 pad/stitch：extract 把 2:1 源图 pad
+成 21:9 冗余画布（`padded.png` + `padded_mask.png` + `image_pad.json`），图片模型一次
+重绘整幅并带 X 张 `lighting_ref`，merge 用 `stitch_image` 还原 2:1，接缝闸门拒绝重构
+图候选。两条图片路线的根本差别是 4K 预算摊在多宽的画布上（视口约 2.2× 过采样、全幅
+约 0.47×），评测见 `docs/plan/360-img-ab-routes-plan.md`。
+
+8K 图片还有一条待定路线：分段局部链式（多个 `patchimg` case 沿 360 分段、上一段输出
+作下一段源图），需要 case 子文件夹分组，尚未开始开发（ab-routes WP1/WP2）。两条图片
+流程的前端接入计划见 `docs/plan/img-flows-frontend-plan.md`。
+
+`flow = relight`（重打光）把一张 AI 氛围图的光照搬到真 GT 上：GT 提供结构与细节，
+氛围图只提供低频光照、色温与遮挡，输出每个像素落在 GT 的原始网格上。建 case 不绑源
+文件，GT 与氛围图由用户在素材步用两个固定槽位选定（`relight_gt` / `relight_atmo`）；
+GT 是视频时整段逐帧复用同一份对齐与光照场，是图片时走单帧。它不调用 vrgen、不花额度、
+不需要项目会话，因此没有提交集、adopt 与会话门。前端接入计划见
+`docs/plan/relight-frontend-plan.md`。
 
 ## 2. vrgen 模块树（目标态）
 
@@ -91,7 +111,8 @@ vrstudio/
       pad.py               # ← vrpad cli/pad 原样
       recompose.py         # ← vrpad cli/recompose 原样
       calib.py / verify.py / seam_center.py / plan.py   # ← vrpad 辅助命令原样
-      relight.py           # ★新增：两张图进一张图出（GT + 氛围图 → 重打光图，决策 48）
+      relight.py           # ★新增：两张图进一张图出（GT + 氛围图 → 重打光图，决策 48）；
+                           #        relight-video 同文件注册（一段 GT 视频 + 一张氛围图，决策 56）
     patch/                 # ← vrpatch 核心库原样（局部重绘域）
       projection.py        #    ERP↔rectilinear 唯一权威
       extract.py  composite.py  sidecar.py  case.py
@@ -106,6 +127,7 @@ vrstudio/
     relight/               # ★新增：重打光（GT 持结构，AI 氛围图只提供低频光照，决策 48）
       align.py             #    相似变换唯一权威（SIFT+RANSAC、相位相关回退、水平 wrap warp）
       fields.py  compose.py  report.py   # 引导滤波/亮度增益/可见度/白点、合成与软裁切、报告
+      #                     relight-video 在进帧前对齐、估一次光照场，整段复用（决策 56）
     case.py               # ★新增：case.toml 读写/校验的唯一权威（CLI / generate / web 三方共用）
     config.py              # ← vrpad 分层 toml（default + 本机覆盖 + --set）
     progress.py            # 日志/RateMeter（两边合并为一份）
@@ -120,6 +142,9 @@ case 列表（flow 徽标）
   ├─ patch case:  pick(全景点击定视口/拖框定 inner/逐帧浏览) → extract → generate
   │               (vrgen 任务队列+日志 tail+轮次列表) → adopt → merge(进度) → 对比图
   ├─ fullredraw:  pad(几何预览) → generate(输出/输入分辨率下拉) → adopt → recompose(进度+闸门) → 对比图
+  ├─ 图片两条链:  patchimg  pick → extract → generate(图片档) → merge(贴回) → 对比图
+  │               fullRedrawImg  extract → generate(图片档) → merge(拼接) → 对比图
+  ├─ relight:     素材(GT + 氛围图两个固定槽位) → 重打光(参数 + 视频小样/整段) → 对比图
   └─ gen:         素材(多选/角色/排序/删除/缩略图) → generate(模式/比例/分辨率/
                   提示词/Session/免额度检查) → adopt
                   （没有对比页；patch/fullredraw 的单视频入口保持不变）

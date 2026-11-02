@@ -214,7 +214,7 @@
 **B3 首帧 4 张候选**
 
 - 进入首尾帧页，绑定三视图。
-- 填写 `keyframe-vars.toml` 的四个变量：`figure`、`pose_first`、`pose_last`、`preserve`。
+- 填写当前步骤的槽位：首帧 `target` / `source_first` / `figure` / `pose_first` / `preserve` / `cleanup`；尾帧再加 `source_last` / `subject_last` / `pose_last`（见 `docs/keyframe-workbench-plan.md` §3.3）。
 - 输入组固定为“同一个 clip 的首帧原始图 + 三视图”；分辨率 1080p，候选数量设为 4。
 - 点“生成首帧候选”。
 - 预期：任务完成；首帧候选网格出现 **4 张** 候选；每张可打开；批次信息显示轮次与阶段。

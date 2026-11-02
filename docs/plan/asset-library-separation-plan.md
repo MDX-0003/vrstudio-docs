@@ -47,7 +47,7 @@
 - 指针：`keyframe.toml` 只有 `sheet = "i1"` 一个字符串。
 - 后端：`_keyframe_inputs()` 固定返回三对（原始帧、三视图、首帧定稿），见 `app.py:1862-1873`。
 - 模板：`keyframe-first.md` 写「严格按图2」，`keyframe-last.md` 写「图3 是同一个人的首帧定稿」。
-- 变量白名单：`app.py:2048` 只允许 `figure`、`pose_first`、`pose_last`、`preserve` 四个变量；`IMAGE_ROLE_TEXT` 只认识五种角色。
+- 变量白名单：`app.py` 曾只允许 `figure`、`pose_first`、`pose_last`、`preserve` 四个变量；2026-10-30 随槽位架构删除，保存接口把键交给 vrgen，由模板占位符与 `COMPUTED_KEYS` 校验（见决策 50）。`IMAGE_ROLE_TEXT` 只认识五种角色。
 
 ### 1.3 生成页的耦合与角色归属
 
@@ -164,7 +164,7 @@ asset = "i26"
 - `image_roles` 仍由 vrgen 按最终输入顺序生成，格式为 `图N = 角色说明[：用途]。`。
 - `IMAGE_ROLE_TEXT` 增加 `detail_ref`：`细节参考图（只继承所指细节的外观，不取构图、背景与姿态）`。
 - `keyframe-first.md` 与 `keyframe-last.md` 的正文不再出现「图2」「图3」这类位置编号；人物外观改为「严格按参考图分工里标注为『人物三视图』的图」，尾帧一致性改为「标注为『人物三视图』与『首帧定稿』的图」。
-- 四个可编辑变量 `figure`、`pose_first`、`pose_last`、`preserve` 不变；它们描述人物与姿态，不描述图片。只把「从三视图抄要点」改成「从参考图抄要点」。
+- 可编辑变量随模板槽位演进：本次改造时是 `figure`、`pose_first`、`pose_last`、`preserve`；2026-10-30 起为九个槽位（见 `docs/keyframe-workbench-plan.md` §3.3）。它们描述人物与姿态，不描述图片。只把「从三视图抄要点」改成「从参考图抄要点」。
 - 提示词正文上限仍是 2000 字；细节图用途会增加长度，`note` 上限 80 字，模板测试要覆盖多图场景。
 
 ## 4. 页面

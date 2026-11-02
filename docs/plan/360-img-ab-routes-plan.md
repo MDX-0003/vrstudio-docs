@@ -7,7 +7,7 @@
 ## 0. 结论
 
 - 路线 A（**分段局部链式**）：模型每次只重绘一个 16:9 视口，4K 输出落进 ERP 里约 0.7 Mpx 的 inner 区域，2 倍以上过采样，8K 细节保住；视口沿 360 分段覆盖，段间重叠，链式把上一段贴回后的 8K 结果作为下一段的源图。代价是 N 个 case、N 轮额度与内容漂移风险。
-- 路线 B（**全幅 4K + 氛围参考**，`fullRedrawImg`）：一次提交整幅 21:9 padded 基图 + 冗余带 mask + X 张氛围参考图，模型输出一张 4K 21:9，`stitch_still` 还原成 2:1 的 8192×4096（内部含约 2.1× 的重采样）。单轮成本低，mask 把接缝锚点冻住、结果无接缝；代价是整幅线性分辨率只有源图的 0.47 倍，且横跨接缝的约 16.7% 不参与重绘。
+- 路线 B（**全幅 4K + 氛围参考**，`fullRedrawImg`）：一次提交整幅 21:9 padded 基图 + 冗余带 mask + X 张氛围参考图，模型输出一张 4K 21:9，`stitch_image` 还原成 2:1 的 8192×4096（内部含约 2.1× 的重采样）。单轮成本低，mask 把接缝锚点冻住、结果无接缝；代价是整幅线性分辨率只有源图的 0.47 倍，且横跨接缝的约 16.7% 不参与重绘。
 - 两条路线的差别不在参考图，而在**这一次生成的 4K 像素预算摊在多宽的画布上**：A 只服务一个视口，B 覆盖整幅。
 - 先用同一 source、同一 reference、同一 session 各跑一遍，再决定是否需要把其中一条做成正式流程。
 
@@ -40,8 +40,8 @@ cases/<组名>/
   tiles.json                 # 分段计划：每段的 yaw/pitch/fov/视口尺寸/inner/顺序
   chain01/                   # 第 1 段：源图 = 原始 8K
     case.toml                # flow = patchimg；assets 里挂 lighting_ref
-    extracts/<版本>/clip.png clip_mask.png still.json result.png report.json
-    out/<版本>_still.png     # 贴回后的 8K，下一段的源图
+    extracts/<版本>/clip.png clip_mask.png image.json result.png report.json
+    out/<版本>_image.png     # 贴回后的 8K，下一段的源图
   chain02/ ... chain06/
 ```
 
@@ -61,8 +61,8 @@ vrstudio merge          --case <组名>:chainNN
 ### 2.2 前置（必须开发）
 
 1. **case 分组（子文件夹）**——见 §4 WP1。这是 A 的硬前置，也是通用能力。
-2. **分段计划命令** `vrstudio still tiles`：按 fov/step 生成 `tiles.json`。纯算术，不花额度。
-3. **链式编排脚本** `scripts/still_chain.py`：建 case（含挂 `lighting_ref`）、写草稿、跑 extract、打印 submit 命令、adopt 后跑 merge、校验选区外逐位一致、把 out 交给下一段。挑片必须人工，所以脚本在 adopt 处停下。
+2. **分段计划命令** `vrstudio img tiles`：按 fov/step 生成 `tiles.json`。纯算术，不花额度。
+3. **链式编排脚本** `scripts/img_chain.py`：建 case（含挂 `lighting_ref`）、写草稿、跑 extract、打印 submit 命令、adopt 后跑 merge、校验选区外逐位一致、把 out 交给下一段。挑片必须人工，所以脚本在 adopt 处停下。
 4. **vrgen 的 `lighting_ref` 提示词文本**——见 §4 WP0。
 
 ### 2.3 验收
@@ -91,20 +91,20 @@ cases/<名>/
   extracts/<版本>/
     padded.png                  # 21:9 冗余画布，源分辨率（8K 源约 117 MB）
     padded_mask.png             # redundant_white：两条冗余带白、主内容黑
-    still_pad.json              # 全幅几何唯一权威（复用 WP1）
+    image_pad.json              # 全幅几何唯一权威（复用 WP1）
     upload.png                  # 基图上传副本（长边 ≤ 4096）
     upload_mask.png             # mask 上传副本（同一尺寸）
     result.png                  # 采用的 4K 21:9 结果
     report.json                 # 配准、接缝闸门与 aspect drift
-  out/<版本>_still.png          # stitch 还原的 2:1 成片（8192×4096）
+  out/<版本>_image.png          # stitch 还原的 2:1 成片（8192×4096）
 ```
 
 ```text
 vrstudio case new <名> --flow fullRedrawImg --source <8K ERP 图>
-vrstudio extract name --case <名>        # pad + mask + still_pad.json
+vrstudio extract name --case <名>        # pad + mask + image_pad.json
 vrstudio generate submit --case <名> --num N --resolution 4K --session-id <id>
 vrstudio generate adopt  --case <名> --index <人工挑>
-vrstudio merge           --case <名>     # stitch_still 还原 2:1
+vrstudio merge           --case <名>     # stitch_image 还原 2:1
 ```
 
 提交装配：基图与 mask 各取一份上传副本，后面按 `[submit] selected` 追加 X 张氛围参考，全部角色 `lighting_ref`；`--ratio 21:9`。参考图上限 13 张（基图 + mask 占 2），所以 X ≤ 11，由 `generate.image_max_refs` 在装配时断言。
@@ -130,9 +130,9 @@ vrstudio merge           --case <名>     # stitch_still 还原 2:1
 ### 3.4 前置（已实现）
 
 1. `case.py`：`FLOWS` 加 `fullRedrawImg`，该 flow 只允许 `[extract]`，源图 2:1 校验与 sha256 守卫同 patchimg。
-2. `cli/extract.py`：`plan_still` + `pad_still` 写 `padded.png`、`padded_mask.png`、`still_pad.json`。
+2. `cli/extract.py`：`plan_image` + `pad_image` 写 `padded.png`、`padded_mask.png`、`image_pad.json`。
 3. `cli/generate.py`：`assemble_full` 交 基图 → mask → 氛围参考，`image_max_refs` 断言；`adopt` 支持该 flow。
-4. `cli/merge.py`：`stitch_still` 还原 2:1 并回到源图尺寸，闸门拒绝重构图。
+4. `cli/merge.py`：`stitch_image` 还原 2:1 并回到源图尺寸，闸门拒绝重构图。
 5. vrgen：`templates/fullRedrawImg.md`、`IMAGE_ROLE_TEXT["lighting_ref"]`。
 
 ### 3.5 验收
@@ -180,8 +180,8 @@ selected = ["i1"]
 
 ### WP2：A 的分段与链式
 
-- `vrstudio still tiles`：按 `--fov 70 --step 60 --width 1920 --height 1080` 生成 6 段计划，写 `tiles.json`；包含每段的 yaw、inner（默认整幅视口）、与上一段的重叠角度。
-- `scripts/still_chain.py`：按 §2.2 的职责编排；只调 CLI 与 case 模型，不新增长期契约；A 若被选为正式路线，再收成 `vrstudio` 子命令。
+- `vrstudio img tiles`：按 `--fov 70 --step 60 --width 1920 --height 1080` 生成 6 段计划，写 `tiles.json`；包含每段的 yaw、inner（默认整幅视口）、与上一段的重叠角度。
+- `scripts/img_chain.py`：按 §2.2 的职责编排；只调 CLI 与 case 模型，不新增长期契约；A 若被选为正式路线，再收成 `vrstudio` 子命令。
 - 测试：分段计划的角度与回绕；链式脚本用合成图跑 2 段（不调平台），断言第二段 source 就是第一段 out、选区外逐位一致。
 
 ### WP3：B 的全幅流程（已实现）
@@ -190,7 +190,7 @@ selected = ["i1"]
 
 ### WP4：对比评测
 
-- `scripts/still_compare.py`：对两条路线的成片计算同一组指标并把对比图写到 `cases/<组>/out/`（cases/ 不进 git）。
+- `scripts/img_compare.py`：对两条路线的成片计算同一组指标并把对比图写到 `cases/<组>/out/`（cases/ 不进 git）。
 - 指标：选定区块的 Laplacian/Sobel；与参考图的 Lab 均值、色度直方图距离；跨段边界梯度与视口内部 p95 的比值；ERP 接缝两侧的列差；额度与壁钟。
 - 产出：`docs/test-runs/<日期>-still-routes-ab.md`，含并排图、特写与结论草案。
 
@@ -201,7 +201,7 @@ selected = ["i1"]
 
 ## 5. 契约与不动的东西
 
-- `clip.json`、`still.json`、`still_pad.json`、`run.json` 字段集不变。
+- `clip.json`、`image.json`、`image_pad.json`、`run.json` 字段集不变。
 - 新增：case 标识的 `组名:` 前缀（case.toml 内容不变，只变目录位置）。
 - vrgen 的 CLI 契约不变：job 名仍是叶子名，`image submit` 的 `--image-role` 仍是自由文本。
 - 视频 patch / fullredraw / gen 不受影响。

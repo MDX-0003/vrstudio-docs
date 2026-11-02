@@ -85,10 +85,15 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 | `docs/plan/case-owner-transfer-plan.md` | Case 负责人归属行与「归属到我的名下」方案：改主端点 + revision 乐观并发，不做认领/指派（已实施，Playwright 验证通过） |
 | `docs/plan/save-conflict-resolution-plan.md` | 保存冲突三条修复：弹窗加「仍要保存（覆盖对方）」出口、同轮冲突收敛为一次、几何草稿落定帧带 revision 校验（已实施，Playwright 端到端验证通过） |
 | `docs/plan/upload-source-video-plan.md` | 新建 case 支持上传源视频：复用分片上传管线，`api_cases` 加 `upload_id` 分支，上传弹窗解耦终点，入口在新建弹窗源视频旁（待实施） |
-| `docs/plan/360-still-gen-flows-plan.md` | 360 静图的两条新流程：patchimg 走视口局部（与视频 patch 同构，复用投影/合成），img2video 走全幅 pad/stitch（槽位模型统一三种首尾帧组合，链上关键帧不 recompose），CLI 先行工作包与像素基线（决策 46 已定稿；WP1/WP2 已实施，WP3–WP7 待做） |
-| `docs/plan/360-still-ab-routes-plan.md` | 8K 静图重绘的两条路线：分段局部链式（多 case 沿 360 传递、需 case 分组与子目录识别）vs 全幅 4K + 氛围参考（`fullRedrawImg` 流程，21:9 pad + mask + X 张 lighting_ref），含开发前置、CLI 工作包、评测指标与成本（决策 47；审查稿，待批） |
+| `docs/plan/360-img-gen-flows-plan.md` | 360 静图的两条新流程：patchimg 走视口局部（与视频 patch 同构，复用投影/合成），img2video 走全幅 pad/stitch（槽位模型统一三种首尾帧组合，链上关键帧不 recompose），CLI 先行工作包与像素基线（决策 46 已定稿；WP1/WP2 已实施，WP3–WP7 待做） |
+| `docs/plan/360-img-ab-routes-plan.md` | 8K 静图重绘的两条路线：分段局部链式（多 case 沿 360 传递、需 case 分组与子目录识别）vs 全幅 4K + 氛围参考（`fullRedrawImg` 流程，21:9 pad + mask + X 张 lighting_ref），含开发前置、CLI 工作包、评测指标与成本（决策 47；审查稿，待批） |
 | `docs/plan/patch-4k-region-plan.md` | patch 4K 大区域重绘：fov 与分辨率的分工、firstLastFrame / allMediaRef 两条 4K 路线、全流程操作、验收与失败处理（决策 49；P1 CLI 试点与 P2 Web 全链路待实施） |
-| `docs/plan/still-flows-frontend-plan.md` | patchimg / fullRedrawImg 两条 360 静图流程前端接入：CLI 已就绪的证据、web 与前端缺口清单（建案例图片源、op 透传 num/index、门控链、pick 放行、素材挂载、候选网格、静图对比）、WP0–WP6 与真实额度前置（审查稿，待批） |
+| `docs/plan/relight-video-plan.md` | 视频重打光最小方案：固定机位下一张氛围图打一段 GT 视频，对齐与光照场只估一次整段复用、参考帧来源、同位判据、适用边界与验收（决策 56；已实施，验收见 `docs/test-runs/20261030-relight-video.md`） |
+| `docs/plan/relight-frontend-plan.md` | 重打光前端接入：一条 `relight` flow 按 GT 媒体派发、建 case 不绑源、素材库多候选 + 两把槽位指针、视频 N 帧小样预览、CLI 合并与 `--sample`/`--case`、三个子页与 WP0–WP5（已实施，验收见 `docs/test-runs/20261030-relight-frontend.md`） |
+| `docs/test-runs/20261030-relight-frontend.md` | 重打光前端接入的实施与验收：落点、合并后的 CLI 契约、槽位模型从「角色即槽位」改成「候选库 + 指针」的原因、8K 真实素材的 CLI 与浏览器两轮验收指标、`prompt` 短路修掉的 500、未做的浏览器上传与代理限制 |
+| `docs/test-runs/20261030-relight-space-e2e.md` | 视频重打光闭环验收：视频首帧 → 一次 4 张 4K 生成 → 画布闸门与拼接选型 → 整段重打光；含三处修复（提示词带宽只有白带一半、选帧前置闸门误杀、扫描解码器泄漏）与四张候选的逐项指标 |
+| `docs/plan/fullredraw-img-prompt-vars.md` | fullRedrawImg 提示词变量的按场景取值：静态场景只写光影、不写原图没有的物体，氛围参考图标成 `lighting_ref`，取值为 `vrgen_runs/<case>/prompt-vars.toml` 的模板（审查稿） |
+| `docs/plan/img-flows-frontend-plan.md` | patchimg / fullRedrawImg 两条 360 图片流程前端接入：命名统一（flow 值不变，契约文件/产物/模板改 image/img）、CLI 已就绪的证据、web 与前端缺口清单（建案例图片源、op 透传 num/index/model/session、门控去 else 兜底、草稿段单一判定、素材挂载、候选网格、静图对比与差异视图）、WP0–WP7 与真实额度前置（WP0–WP5 已实施，WP6 进行中，WP1/WP7 待平台额度） |
 | `docs/key-issues/frontend-decisions.md` | 前端关键问题与决策记录：逐条记录问题、决策、排除方案、验证与涉及文件（持续更新） |
 | `docs/key-issues/20261027-windows-process-port-management.md` | Windows 下进程与端口占用的排查与治理：uv venv 跳板的 exe 陷阱、运行中 exe 锁 venv、serve 启动接管旧实例（portguard） |
 | `docs/key-issues/20261023-frontend-stack-selection.md` | 前端技术栈选型：需求、方案对比、概念对齐与用户确认记录 |

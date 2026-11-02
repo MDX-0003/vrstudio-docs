@@ -1,12 +1,12 @@
 # patchimg 视口局部：8K 真实额度验收记录
 
 记录时间：2026-10-29。
-背景：`docs/plan/360-still-gen-flows-plan.md` 的 WP2 把 `patchimg` 从全幅 21:9 改回视口局部（vrstudio `e2e3553`）。本文按 WP2 的验收条款，用真实额度跑完一轮 CLI 全流程。
+背景：`docs/plan/360-img-gen-flows-plan.md` 的 WP2 把 `patchimg` 从全幅 21:9 改回视口局部（vrstudio `e2e3553`）。本文按 WP2 的验收条款，用真实额度跑完一轮 CLI 全流程。
 结论：五步（case → draft → extract → submit/adopt → merge）全部跑通；选区外 `maxdiff 0` 且与源图逐位相等；同一主体区域的局部细节明显高于旧全幅方案。`compare` 还没有 CLI，本文的对比图由外部脚本生成。
 
 ## 1. 环境
 
-- vrstudio `main` `e2e3553`（patchimg 视口局部）；vrgen `main` `e46082e`（修掉 `still360-local` 里全幅冗余带的残留说明）。
+- vrstudio `main` `e2e3553`（patchimg 视口局部）；vrgen `main` `e46082e`（修掉 `img360-local` 里全幅冗余带的残留说明）。
 - 源图：`vrstudio/sources/360erp_test.png`，8192×4096，2:1 ERP。
 - case：`vrstudio/cases/wp2_live`（新建，不复用旧 `erp_test` 的全幅版本目录）。
 - 视口：`yaw -101.0 / pitch 0.0 / fov_h 70.0`，1920×1080；inner `420,280,1080×800`（覆盖坐着的文官整身）。
@@ -22,12 +22,12 @@
 
 ### T2 extract：只产视口图与几何
 
-- 版本目录 `extracts/20261029-110142/` 只有 `clip.png`（1920×1080）、`clip_mask.png`、`still.json`；`derived/` 同三个文件；没有 `padded.png`，没有 `still_pad.json`。
-- `still.json`：`version 1`、`erp 8192×4096`、`viewport 1920×1080`、`inner 420,280,1080×800`。
+- 版本目录 `extracts/20261029-110142/` 只有 `clip.png`（1920×1080）、`clip_mask.png`、`image.json`；`derived/` 同三个文件；没有 `padded.png`，没有 `image_pad.json`。
+- `image.json`：`version 1`、`erp 8192×4096`、`viewport 1920×1080`、`inner 420,280,1080×800`。
 
 ### T3 submit：真实一轮，4 张候选
 
-- `vrstudio generate submit --case wp2_live --num 4 --resolution 4K --session-id 2062569522605504` 发出的 argv 为 `vrgen image submit --template still360-local --image clip.png --image-role edit_master --image clip_mask.png --image-role mask --ratio 16:9 --resolution 4K --num 4`。
+- `vrstudio generate submit --case wp2_live --num 4 --resolution 4K --session-id 2062569522605504` 发出的 argv 为 `vrgen image submit --template img360-local --image clip.png --image-role edit_master --image clip_mask.png --image-role mask --ratio 16:9 --resolution 4K --num 4`。
 - 轮次 `img-2e6d79af`，4 张候选均为 3840×2160，gate `ok`；台账 `params` 记录 ratio `16:9`、model 44、session 同上。
 - 候选挑选依据（把候选降采样到 1920×1080 后与 `clip.png` 比，统计 inner 之外）：MAE 分别 6.36 / 4.41 / 6.99 / 6.11，p95 21.0 / 13.7 / 24.3 / 19.0。2 号场景保持最好，边界过渡最稳，采用 2 号。
 - 视觉：四张都把文官换成了金色长袍的坐姿武将，位置、朝向与大小保持不变。
@@ -39,9 +39,9 @@
 ### T5 merge：贴回并只写 inner
 
 - `vrstudio merge --case wp2_live`：归一化 3840×2160 → 1920×1080（比例一致，等比缩放），`SegmentMaps.from_geometry` + `composite_frame` + 只写 inner。
-- 输出 `out/20261029-110142_still.png`，8192×4096。
+- 输出 `out/20261029-110142_image.png`，8192×4096。
 - 统计：support 701031 px，changed 698678 px，`outside maxdiff 0`；inner 内 PSNR 21.28 dB，|diff| 中位数 5.0。
-- 独立复算（不读 report，直接从 still.json 重建几何）：`np.array_equal(out[~support], src[~support])` 为真；ERP 接缝两端的列（0..2 与 8188..8191）与源图逐位相等。
+- 独立复算（不读 report，直接从 image.json 重建几何）：`np.array_equal(out[~support], src[~support])` 为真；ERP 接缝两端的列（0..2 与 8188..8191）与源图逐位相等。
 
 ### T6 前后对比产物
 
@@ -60,7 +60,7 @@
 
 同一 case 几何下取同一个 inner bbox（1674×1060 的 ERP 像素），比较 2026-10-29 上午全幅验收的成片与本轮成片：
 
-| 指标 | 旧全幅（`erp_test/out/20261029-103543_still.png`） | 本轮视口局部 |
+| 指标 | 旧全幅（`erp_test/out/20261029-103543_image.png`） | 本轮视口局部 |
 |---|---|---|
 | Laplacian 方差 | 57.0 | 98.5 |
 | Sobel 梯度均值 | 17.94 | 24.56 |
@@ -69,7 +69,7 @@
 
 ## 4. 发现与遗留
 
-- `still360-local` 模板原有一句“画布左右两侧的冗余带是同一条全景接缝的两份拷贝”，在视口局部下不成立，本轮开跑前已删（vrgen `e46082e`）。旧的全幅验收记录不受影响，它当时是正确的。
+- `img360-local` 模板原有一句“画布左右两侧的冗余带是同一条全景接缝的两份拷贝”，在视口局部下不成立，本轮开跑前已删（vrgen `e46082e`）。旧的全幅验收记录不受影响，它当时是正确的。
 - `adopt` 依赖真实轮次（`vrgen result`），无额度时只能手工落 `result.png`；单测用 monkeypatch 覆盖 `_capture`，覆盖的是 argv 与指针写入。
 - 计划 §4.1 的 `compare` 步骤没有对应 CLI，前端对比页在 WP4；本轮对比图由临时脚本生成。
 - `--scale-fit` 纠偏按计划保持关闭：本轮模型返回比例与视口一致（3840×2160），没有触发。

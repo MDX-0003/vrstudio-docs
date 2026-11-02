@@ -186,8 +186,8 @@ vrstudio extract name --case <名>
 
 ### 5.4 路线 A：firstLastFrame 4K
 
-1. 图片步 first：工作台选模型 44、分辨率 4K、候选数 4，填写 figure / pose_first / preserve，提交后挑 1 张定稿。
-2. 图片步 last：以首帧定稿为参考（first_frame），同样 4K、候选数 4，填写 pose_last，提交后挑 1 张定稿。
+1. 图片步 first：生成页底栏选图片模型（当前 44）、分辨率 4K、候选数 4，填写当前步骤的槽位（`target` / `source_first` / `figure` / `pose_first` / `preserve` / `cleanup`，见 `docs/keyframe-workbench-plan.md` §3.3），提交后挑 1 张定稿。
+2. 图片步 last：以首帧定稿为参考（first_frame），同样 4K、候选数 4，填写 `source_last` / `subject_last` / `pose_last`，提交后挑 1 张定稿。
 3. Handoff：页面把模式写成 firstLastFrame，提交集写成 `[first, last]`。
 4. 视频提交，先零额度校验：
 
