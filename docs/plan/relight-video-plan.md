@@ -73,7 +73,7 @@ vrstudio relight-video --gt GT.mp4 --atmo ATMO.png --out OUT.mp4
 - 参数名、默认值、场景预设、退出码语义全部与 `vrstudio relight` 相同，直接复用 `resolve_params` 与输入校验函数，不另写一套。
 - 编码参数只读 `config.video`（`encoder`/`crf`/`preset`/`pix_fmt`/`audio`/`metadata`），不新增配置键；音频默认从 GT 视频 `copy`。`--crf` 只为像素基线测试覆盖 `video.crf` 而存在。
 - `--dump-light` 不提供：诊断图是单帧概念，需要时对参考帧单独跑 `vrstudio relight`。
-- 报告字段（决策 64 起）：`{gt, atmo, size, frames, fps, ref_frame, ref_matched, params, align, clip, light, seconds}`。`params`/`align`/`clip`/`light` 与图像版同构，新增的是帧数、帧率与参考帧（`ref_matched` 是参考帧与氛围图未对齐时的重合度）。v1 的 `frames_checked`/`min_hold` 已随同位检查删除。报告不是跨仓库契约（沿用决策 48）。
+- 报告字段（决策 64/65 起）：`{gt, atmo, size, frames, fps, kind, started_at, finished_at, cache, timing, ref_frame, ref_matched, params, align, clip, light, seconds}`。`params`/`align`/`clip`/`light` 与图像版同构，新增的是帧数、帧率、参考帧与运行记录（`kind` 为 sample/full，`started_at`/`finished_at` 是本地时区时间戳，`cache` 是缓存状态，`timing` 是准备、小样与整段的分段耗时）。v1 的 `frames_checked`/`min_hold` 已随同位检查删除。报告不是跨仓库契约（沿用决策 48）。
 
 ## 6. 代码落点
 

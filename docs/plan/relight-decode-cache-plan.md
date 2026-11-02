@@ -50,13 +50,21 @@
 - `web/app.py::_op_argv` 在 `--sample` 时也传 `--ref-frame`；`--crf` 仍只给整段。
 - 缓存键仍包含参考帧；自动与显式是两个不同的键。
 
+### 2.5 运行时间与分段计时
+
+- 视频报告新增 `kind`（sample/full）、`started_at`/`finished_at`（本地时区 ISO 8601）、`cache`（enabled/hit/load）与 `timing`。`started_at` 与产物文件名的时间戳同源，`finished_at = started_at + seconds`。
+- 准备阶段：`cache_load`、`scan`、`read`、`align`、`fields`；小样：`sample_decode`/`sample_compose`/`sample_write`；整段：`render_decode`/`render_compose`/`render_write`/`render_flush`/`render_total`。
+- `render_write` 是写 ffmpeg 管道的耗时，编码在 ffmpeg 进程里并行进行，收尾等待记在 `render_flush`；所以整段渲染总时间要加 `render_flush` 才完整。
+- `/api/case` 的 relight 负载新增 `sample_report`，前端在“上次运行”标题与小样标题上直接显示运行时间；分段耗时作为次要信息。老报告没有时间戳时回退到产物文件 mtime。
+- 计时只进报告，不进缓存文件；缓存键与失效规则不变。
+
 ## 3. 代码落点
 
 - `vrstudio/src/vrstudio/relight/cache.py`：新增 `CACHE_VERSION`、`CacheKey`、`CachedFixed`、`cache_path`、`load`、`save`。
 - `vrstudio/src/vrstudio/relight/align.py`：删除同位检查；相似变换的唯一权威点不变。
-- `vrstudio/src/vrstudio/cli/relight.py`：`resolve_reference` 单遍取帧与缓存命中路径；`RelightInputs` 承载缓存身份；`_relight_video` 读写缓存；报告去掉同位检查两项。
-- `vrstudio/src/vrstudio/web/app.py`：小样透传 `--ref-frame`。
-- `vrstudio/frontend/src/views/wizard/RelightStep.vue`：报告类型与面板去掉同位检查。
+- `vrstudio/src/vrstudio/cli/relight.py`：`resolve_reference` 单遍取帧与缓存命中路径；`RelightInputs` 承载缓存身份；`_relight_video` 读写缓存；报告去掉同位检查两项，并加入 `kind`/`started_at`/`finished_at`/`cache`/`timing`。
+- `vrstudio/src/vrstudio/web/app.py`：小样透传 `--ref-frame`；`/api/case` 的 relight 负载新增 `sample_report`。
+- `vrstudio/frontend/src/views/wizard/RelightStep.vue`：报告类型与面板去掉同位检查；标题显示运行时间，分段耗时作为次要信息。
 
 ## 4. 验收
 
@@ -65,18 +73,19 @@
   - 缓存 `save`/`load` 往返，矩阵 `np.array_equal`，键/版本/损坏文件返回 `None`。
   - 自动选帧只开一次视频；显式参考帧只取目标帧；缓存命中时 `estimate_similarity` 不被调用。
   - 冷跑与热跑的 `LightFields` 逐位相等；小样 PNG 与整段输出帧逐位相等。
-- 8K 真实素材（待线上进程结束后补）：
-  - 378 帧、`i5` 氛围图：冷跑 `--sample 10` 与热跑各一次，记录墙钟与报告 `seconds`。
+  - 报告含 `kind`/`started_at`/`finished_at`/`cache`/`timing`；`timing.total == seconds`；缓存命中时 `scan == align == 0`；`/api/case` 暴露 `sample_report`。
+- 8K 真实素材（本次最后一次验收）：
+  - 378 帧、`i5` 氛围图：冷跑 `--sample 10` 与热跑各一次，记录墙钟、报告 `seconds` 与各阶段耗时。
   - 换氛围图 `i2` 冷跑一次，确认 cache miss 并重新选帧。
-  - 20 帧整段冷/热各一次（`--crf 0`），比较解码帧 maxdiff 为 0，记录耗时。
-- 浏览器：连续点两次“先看 5 帧小样”，第二次日志显示 cache hit；整段与报告正常；小样显式参考帧生效。
+  - 20 帧整段冷/热各一次（`--crf 0`），比较解码帧 maxdiff 为 0，记录 `render_*` 分段。
+- 浏览器：连续点两次“先看 5 帧小样”，第二次日志显示 cache hit；两个面板都显示运行时间；整段与报告正常；小样显式参考帧生效。
 
 ## 5. 不做
 
 - 不缓存 2K 光照场（用户选择只缓存变换；热跑仍 seek 一帧并重算光照场）。
 - 不在氛围图变化时复用旧参考帧（按用户要求重新选帧）。
 - 不把扫描改成 2K 解码（会改变重采样与阈值依据，另立项）。
-- 不新增 CLI 开关或报告字段；缓存自动生效，损坏/失败静默重算。
+- 不新增 CLI 开关；报告字段的计时与时间戳见决策 65。缓存自动生效，损坏或失败静默重算。
 
 ## 6. 风险与回退
 
