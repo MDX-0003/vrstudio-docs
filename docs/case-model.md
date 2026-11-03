@@ -439,15 +439,16 @@ vrgen submit --job <名> --refs <提交资产清单.json> \
            [--video-model-id 37] [--mode videoEdit] [--resolution <480p|720p|1080p|4K>] \
            [--duration <秒>] [--num <1..4>] [--aspect-ratio auto|W:H] \
            [--scale auto|full|half] [--audio keep|none] \
-           [--session-id <项目生成会话>] [--workdir <dir>] [--dry-run]
+           [--session-id <项目生成会话>] [--workdir <dir>] [--dry-run] [--resubmit]
                                            # 三个流程共用的唯一提交入口；断点续跑、task_id 防重发
                                            # --audio none：平台无「不生成声音」参数，结果下载后去音轨
+                                           # --resubmit：放弃本轮复用、另开一轮（会重新计费）
 vrgen image submit --job <名> (--prompt <文本> | --template <id> [--vars-file <文件名>]) \
            [--image-role <角色>]… [--image-note <说明>]… [--image-model-id <图片模型 id>] \
            --image <路径> [--image <路径>]… \
            --ratio <16:9> --resolution <1K|2K|4K> [--num <1..4>] \
            [--step first|last] \
-           [--session-id <项目生成会话>] [--workdir <dir>] [--dry-run]
+           [--session-id <项目生成会话>] [--workdir <dir>] [--dry-run] [--resubmit]
                                            # 图片生成；候选全部下载，台账记为 img- 轮次
 vrgen status --job <名> [--watch]          # 轮询；--watch 阻塞到终态
 vrgen register --job <名> --file <本地路径>            # 手动后端：写同格式台账
@@ -465,6 +466,14 @@ vrgen params show --job <名> [--refs <json>] [--canvas WxH] [--source WxH] [--a
 vrgen params save --job <名> [--video-model-id <id>] [--image-model-id <id>] [--resolution <480p|720p|1080p|4K>] [--scale <auto|full|half>] [--mode <模式>] [--aspect-ratio <auto|W:H>] [--session-id <id>] [--project-id <id>] [--episode <n>] [--workdir <dir>]
 vrgen sessions list [--project-id <id>] [--episode <n>]   # 只读：项目/剧集/会话树，JSON 输出
 ```
+
+提交的输出契约（供 vrstudio 的任务层解析，不要改格式）：命中已有轮次或断点续跑时，`submit` 与 `image submit` 都打印一行
+
+```
+reused      <轮次目录>  reason=key|resumed  task=<task id|->  (本次未提交，未花费)
+```
+
+`reason=key` 是本地半场按 spend-once key 命中已有轮次，`reason=resumed` 是同一轮已有 `task_id`、本次只继续等待。两种情况都不发请求、不扣额度，退出码仍为 0。需要同一提示词再抽一版时用 `--resubmit`：一次性 token 并入 key 另开一轮，旧轮原样保留并重新计费；上一轮仍在跑（`stage=submitted` 且没有 result）时拒绝。
 
 `patchimg` 的图片提交由 `vrstudio generate submit` 组装成 `vrgen image submit`，视口图与 inner mask 由装配器自动附带（mask 不进 `[submit] selected`、不占编号）：
 
