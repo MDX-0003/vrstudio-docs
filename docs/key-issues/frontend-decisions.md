@@ -2,7 +2,7 @@
 
 本文记录 E:\VRAIGC 前端（web 模板、静态脚本、页面交互与客户端状态）的关键问题、已拍板决策、被排除的方案和最终解决办法。后端契约与算法决策仍在 `docs/case-model.md`、`docs/decisions.md` 与各自的计划文档里，本文只在它们影响前端交互时引用。
 
-最后更新：2026-10-27。
+最后更新：2026-11-03。
 
 前端技术栈选型的需求与论证见 `20261023-frontend-stack-selection.md`，实施计划见 `../plan/frontend-refactor-plan.md`；本文只记录页面级与交互级问题，不重复选型论证。
 
@@ -845,6 +845,51 @@ vitest 新增 `compare-step.spec.ts` 4 条：只渲染一块 canvas 与分割线
 **涉及文件**
 
 `vrstudio/frontend/src/legacy/Erp360Compare.ts`、`frontend/src/views/wizard/CompareStep.vue`、`frontend/tests/unit/compare-step.spec.ts`、`vrstudio/src/vrstudio/web/app.py`、`vrstudio/tests/test_web_console.py`。
+
+## 26. 2026-11-03 · relight 对比页右路被 out/ 散件带偏，新成片不实时
+
+**问题**
+
+用户报（原话）：
+
+> http://127.0.0.1:8760/next/case/relight_web_01/relight 审查一下为什么最新生成的打光结果在对比页里没有实时展示？
+
+浏览器实测 relight_web_01 的 `/compare`：右路 videoB 实际播放 `out/relight-tset-结果视频.mp4`——10 月底手工拷进 out/ 的测试视频（文件名还带着 tset 拼写错误），而不是当天 11:00 刚出的 `20261103-103409_relit.mp4`；两路都是 8192×4096、readyState 4，页面不报任何错，安静地放旧片。根因四环叠加：
+
+1. out/ 混入两个非产物文件（`relight-test-原始视频.mp4`、`relight-tset-结果视频.mp4`）；
+2. 后端 `_outputs` 对 relight 收 out/ 下全部 `.mp4/.png` 按文件名排序：数字开头的时间戳产物排前，`relight-*` 排最后；
+3. 对比页默认选中 `rows[rows.length - 1]`，正中散件；relight 视频底版没有「右路成片」下拉（下拉只给 `isStill && !isRelight` 渲染），想手动切都没有入口；`[relight] current` 钉针只有图片底版路径（`imageOutput`）消费，视频路径不读；
+4. 停在对比页没有任何刷新机制：`WizardView` 只在挂载与切 case 时拉数据，切步骤不重拉；打光页「任务完成 → 刷新」的 watcher 依赖组件内 `running` 状态，切到对比页组件已卸载、切回时状态重置直接 return。刷新浏览器也无效——选中仍被散件带偏。
+
+**决策**
+
+1. 右路默认选中收敛为 `defaultSelection(rows)`：relight 跟随 `[relight] current`（后端 `_relight_current` 已兜底——钉针优先，否则 out/ 按 mtime 取最新，mtime 不受文件名排序影响）；其余流程仍取列表最后一项。
+2. current 指针变化即切右路（新 watch）；手动选中的旧版本在下一次成片落盘前保持。
+3. 「右路成片」下拉放开给 relight（条件 `isStill || isRelight`）；图片底版与视频共用同一 `selected` 机制，删除 `imageOutput` 特例。
+4. 对比页接入 `useCaseTasks(['relight'])`（复用打光页同一条轮询机制）：任务完成且「挂载后新建、或挂载期间见过它运行」时向父级发一次 `updated`，`WizardView` 重新拉 case；挂载前就完成的存量任务不触发；按任务 id 去重，拉取失败下轮重试。
+5. 数据卫生：两个散件移到 `cases/relight_web_01/manual/`，out/ 只放流程产物；`relight-test.zip` 不在成片过滤器（`.mp4/.png`）内，留原处。
+
+**排除的方案**
+
+- 只删散件不改代码：机制坑还在，任何不带时间戳前缀的文件落进 out/ 都会再次带偏默认值；机制问题用机制修。
+- 前端按 `_relit` 后缀过滤 outputs：把产物命名规则抄进第二处，违背唯一权威点；后端列表语义不动。
+- 对比页自己写一套任务轮询：与 FR-16「全站只留 useCaseTasks 一套轮询」的方向相反。
+- 让后端在任务完成时写回 `[relight] current`：`_relight_current` 的注释已说明产物名自带时间戳、按 mtime 兜底即可，为它加任务完成回调是长期成本换短期便利。
+
+**验证**
+
+- vitest `compare-step.spec.ts` 从 4 条加到 9 条：relight 默认右路 = current（不是字母序靠后的散件）、relight 出现下拉且切换会换右路、case 刷新后跟随新 current、任务 running → done 触发一次 `updated`（`fetchCase` 以 case 名调用、载荷透传）、挂载前已完成的任务不触发。全仓 26 个测试文件 146 条用例全绿。
+- `npm run typecheck`、`lint`、`build` 通过；`format:check` 全仓 34 个文件存量漂移（HEAD 未改动文件同样不过，`endOfLine: auto` 与仓库既有混合换行符冲突），本轮新代码与相邻文件同风格，存量不处理。`uv run pytest` 全绿、`uv run ruff check .` 通过。
+- 浏览器实测 relight_web_01 对比页：刷新后右路 = `20261103-103409_relit.mp4`、下拉三项全是真产物；手动切 `20261102-105534_relit.mp4` 右路换旧片、再切回 `20261103` 生效。任务完成刷新由单测覆盖（真实触发需一次 8K 整段重打光渲染，未消耗额度）。
+
+**涉及文件**
+
+`vrstudio/frontend/src/views/wizard/CompareStep.vue`、`vrstudio/frontend/src/views/WizardView.vue`、`vrstudio/frontend/tests/unit/compare-step.spec.ts`、`vrstudio/cases/relight_web_01/out/` 与 `manual/`（数据移动，不进 git）。
+
+**后续入口**
+
+- out/ 只放流程产物目前靠约定维持；若散件再次混入，考虑后端 `_outputs` 对 relight 收紧命名（如必须 `*_relit.*`），动命名规则先立项。
+- patch / fullredraw 的视频对比页没有下拉是历史行为，本次只放开 relight；其余流程要切换入口时复用同一 `selected` 机制即可。
 
 ## 待决与未做
 
