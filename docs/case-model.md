@@ -236,7 +236,7 @@ round = "dusk-3c1a4b2d"
 - 数值限制（格式、时长、帧率、像素、体积、数量上限）只在 vrgen 提交前校验；
   vrstudio 前端不重复实现。视频与超限图片在 vrgen 内缩放到限额内再上传。
 
-### flow = "relight"（重打光：一张氛围图打到真 GT 上，不调平台）
+### flow = "relight"（重打光：图片或视频氛围依据打到真 GT 上，不调平台）
 
 ```toml
 flow = "relight"
@@ -248,23 +248,23 @@ path = "assets/v1_dance_move.mp4"
 role = "relight_gt"            # 重打光底版：结构与细节的来源
 sha256 = "…"
 
-[[assets]]                     # 氛围图候选一：美术上传的第一版
+[[assets]]                     # 氛围依据候选一：美术上传的第一版图片
 id = "i1"
-kind = "image"                 # 氛围图只接受图片
+kind = "image"
 path = "assets/i1_atmo_v1.png"
 role = "relight_atmo"
 sha256 = "…"
 
-[[assets]]                     # 氛围图候选二：手工提亮后的正式版
-id = "i2"
-kind = "image"
-path = "assets/i2_atmo_v2.png"
+[[assets]]                     # 氛围依据候选二：fullredraw 重绘后的视频
+id = "v2"
+kind = "video"                 # 视频只允许配视频底版
+path = "assets/v2_atmo_redraw.mp4"
 role = "relight_atmo"
 sha256 = "…"
 
 [relight]                      # 唯一草稿段：两把槽位指针 + 成片指针 + 上次参数
 gt = "v1"                      # 槽位指向哪一条候选
-atmo = "i2"
+atmo = "v2"                    # 图片或视频；视频要求 gt 也是视频
 current = "out/20261030-171530_relit.mp4"
 scene = "night"
 strength = 1.0
@@ -283,14 +283,21 @@ ref_frame = 12
 - **素材库与槽位分离**：`[[assets]]` 是候选池，同一角色可以有多条（美术每改一版氛围图就多一条，
   便于来回切换）；`[relight]` 的 `gt`/`atmo` 是两把指针，用素材 id 指向当前选中的那一条。
   早期实现把「槽位」直接等同于角色、限制每种角色只能一条，结果是「从素材库选」永远没有候选可挑。
-- 角色由 flow 钉死，用户不能改：`relight_gt` 接受视频或图片，`relight_atmo` 只接受图片。
+- 角色由 flow 钉死，用户不能改：`relight_gt` 接受视频或图片，`relight_atmo` 接受图片或视频。
   两个角色在词表里是 `open = false`、`modes = []`、`reserved = false`——不进任何生成页下拉、不进任何
   提交清单，但因为是普通角色，`add_assets` 的上传与复制管线原样可用（`reserved = true` 会被
   `_add_assets_to` 明确拒绝，所以这两个角色不能标 reserved）。
 - 指针必须指对角色：`gt` 指向的素材角色必须是 `relight_gt`，`atmo` 必须是 `relight_atmo`；
   指向不存在的素材或角色不符时在 `load`/`save` 两处按真实原因拒绝。
+- **氛围类型配对**：两个槽位都在时，氛围是视频而底版是图片才拒绝；底版还没选时允许先把
+  视频氛围候选放进素材库并选中，门控只提示缺底版。底版从视频改成图片、而氛围指针仍指向
+  视频时按真实原因拒绝。
 - 媒体类型由指针指向的底版决定，不写进 case.toml：底版是图片走单帧路径，是视频走整段路径。
   步骤链因此只有一条：素材 → 重打光 → 对比，视频专属的参考帧与小样在同一页里按底版类型出现。
+- **氛围类型决定光场模式，不新增字段或开关**：氛围是图片时，一张图只估一次对齐与光照场、
+  整段复用；氛围是视频时，固定相似变换仍只估一次，但每一帧按归一化进度取对应的氛围帧、
+  在 2K 工作尺度重估光场。氛围视频只要求 2:1 ERP，允许与底版分辨率、帧率、帧数不同；
+  图片氛围仍要求与底版逐像素同尺寸。
 - `[relight]` 是 flow 的唯一草稿段。`current` 指向最近一次成片（相对 case 目录），对比步认它；
   其余键是上一次运行的参数，用来回填面板。不复用 `[adopt]`：那两个字段的语义是 vrgen 台账轮次，
   而 relight 没有轮次。写入只发生在 vrstudio，未知键按真实原因拒绝。

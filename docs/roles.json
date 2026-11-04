@@ -134,10 +134,10 @@
     },
     {
       "name": "relight_atmo",
-      "label": "氛围图",
-      "help": "氛围图（只提供低频光照、色温与遮挡；与底版同宽高）",
-      "prompt": "氛围图，只提供低频光照、色温与遮挡。",
-      "kinds": ["image"],
+      "label": "氛围依据",
+      "help": "氛围依据（只提供低频光照、色温与遮挡；图片，或视频底版下同时长的视频）",
+      "prompt": "氛围依据，只提供低频光照、色温与遮挡。",
+      "kinds": ["image", "video"],
       "modes": [],
       "open": false,
       "reserved": false
