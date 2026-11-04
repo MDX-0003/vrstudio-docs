@@ -100,6 +100,7 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 | `docs/plan/recompose-perf-plan.md` | 视频 recompose 性能：4K/8K 的逐阶段实测与瓶颈根因、R 区直通、缓冲复用、闸门最多分析 48 帧三项改动、预期收益与字节一致性验收（决策 77） |
 | `docs/plan/video-merge-input-plan.md` | 视频拼接输入：复用图片流的 `[merge] input` 指针与 `merge_input` 角色，视频「裁回原尺寸」可用采用结果、上传的 21:9 画布视频或素材库视频；前端抽共用控件（决策 78） |
 | `docs/plan/follow-input-resolution-plan.md` | 输出跟随输入分辨率：视频 recompose 与图片 merge 共用 `--follow-input` 的缩放规则、两条流程的输出命名、web `output_options` 与前端下拉框，含对比页识别与缩放闭合恒等式验收（决策 79） |
+| `docs/plan/relight-8k-compose-perf-plan.md` | 8K 重打光合成性能：日志拆分（compose 占 85%）、`apply` 与 `soft_clip` 的逐项实测、四项像素等价改动与排除方案、优化前后对照与验收（决策 80） |
 | `docs/test-runs/20261030-relight-frontend.md` | 重打光前端接入的实施与验收：落点、合并后的 CLI 契约、槽位模型从「角色即槽位」改成「候选库 + 指针」的原因、8K 真实素材的 CLI 与浏览器两轮验收指标、`prompt` 短路修掉的 500、未做的浏览器上传与代理限制 |
 | `docs/test-runs/20261030-relight-space-e2e.md` | 视频重打光闭环验收：视频首帧 → 一次 4 张 4K 生成 → 画布闸门与拼接选型 → 整段重打光；含三处修复（提示词带宽只有白带一半、选帧前置闸门误杀、扫描解码器泄漏）与四张候选的逐项指标 |
 | `docs/test-runs/20261102-relight-decode-cache.md` | 视频重打光去重、缓存与运行计时验收：378 帧 8K 小样冷 66.6 秒/热 30.3 秒（原 128.1 秒）、换氛围图重新选帧、20 帧整段冷/热逐帧 maxdiff 0、各阶段耗时与门禁 |
