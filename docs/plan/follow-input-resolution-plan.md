@@ -49,7 +49,8 @@
 - `_case_info` 新增只读 `output_options`：由后端用同一个 `follow_input_plan` 计算两种模式的宽高，返回 `[{mode: "case", width, height}, {mode: "input", width, height}]`；输入不满足条件时只给 `case`。
 - 视频 `recompose` op 与图片 `merge` op 在 `body.output_mode == "input"` 时透传 `--follow-input`。
 - 「拼接」与「裁回原尺寸」页共用一个输出尺寸下拉框；默认案例分辨率，选择只随本次运行提交，不写进 `case.toml`。
-- 步骤页的计划输出仍显示案例分辨率；实际低分辨率成片通过成片列表出现。
+- 步骤页的「裁回原尺寸输出」/「拼接输出」显示该轮次真实写出的文件：后端按 adopt 轮次或 extract 版本前缀，加 `<stem>_recompose.json` 配对条件，从 `out/` 里找出实际产物（案例分辨率或 `_<W>x<H>` 后缀）；一个都没找到时才退回案例分辨率的计划路径并标「文件缺失」。
+- 「成片」面板按新→旧展示（后端 `_outputs` 仍按 mtime 升序，对比页继续取最后一项作默认）。
 
 ## 6. 对比页识别
 
