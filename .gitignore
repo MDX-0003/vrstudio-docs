@@ -15,6 +15,7 @@ wizard-pick.png
 
 # 本地临时帧、编辑器附件、实验素材与探针输出：数据不进 git，可整个删除
 /.tmp_frames/
+/.tmp_bench/
 /.zcode/
 /relight_video_test/
 /tmp_green_probe/

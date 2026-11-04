@@ -935,6 +935,46 @@ vitest 新增 `compare-step.spec.ts` 4 条：只渲染一块 canvas 与分割线
 - 「最近活动」的口径集中在 `_last_activity` 一处；新增会改变 case 状态的文件类型时在那里补路径，不要在别处再算一遍。
 - 排序键集中在 `CaseListView.vue` 的 `primaryCompare` 与 `SORT_OPTIONS`；新增键只改这两处，主键同值按名称升序兜底。
 
+## 28. 2026-11-04 · 视频对比页补右路成片下拉，成片列表按产物来源与时间收敛
+
+**问题**
+
+> 视频的 video fullredraw 流程里，即使生成了多份视频，最终对比页里也只能选一份结果视频放在右边。哪些流程实现了可以选「多份结果视频」的下拉框？这个功能有必要在所有对比页里复用。
+
+**原因**
+
+五个带「对比」步的流程共用同一个 `CompareStep.vue`，下拉框只有一个，渲染条件是 `isStill || isRelight`。于是 patchimg、fullRedrawImg、relight 有下拉，patch 与 fullredraw 没有，右路固定取 `outputs` 最后一项。最初迁移的对比页（`e7947c9`）下拉是无条件的；`76e473d` 改 360 单窗口查看器时收成 `isStill && !isRelight`，视频流程被一起关掉；`025eb5b` 放开给 relight 后仍把 patch/fullredraw 留在外面（条目 26 的「后续入口」）。
+
+放开下拉还暴露两个既存问题。第一，fullredraw 的 `_output_files` 直接取 `out/*.mp4`，`out/` 里混进的散件也会被当成成片。第二，默认选中取 `outputs` 最后一项，前提是列表按文件名升序等于时间升序；fullredraw 的成片名是轮次哈希（如 `360-closure-4c9b4b42.mp4`），字母序与 mtime 并不一致，真实 case `ship_01` 的字母序最后一项反而是 10 月 19 日最旧的一份。
+
+**决策**
+
+- 「右路成片」下拉对所有流程渲染：`CompareStep.vue` 去掉 `isStill || isRelight` 条件，patch/fullredraw 复用同一套 `selectedFile` / 代理重置机制。
+- 成片只认流程自己写出的产物，`out/` 散件不展示：patch 继续用 `<版本>_space.mp4` / `<版本>_frame.mp4` 命名链（frame 优先）；fullredraw 只收旁边有 recompose 报告 `<轮次>_recompose.json` 的 mp4；gen 的采用结果在 `case/result.mp4`，`out/` 直接返回空。
+- `_output_files` 统一按 mtime 升序、文件名兜底返回，对比页的「最后一项即最新」对哈希命名的轮次同样成立。
+
+**排除的方案**
+
+- 把下拉抽成独立组件：所有流程本来就共用一个 `CompareStep`，当前只有一个消费者；抽出组件不减少重复，只增加一层 props/事件。等生成页「最近成片」或合并页成片列表也要切换时再抽。
+- 按文件名排序并取最后一项：fullredraw 的轮次名是哈希，字母序与生产顺序无关，会把最旧的一份当成最新。
+- 用「文件名匹配 `*_recompose.json`」以外的目录规则筛 fullredraw：`out/` 里的散件可以起任何名字，只有 recompose 自己写下的报告能证明该 mp4 是裁回产物。
+- 要求 sidecar 的 mtime 不早于 mp4：用户重新拷贝合法成片会把 mp4 改新，反而被筛掉；当前只校验存在，把边界留给命名与写入约定。
+
+**验证**
+
+- 新增后端两条：fullredraw 的 `outputs` 排除无 `_recompose.json` 的散件并按 mtime 排序；patch 版本名与 mtime 逆序时仍按 mtime 升序返回。`uv run pytest` 全绿、`uv run ruff check .` 通过。
+- 新增前端两条：fullredraw 对比页出现「右路成片」下拉且默认最新；切旧成片后右路 video src 跟随。vitest 26 个文件 149 条用例全绿，`npm run typecheck`、`npm run lint` 通过。
+- 真实 case 复核：`ship_01`、`vf_dance_walk_02` 的输出按 mtime 升序、最后一项为最新；`ship_01` 的 zip 与无报告的 mp4 不入列表；`walk_02` 只有 `_space` 时仍标「仅中间段」，`dance_move` 的 `_space` 在 `_frame` 出现后被隐藏；`simple_gen_01` 返回空。
+
+**涉及文件**
+
+`vrstudio/src/vrstudio/web/app.py` 的 `_output_files` / `_output_sort_key`、`vrstudio/frontend/src/views/wizard/CompareStep.vue`、`vrstudio/tests/test_web_console.py`、`vrstudio/frontend/tests/unit/compare-step.spec.ts`。
+
+**后续入口**
+
+- 若 relight 的 `out/` 也出现散件，按条目 26 的办法收紧到 `*_relit.*`，先把命名规则立项再改 `_output_files`。
+- 生成页「最近成片」与合并页「成片」列表仍各自取数；要接同一个选择器时，先把 `_output_files` 的「最新一份」语义复用过去，再考虑抽组件。
+
 ## 待决与未做
 
 ### fullredraw 的 pad 不自动进提交清单（2026-10-27，待决）
