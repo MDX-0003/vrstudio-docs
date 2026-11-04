@@ -180,7 +180,7 @@ vrgen 新增模板覆盖测试：遍历 `templates/*.md`，断言每个非几何
 | character-repaint | subject 原主体、target 重绘结果、plot 情节、motion_rule 动作重演规则、preserve 必须保持、allowed_changes 允许变化 |
 | gen-edit | 同上 |
 | gen-multi | subject 主体与最终结果、target 目标外观、plot 动作段、preserve 场景、镜头与声音锁定、allowed_changes 允许变化 |
-| 360-closure | theme 主题 / 场景、plot 情节、action 动作、style 风格、allowed_changes 允许变化 |
+| 360-closure | theme 主题 / 场景、plot 情节、action 动作、style 目标画面、allowed_changes 允许变化 |
 
 ## 6. 提示词编辑区
 
