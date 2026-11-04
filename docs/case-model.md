@@ -750,7 +750,7 @@ runs/<job>/
     prompt.txt          # 实际发出的提示词（模板展开后）
     command.txt         # 实际发出的 argv
     progress.log        # 过程叙事（含等待轮询），每次调用追加
-    mglc.log            # 外部调用的 argv/返回码/错误消息
+    mglc.log            # 外部调用的 argv/返回码/错误消息/返回载荷（data 行，紧凑 JSON；URL 截断签名查询串）
     refs.json           # 本次提交的资产清单现场（含 id/kind/role/path/hash；三流程共用）
     upload_<id>_<w>x<h>.mp4 / .png   # 按素材 id 命名的缩放件（三流程统一；母版缩放件另记 run.json 的 upload 字段）
     result.mp4          # 生成/注册的结果
