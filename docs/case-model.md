@@ -4,8 +4,9 @@
 
 迁移状态：§2 的素材角色与校验、§4 的 `vrgen submit` 参数面与 `--refs` 清单、§5 的
 台账字段已按 `unified-submit-plan.md`（2026-10-21 立项）重写为统一提交契约；同日按
-决策 33/34 修订：提交集只认用户勾选，clip/pad 与文件素材同为候选、mask 自动附带、
-raw 帧仅工作台、没有 `derived` 标记，patch 的 extract 同时产出 clip 的首尾原始帧。
+决策 33/34 修订：提交集只认用户勾选，clip/pad 与文件素材同为候选、mask 自动附带
+（fullredraw 视频无前置图片时除外，见 §2）、raw 帧仅工作台、没有 `derived` 标记，
+patch 的 extract 同时产出 clip 的首尾原始帧。
 vrgen 侧已于 2026-10-21 迁移完成（`submit` 只剩 `--refs`，本地半场一条路径，台账不再写
 `params.input`/`params.mask`）；vrstudio 侧按本文目标契约迁移。
 
@@ -50,7 +51,7 @@ current = "20260923T073001"   # → extracts/<时间戳>/；generate 与 merge �
 round = "dusk-c3a41f90"
 ```
 
-patch 与 fullredraw 也可以有 `[[assets]]`（三视图、重绘定稿帧等文件素材）和可选的 `[submit] selected`，格式与 gen 示例相同；源视频仍然只放在 `[source]`。流程产物不写进 `[[assets]]`，路径由 `[extract] current` 或 manifest 决定；其中 patch 的 `clip`、fullredraw 的 `pad` 是用户可勾选的候选，mask 是流程自动附带的控制图，首尾原始帧只进工作台输入区（见 §4 `--refs` 清单）。
+patch 与 fullredraw 也可以有 `[[assets]]`（三视图、重绘定稿帧等文件素材）和可选的 `[submit] selected`，格式与 gen 示例相同；源视频仍然只放在 `[source]`。流程产物不写进 `[[assets]]`，路径由 `[extract] current` 或 manifest 决定；其中 patch 的 `clip`、fullredraw 的 `pad` 是用户可勾选的候选，mask 是流程自动附带的控制图（fullredraw 视频在没有任何用户图片时不附带，见 §2），首尾原始帧只进工作台输入区（见 §4 `--refs` 清单）。
 
 ### flow = "patchimg"（360 静图局部重绘：视口局部）
 
@@ -207,7 +208,7 @@ round = "dusk-3c1a4b2d"
 - `[[assets]]` 不再是 gen 专属：patch、fullredraw 也可以有文件素材列表（三视图、重绘定稿帧等）。三条流程的既有段（patch 的 `[source]/[viewport]/[inner]/[frames]`、fullredraw 的 `[source]`、以及 `*_pad.json` manifest）不变。
 - 原始源视频与流程产物（patch 的 clip/mask/首尾原始帧、fullredraw 的 pad/mask）不写进 `[[assets]]`，路径由 `[extract] current` 或 manifest 决定，避免与 `[source]` 的哈希契约形成双重真源。其中 clip/pad 作为可勾选候选；mask 由装配器自动附带，不作为用户素材；首尾原始帧只作工作台输入。提交契约不区分来源，也没有 `derived` 标记。merge 成片是流程输出，不作为生成提交候选。
 - 源视频为什么不并进 `[[assets]]`（2026-10-27 补充，与 gen 的差异在此说明）：patch 的 `[source] sha256` 是 merge 前的校验契约，同一份视频再记一条素材就是双重真源；fullredraw 的生成母版是 `pad` 产物（候选 id `pad`、角色 `edit_master`），源视频只被 `vrstudio pad` 读一次，并进素材库会让候选里出现两个 `edit_master` 视频，而提交几何由 manifest 决定，选错源会静默错片。此外 `[[assets]]` 的语义是"复制进 `cases/<name>/assets/` 的文件"，源视频是从共享池 `sources/` 直接引用的数 GB 原片，按 case 复制一份没有收益。gen 既没有流程段也没有流程母版，源视频本身就是第一条素材，所以 gen 反过来取消 `[source]`（见本节末尾的迁移说明）。界面上的统一由素材库承担：素材库在 `[[assets]]` 表格上方以只读「流程文件」组显示源视频与流程母版（`info.source_file` 与 `source === 'flow'` 的候选，可查名、查路径、打开原片，母版还标出是否已加入本次提交），不改动以上数据规则。
-- 角色词表：`edit_master`、`motion_ref`、`space_ref`、`scene_ref`、`lighting_ref`（光照参考，只给光源位置、色温、明暗对比与空气质感，不给构图与画面内容）、`subject_ref`、`first_frame`（首帧定稿图）、`last_frame`（尾帧定稿图）、`mid_frame`（中间过渡帧，预留）、`first_frame_raw`、`last_frame_raw`（工作台输入底图，由 patch 的 extract 从 clip 首尾导出）、`mask`（编辑区域标注图；由 patch/fullredraw 的流程产物提供，装配器自动附带，不作为用户候选，也不参与 `@ImageN` 编号）。机器可读的权威是 `docs/roles.json`（每项含 name/label/help/prompt/kinds/modes/open/reserved），两仓库各存一份逐字节相同的副本。图片步另有 `detail_ref`（细节参考），只存在于 `keyframe.toml` 的 `refs`，不进入视频提交清单。用户素材的角色由用户在引用清单里选择，不按顺序推断；空角色是未完成状态，提交前必须补齐。
+- 角色词表：`edit_master`、`motion_ref`、`space_ref`、`scene_ref`、`lighting_ref`（光照参考，只给光源位置、色温、明暗对比与空气质感，不给构图与画面内容）、`subject_ref`、`first_frame`（首帧定稿图）、`last_frame`（尾帧定稿图）、`mid_frame`（中间过渡帧，预留）、`first_frame_raw`、`last_frame_raw`（工作台输入底图，由 patch 的 extract 从 clip 首尾导出）、`mask`（编辑区域标注图；由 patch/fullredraw 的流程产物提供，装配器自动附带，不作为用户候选，也不参与 `@ImageN` 编号；fullredraw 视频无前置图片时不附带，见 §2）。机器可读的权威是 `docs/roles.json`（每项含 name/label/help/prompt/kinds/modes/open/reserved），两仓库各存一份逐字节相同的副本。图片步另有 `detail_ref`（细节参考），只存在于 `keyframe.toml` 的 `refs`，不进入视频提交清单。用户素材的角色由用户在引用清单里选择，不按顺序推断；空角色是未完成状态，提交前必须补齐。
 - 当前前端开放的角色按素材种类区分：视频为 `edit_master`、`subject_ref`、`motion_ref`；图片在这三个之外增加 `lighting_ref`，因为光照参考只对图片成立。`firstLastFrame` 模式另开 `first_frame` / `last_frame`。`scene_ref`、`space_ref`、`mid_frame` 仍在后端词表里，用于旧 case 与直接调用 CLI 的路径；普通下拉不展示，旧值以「旧角色」标记显示，可改成开放角色。
 - `[submit]` 是可选的提交集：`selected` 是本次提交的有序 id 列表，`roles` 是可选的逐 id 角色映射。没有默认集，缺省等于空集，勾选才提交。角色按 `roles[id]` 取；没有该键时回退到 `[[assets]] role`，因此旧 case 不需要迁移。同一份清单里一个素材只出现一次；跨步骤可以重复引用，角色各自记录。clip/pad 用固定 id 也可以出现在 `selected` 里；mask 不写进 `selected`，由装配器在提交时自动追加。写入只发生在 vrstudio，vrgen 只读 refs JSON，不认识这两个字段。删除素材时同步从 `selected` 与 `roles` 移除；重排不改 id，`selected` 不动。旧 case 没有这个字段时按空集处理，升级后首次打开需要重新勾选一次。
 - `target_aspect` 不在 case 里——它是平台 bucket 参数，进 vrstudio 项目配置。
@@ -353,6 +354,11 @@ ref_frame = 12
     `@ImageN` 编号。缩放规则是强制缩放到母版的上传画布，不按图片预算 fit，
     宽高、比例与体积仍按图片 validator 校验。模板用固定文案说明最后一张图是
     区域标注，不写编号。
+  - `fullredraw` 视频例外：`[submit] selected` 里没有任何非 mask 图片时，mask
+    不进入清单。mglc 把图片列表第一项当目标 IP 库资产校验，此时 mask 会成为
+    唯一图片并被拒绝；`patch` 的内区提示与 `fullRedrawImg` 的接缝锚点不适用
+    这条豁免，后者仍有基图排在 mask 前面。模板用计算变量 `mask_note` /
+    `mask_ban` 条件渲染区域标注段，没有 mask 时两段都不出现。
 - 母版（提示词几何与上传基准）的回退链依次是：第一条 `edit_master` 视频 → 第一条
   视频 → 第一条 `space_ref` 或 `scene_ref` 图片（二者同级，按清单顺序取第一个）→
   第一条 `first_frame` 图片 → 第一条图片。母版为图片时，画布尺寸取图片宽高。
@@ -532,7 +538,8 @@ mask 条目由装配器追加在所有用户图片之后，不在 `[submit] sele
   素材沿用 `v1`、`v2`…（视频）与 `i1`、`i2`…（图片）；进入 refs 的流程产物用
   固定名 `clip`、`mask`、`pad`、`pad_mask`；`first_raw`/`last_raw` 只用于工作台
   输入，不进入 refs。
-- 清单顺序取 `[submit] selected` 的顺序，mask 固定追加在所有用户图片之后；提示词
+- 清单顺序取 `[submit] selected` 的顺序，mask 固定追加在所有用户图片之后
+  （fullredraw 视频在没有任何用户图片时不追加，见 §2）；提示词
   编号与 argv 按视频在前、图片在后分组，组内保持清单顺序，得到 `@VideoN` /
   `@ImageN`。mask 不参与编号，声明顺序与 mglc argv 的 `--video` / `--image` 顺序
   逐一对齐（契约测试点）。
