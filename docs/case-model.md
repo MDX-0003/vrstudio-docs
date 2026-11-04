@@ -149,6 +149,7 @@ input = "i2"            # 本 case 素材库里 kind = image 的一条，必须�
 - 五步以 case 为单位：`case draft`（仅 patchimg）→ `extract name --case` → `generate submit --case [--num N] [--resolution 1K|2K|4K] [--image-model-id <id>] [--session-id <id>]` → `generate adopt --case --index N` → `merge --case`。web 复用现有 op（extract / submit / dry_run / adopt / merge），不新增 op 或子命令。
 - `[adopt] index` 两条流程都必填：`generate adopt` 在缺下标时直接拒绝，web 的 adopt 必须透传下标。
 - `[merge] input` 属于 fullRedrawImg 与 fullredraw：图片流程的 `merge --case` 按它取拼接输入，缺省或清空后回退 `extracts/<current>/result.png`；视频流程的 `recompose` 按它取输入，缺省或清空后回退 case 根目录的 `result.mp4`。web 的门控接受这两种来源，步骤页显示实际要用的那个文件。
+- 输出分辨率默认等于 case 源尺寸；`recompose`（视频）与 `merge`（图片）都接受 `--follow-input`，按输入像素密度缩放输出几何，缩放规则与边界见 `docs/plan/follow-input-resolution-plan.md`。跟随输入时视频写 `out/<轮次>_<W>x<H>.mp4`、图片写 `out/<extract>_image_<W>x<H>.png`，与案例分辨率的成片并存；该选择只随单次运行，不写进 `case.toml`，低分辨率成片是预览/迭代产物，不替代源分辨率交付物。
 - 产物：patchimg 写 `clip.png`、`clip_mask.png`、`image.json`；fullRedrawImg 写 `padded.png`、`padded_mask.png`、`image_pad.json`，提交时另存 `upload.png`/`upload_mask.png` 副本。两条流程的交付物都是 `out/<版本>_image.png`（不是 mp4）。
 - `image.json` 与 `image_pad.json` 的字段集不变；后者 manifest 的 `kind` 值为 `image`。
 - 图片提交的提示词变量写在 job 的 `prompt-vars.toml`：`generate submit` 对两条图片流程拒绝 `--var`，也拒绝 `--mode/--duration/--aspect-ratio/--scale`。
@@ -421,13 +422,15 @@ cases/<名>/
     upload.png / upload_mask.png #   提交副本（长边 ≤ generate.image_upload_max_side）
     result.png                   #   被采用的 4K 21:9 结果
     report.json                  #   配准、接缝闸门与 aspect drift
-  out/<版本>_image.png           # stitch 还原的 2:1 成片
+  out/<版本>_image.png           # stitch 还原的 2:1 成片（案例分辨率）
+  out/<版本>_image_<W>x<H>.png   # 跟随输入像素密度时的成片（可选）
   # --- flow = fullredraw ---
   seedance_input.mp4             # pad 画布（无损）
   seedance_input_mask.png
   seedance_input_pad.json        # recompose 唯一几何权威（契约原样）
   result.mp4                     # 被采用的那轮结果
-  out/<轮次key>.mp4 + _recompose.json
+  out/<轮次key>.mp4 + _recompose.json          # 案例分辨率
+  out/<轮次key>_<W>x<H>.mp4 + _recompose.json  # 跟随输入（可选）
   # --- flow = gen ---
   result.mp4                     # 被采用的那轮结果
 ```
