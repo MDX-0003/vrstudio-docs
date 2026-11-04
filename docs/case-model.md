@@ -543,6 +543,10 @@ mask 条目由装配器追加在所有用户图片之后，不在 `[submit] sele
   编号与 argv 按视频在前、图片在后分组，组内保持清单顺序，得到 `@VideoN` /
   `@ImageN`。mask 不参与编号，声明顺序与 mglc argv 的 `--video` / `--image` 顺序
   逐一对齐（契约测试点）。
+- 提交不再做 SD 合规素材登记（决策 75，2026-11-04 起）：`--video` / `--image`
+  只给本地路径，**不伴随** `--video-asset-id` / `--asset-id`；平台在 generate 时
+  自动上传登记。此前「先 `virtual-ip upload` 等审核再提交」的流程作废，手动登记
+  会导致任务异步失败（第 1 个参考资产不属于目标 IP 库或与文件不匹配）。
 - 清单条目的 `role` 由 vrstudio 按 `[submit.roles]` 覆盖 `[[assets]] role` 后写入；
   vrgen 只读清单角色，不读 case.toml，也不知道角色来自哪里。
 - 路径可以是绝对路径，也可以相对 JSON 文件所在目录。`[submit] selected` 可以
@@ -768,9 +772,9 @@ gen 多素材与图片轮次的 run.json 字段扩展（其余字段与旧格式
 - `task_ids`：可选整数数组；图片批次在平台侧对应多个并列任务时，记录全部任务 ID，`task_id` 仍保留第一个以兼容旧读取方。逐个任务的图按 URL 去重后写入 `results`。
 - `params.duration_s`：本次实际采用的时长（整数秒），是审计事实，不是偏好；不写 `generation.toml`。
 - `params.video_model_id` / `params.image_model_id`：本次实际采用的模型，按轮次类型各记其一（视频轮次记 `video_model_id`，图片轮次记 `image_model_id`）。历史轮次的 `params.model_id` 读取时按轮次类型兼容。
-- `assets`：按素材 id 分组，例如
-  `{"video:clip": 123, "image:mask": 456, "image:i1": 789}`。patch/fullredraw 的
-  `"video"` / `"image"` 两个旧键退役，三流程统一为 `kind:id` 键。
+- `assets`：已退役（决策 75）——提交不再手动登记 SD 合规素材，新轮次不写该字段。
+  旧轮次的 `assets`（如 `{"video:clip": 123, "image:mask": 456}`）仍可能存在，
+  读取方按缺省处理。patch/fullredraw 早期写过的 `"video"` / `"image"` 单键同样只读兼容。
 - `params.refs`：本次提交的资产清单，每项含 `id`、`kind`、`role`、`path`、`sha256`、
   `upload`（缩放件路径）、`width`、`height`（上传件的实际宽高）；顺序与 `refs.json`
   一致。没有 `derived` 字段，流程产物与文件素材同构。
@@ -782,10 +786,11 @@ gen 多素材与图片轮次的 run.json 字段扩展（其余字段与旧格式
 - `run_key`：母版参数从“视频文件哈希”放宽为“任意参考素材”，否则纯图片轮次无法创建。
 - `status`：图片轮次带 img 标记；`result --index N` 按 `results` 取第 N 张，缺省第一张；旧轮次没有 `results` 时只取 `result`。
 - `upload` 仍记录母版上传件，供旧的通用闸门与人工查看；其余缩放件在 `params.refs`。
-- 断点续跑按 `assets` 里的 id 键验证素材；同一素材内容哈希相同则复用审核结果。
+- 断点续跑不再按 `assets` 验证素材（决策 75 后没有登记环节）；旧轮次带 `assets`
+  的读取方按缺省处理。
 
 关键机制（随 vrpad aigc/round 迁入）：task_id 防重发（断点续跑从台账断点继续）、
-换账号后素材自愈、gate 数字留档、models.json 清单 24h 缓存。
+gate 数字留档、models.json 清单 24h 缓存。
 
 手动注册后端（`register`）写同样的 run.json（backend = "manual"，无 upload 件与
 task_id），保证下游 `result` / adopt 逻辑对两种后端无差别。
