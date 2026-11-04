@@ -1,8 +1,8 @@
 # 视频氛围重打光（relight atmo video）方案
 
-状态：已批准（2026-11-04）。WP0–WP3 实施中；WP4 等用户的氛围视频测试素材就位后再做，
-WP5 视实测决定。四项关键选择已确认：逐帧光场、允许不同分辨率并按进度对齐、接受 1080p
-氛围视频、fullredraw 成片复制/上传进 relight case。
+状态：WP0–WP3 已实施（2026-11-04）；WP4 等用户的氛围视频测试素材就位后再做，WP5 视实测
+决定。四项关键选择已确认：逐帧光场、允许不同分辨率并按进度对齐、接受 1080p 氛围视频、
+fullredraw 成片复制/上传进 relight case。实施记录见 §9。
 
 上游：决策 56（视频重打光）、59（relight 只有一条 flow）、64（删除同位检查、缓存变换）、
 65（报告计时）。相关文档：`docs/plan/relight-video-plan.md`、
@@ -34,7 +34,7 @@ WP5 视实测决定。四项关键选择已确认：逐帧光场、允许不同�
   （`frontend/src/constants/steps.ts:21`）；生成模式固定 `videoEdit`（`docs/case-model.md:577`），
   模板 `360-closure`（`src/vrstudio/cli/generate.py:45`）。
 
-### 1.2 氛围依据当前只允许图片的三处
+### 1.2 改动前氛围依据只允许图片的三处
 
 - 角色契约：`relight_atmo.kinds = ["image"]`（`src/vrstudio/roles.json:136`）；
   `docs/case-model.md:286` 明确写「只接受图片」。
@@ -325,3 +325,34 @@ fullredraw 手动生成氛围视频，作为下一轮的起点。
 - 平台是否已放开 4K videoEdit；若已放开，更新 `docs/case-model.md` 的能力表后再决定
   氛围视频分辨率。
 - fullredraw 真素材验收的额度窗口。
+
+## 9. 实施记录（2026-11-04）
+
+WP0–WP3 已完成，WP4 未开始。
+
+- **角色与契约。** 三份 `roles.json` 的 `relight_atmo` 改为 `["image", "video"]`；
+  `docs/case-model.md` 的 relight 段补了图/视频两种氛围、配对规则与逐帧光场说明；
+  两仓库 `test_roles_contract.py` 的 SHA256 同步到
+  `f74d3603d32bb816eb37b582a96147631797cfe4ac653b165b40ad6aabc47529`。
+- **时间映射。** 新增 `src/vrstudio/relight/atmo.py`：`mapping_for()` 按帧数优先、
+  时间其次、逐帧兜底选映射方式；`work_frame()` 把任意分辨率降到 2K 工作尺度。
+  `AtmoMapping.index_for()` 是 GT ↔ 氛围帧号的唯一权威点。
+- **CLI。** `vrstudio relight` 按氛围类型分派：图片氛围走现有固定光场路径，
+  视频氛围走新 `_relight_video_atmo`。后者固定相似变换，每帧在 2K 上 warp 对应氛围帧、
+  `estimate_fields`、`light_compose` 到原尺寸；`strength 0` 跳过光场直接写 GT 帧。
+  `--sample` 的每个采样点同时取 GT 与氛围帧。缓存仍只存参考帧号与相似变换。
+- **报告。** 新增 `atmo_kind`、`fields_mode`；视频氛围另有 `atmo_frames`、`atmo_fps`、
+  `atmo_mapping`、`atmo_ref_frame`、`atmo_match`（逐帧结构相关最低/均值）与 `atmo_short`。
+  图片氛围的报告新增 `atmo_kind=image`、`fields_mode=fixed`。
+- **case 与 web。** `check_relight_pair()` 在写盘与运行入口拒绝「图片底版 + 视频氛围」；
+  底版未选时允许先放视频氛围候选。web 门控文案改成「氛围依据」，并把配对错误作为
+  `assets` 步的 reason。
+- **前端。** 氛围槽位在视频底版（或底版未选）时接受视频，图片底版仍只收图片；
+  上传弹窗按槽位决定是否收视频；重打光报告显示「视频 · 逐帧光场」、氛围帧数、
+  参考帧对与逐帧结构相关。
+- **测试。** 新增 `tests/test_relight_atmo_video.py`：时间映射、`work_frame`、
+  `strength 0` 像素基线、移动亮斑跟随、半分辨率/少帧数氛围、图片底版拒绝视频氛围、
+  非 2:1 拒绝。门禁：vrstudio 与 vrgen `pytest` 全绿、`ruff` 干净；前端
+  `typecheck` / `lint` / `test`（147 条）/ `build` 全绿。
+- **未做。** WP4 的真实 8K GT + 氛围视频冷/热两轮、fullredraw 真素材验收；WP5 的时间
+  平滑与内存优化要等 WP4 的实测数据。
