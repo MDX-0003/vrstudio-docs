@@ -104,14 +104,16 @@ vrstudio 仓库：
 
 ### 2.5 每步验收与提交
 
-每个小步按同一套门禁执行。
+每个小步按同一套门禁执行，顺序固定，不跳步。
 
-1. 前端通过 `npm run lint`、`npm run format:check`、`npm run test`、`npm run build`（`build` 内含 `vue-tsc`）。
-2. 后端通过 `uv run pytest` 与 `uv run ruff check .`。
-3. 用真实服务与真实 case 在浏览器走一遍；必要时用临时 cases 目录避免污染现有数据。
-4. 修改真实 case 的勾选、提示词或角色时，记录原值并在测试后恢复。
-5. 验收通过后单独提交；文档改动与代码改动分开提交。
-6. 提交信息用中文动词开头，例如 `frontend: 生成页素材接真实接口`。
+1. 开工前确认根仓库与相关子仓库的 `git status` 干净。有未提交改动就先处理，或在开工前说明原因。
+2. 先改 `docs/` 里的决策与计划，再改代码，最后补字节一致性与测试。
+3. 前端通过 `npm run lint`、`npm run format:check`、`npm run test`、`npm run build`（`build` 内含 `vue-tsc`）。
+4. 后端通过 `uv run pytest` 与 `uv run ruff check .`。
+5. 用真实服务与真实 case 在浏览器走一遍；必要时用临时 cases 目录避免污染现有数据。
+6. 修改真实 case 的勾选、提示词或角色时，记录原值并在测试后恢复。
+7. 验收通过后单独提交：文档改动与代码改动分开提交，根仓库与子仓库各自一笔。
+8. 提交信息用中文动词开头，例如 `frontend: 生成页素材接真实接口`。
 
 源码一律 UTF-8。改含中文的源文件时不要用 Windows PowerShell 的 `Set-Content`（默认编码会把 UTF-8 写坏）；用编辑工具或显式 `-Encoding utf8`，改完跑一次 `utf-8` 解码检查。
 
