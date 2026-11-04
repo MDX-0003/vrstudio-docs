@@ -101,9 +101,11 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 | `docs/plan/video-merge-input-plan.md` | 视频拼接输入：复用图片流的 `[merge] input` 指针与 `merge_input` 角色，视频「裁回原尺寸」可用采用结果、上传的 21:9 画布视频或素材库视频；前端抽共用控件（决策 78） |
 | `docs/plan/follow-input-resolution-plan.md` | 输出跟随输入分辨率：视频 recompose 与图片 merge 共用 `--follow-input` 的缩放规则、两条流程的输出命名、web `output_options` 与前端下拉框，含对比页识别与缩放闭合恒等式验收（决策 79） |
 | `docs/plan/relight-8k-compose-perf-plan.md` | 8K 重打光合成性能：日志拆分（compose 占 85%）、`apply` 与 `soft_clip` 的逐项实测、四项像素等价改动与排除方案、优化前后对照与验收（决策 80） |
+| `docs/plan/relight-compose-threads-plan.md` | 8K 重打光合成读取与多线程：64 KB `os.read` 传输（298→62 ms/帧）、行带线程化 `apply`/`soft_clip`/引导滤波/求幂、内存实例生命周期七条、像素等价论证与验收（决策 82） |
 | `docs/test-runs/20261030-relight-frontend.md` | 重打光前端接入的实施与验收：落点、合并后的 CLI 契约、槽位模型从「角色即槽位」改成「候选库 + 指针」的原因、8K 真实素材的 CLI 与浏览器两轮验收指标、`prompt` 短路修掉的 500、未做的浏览器上传与代理限制 |
 | `docs/test-runs/20261030-relight-space-e2e.md` | 视频重打光闭环验收：视频首帧 → 一次 4 张 4K 生成 → 画布闸门与拼接选型 → 整段重打光；含三处修复（提示词带宽只有白带一半、选帧前置闸门误杀、扫描解码器泄漏）与四张候选的逐项指标 |
 | `docs/test-runs/20261102-relight-decode-cache.md` | 视频重打光去重、缓存与运行计时验收：378 帧 8K 小样冷 66.6 秒/热 30.3 秒（原 128.1 秒）、换氛围图重新选帧、20 帧整段冷/热逐帧 maxdiff 0、各阶段耗时与门禁 |
+| `docs/test-runs/20261104-relight-compose-threads.md` | 8K 重打光读帧传输与行带多线程验收：378 帧整段 1409.50→276.40 秒（4.6 分钟）、成片 SHA256 与改动前相同、10 张小样逐像素 maxdiff 0、峰值内存 1.71 GB、内存生命周期逐条对账 |
 | `docs/plan/fullredraw-img-prompt-vars.md` | fullRedrawImg 提示词变量的按场景取值：静态场景只写光影、不写原图没有的物体，氛围参考图标成 `lighting_ref`，取值为 `vrgen_runs/<case>/prompt-vars.toml` 的模板（审查稿） |
 | `docs/plan/img-flows-frontend-plan.md` | patchimg / fullRedrawImg 两条 360 图片流程前端接入：命名统一（flow 值不变，契约文件/产物/模板改 image/img）、CLI 已就绪的证据、web 与前端缺口清单（建案例图片源、op 透传 num/index/model/session、门控去 else 兜底、草稿段单一判定、素材挂载、候选网格、静图对比与差异视图）、WP0–WP7 与真实额度前置（WP0–WP5 已实施，WP6 进行中，WP1/WP7 待平台额度） |
 | `docs/key-issues/frontend-decisions.md` | 前端关键问题与决策记录：逐条记录问题、决策、排除方案、验证与涉及文件（持续更新） |
