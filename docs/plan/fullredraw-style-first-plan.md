@@ -91,3 +91,20 @@
 - 模板是所有 fullredraw 案例共用的。`palace_01` 的 style 依赖 `@Image1` 提供光照，`ship_01` 依赖较大的环境变化；两者都在 `allowed_changes` 里写了授权，重排不改变它们的内容，只改变阅读顺序。回退方式是恢复模板的段序，案例变量不受影响。
 - 点亮烛台会新增火苗，属于【允许变化】明确列出的场景元素变化；若平台把这理解成新增物体而拒绝，回退为只提亮已有灯焰。
 - 纯提示词无法保证每盏灯的光池落在实物位置上。若 480p 试跑仍退化为整体提亮，下一步按 `lighting_ref` 提交参考图，不改模板。
+
+## 7. videoEdit 的氛围参考（2026-11-04 追加）
+
+用户在两种模式之间得到的对照结论是：videoEdit 的动作与时间轴跟随输入，但画面观感变化有限；allMediaRef 的光感更好，但节奏不能严格对齐。同一份新提示词的两轮实测确认差异来自模式而不是提示词：
+
+- `360-closure-414650a6`：videoEdit，模型 37，1080p，297 帧 / 12.384 秒。
+- `360-closure-8e6bcfa3`：allMediaRef，模型 37，480p，313 帧 / 13.056 秒。
+- 两轮 `prompt_hash` 都是 `695aa04ecbf57ff8`；allMediaRef 的成片能看到独立光池，videoEdit 的地面仍没有镜面反射。
+
+本轮保持 videoEdit，并加入一张氛围参考：
+
+- `cases/relight_web_01/assets/i3_model_4k_cc92.png` 作为 `lighting_ref` 进入 `vf_dance_walk_02` 的提交集。它与 case 里已有的 `assets/i1_i3_model_4k_cc92.png` 逐字节相同（SHA256 `8d7db7a6…`），因此复用 `i1`，不复制第二份文件。
+- 提示词新增【氛围参照】段：`@Image1` 只提供色温、亮暗对比、冷暖分离、空气质感与地面和漆面的反射方式；机位、构图、比例、人物、陈设与建筑一律以 `<视频1>` 为准；参考图结构与视频不符时不得带入。
+- 提交集出现非 mask 图片后，装配器会自动追加冗余带 mask。提示词里补一句「最后一张黑白图只说明冗余带位置，不是编辑范围」，避免 videoEdit 把白带当成唯一编辑区域。
+- `generation.toml` 的 `mode` 改回 `videoEdit`，`resolution` 仍是 480p。
+
+风险：带参考图的 videoEdit 可能被平台判成参考生成并拒绝（`docs/prompt-rules.md` §3.2 的实测）。失败原因会写进 `run.json` 的 `notes`；若被拒，下一级手段是减少图片或改回 allMediaRef。
