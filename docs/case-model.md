@@ -750,7 +750,7 @@ runs/<job>/
   prompt-vars.toml      # job 级草稿：template 选择 + 提示词可变块（vrgen 侧唯一可写的"当前值"）
   generation.toml       # job 级草稿：video_model_id/image_model_id/mode/aspect_ratio/resolution/scale/session_id/project_id/episode（决策 20/22/23；不含时长；旧键 model_id 读取时按视频模型兼容）
   <轮次key>/              # 视频轮次
-    run.json            # 台账：stage/params/prompt/assets/task_id/result/gate/notes
+    run.json            # 台账：stage/params/prompt/task_id/result/gate/notes（assets 已退役，见下）
     prompt.txt          # 实际发出的提示词（模板展开后）
     command.txt         # 实际发出的 argv
     progress.log        # 过程叙事（含等待轮询），每次调用追加
