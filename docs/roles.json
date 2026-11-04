@@ -145,9 +145,9 @@
     {
       "name": "merge_input",
       "label": "拼接输入",
-      "help": "拼接输入（外部工具改完的 21:9 画布图；只用于 fullRedrawImg 的拼接，不进生成提交）",
-      "prompt": "拼接输入，外部工具改完的 21:9 画布图，只用于拼接。",
-      "kinds": ["image"],
+      "help": "拼接输入（外部工具改完的 21:9 画布；图片流程用画布图，视频流程用画布视频；不进生成提交）",
+      "prompt": "拼接输入，外部工具改完的 21:9 画布图或画布视频，只用于拼接。",
+      "kinds": ["image", "video"],
       "modes": [],
       "open": false,
       "reserved": false
