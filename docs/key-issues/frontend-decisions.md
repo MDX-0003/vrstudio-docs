@@ -2,7 +2,7 @@
 
 本文记录 E:\VRAIGC 前端（web 模板、静态脚本、页面交互与客户端状态）的关键问题、已拍板决策、被排除的方案和最终解决办法。后端契约与算法决策仍在 `docs/case-model.md`、`docs/decisions.md` 与各自的计划文档里，本文只在它们影响前端交互时引用。
 
-最后更新：2026-11-03。
+最后更新：2026-11-04。
 
 前端技术栈选型的需求与论证见 `20261023-frontend-stack-selection.md`，实施计划见 `../plan/frontend-refactor-plan.md`；本文只记录页面级与交互级问题，不重复选型论证。
 
@@ -890,6 +890,50 @@ vitest 新增 `compare-step.spec.ts` 4 条：只渲染一块 canvas 与分割线
 
 - out/ 只放流程产物目前靠约定维持；若散件再次混入，考虑后端 `_outputs` 对 relight 收紧命名（如必须 `*_relit.*`），动命名规则先立项。
 - patch / fullredraw 的视频对比页没有下拉是历史行为，本次只放开 relight；其余流程要切换入口时复用同一 `selected` 机制即可。
+
+## 27. 2026-11-04 · case 列表卡顿与多种排序
+
+**问题**
+
+> 每次我打开case列表都会经历较长时间的卡顿，我想知道是什么原因导致的？有什么解决方法？另外case列表我也需要支持多种排序方式，目前是什么排序方式？
+
+**原因**
+
+`/api/cases` 对每个 case 调 `_brief`，而 `_brief` 直接复用了向导的完整门控 `_gates`。patch 流程为了算 `generate` 门会调 `_keyframe_state` → `_asset_details`，这条链对每个素材做两件列表页不需要的事：`candidates()` 里的 `check_assets()` 逐个算 SHA-256，`_media_meta()` 逐个把整张图解码取宽高。`walk_4k` 有 28 张 5–6 MB 的 4K 候选图，单张解码约 85 ms，一次请求约 2.4 秒；`dance_move` 10 张图约 0.84 秒。另外 `_outputs(case)` 在一次 `_brief` 里被算了两遍（`_gates` 内一次、返回 `outputs` 计数一次），patch 的 `_space` 成片还要打开 8K 源片读帧数（约 0.16 秒/次，无缓存）。所有 case 串行处理，每次进入列表页都从头重算。
+
+实测本机 26 个 case：冷进程合计约 4.0 秒，热进程仍有 1.3–2.0 秒。
+
+**决策**
+
+- 列表页走轻量路径：`_gates(..., list_only=True)` 不算首尾帧工作台状态（`nextStepForFlow` 的 patch 分支也不读 `keyframe` 门），`_brief` 不调 `_asset_details`，因此不解码图片、不哈希素材。
+- 成片只算一次：新增 `_output_files` 统一选择规则并返回 `(路径, patch 版本, 是否 space-only)`；列表只取文件名与数量，详情页 `_outputs` 再补文件信息、代理状态与 `partial`。
+- 「最近活动」改为真实活动：取 `case.toml`、`keyframe.toml`、`extracts/`、`out/` 直接子文件、`vrgen_runs/<case>/*/run.json` 的最大 mtime，接口新增 `updated_ts`（epoch 秒）供排序；显示格式仍是 `YYYY-MM-DD HH:MM`。
+- 默认排序改为「最近活动」倒序，后端先排好序再返回；前端支持按最近活动 / 名称 / 负责人 / 流程 / 成片数排序，并可选升序或降序，全部在前端本地完成，不改后端分支。主键同值时固定按名称升序，升降序只作用于主键，避免倒序时 tie-break 也跟着反向。
+
+**排除的方案**
+
+- 给 `_media_meta` 与 sha256 加缓存：能缓解冷启动后的重复开销，但列表根本不需要这些值，先把调用去掉比加缓存更彻底；详情页要用时再用现有 `_media_meta` 的 lru。
+- 列表分页：26 个 case 轻量化后一次请求 35–46 ms，分页只会增加接口与前端状态，收益为零。
+- 「最近活动」只取 `case.toml` mtime：跑抽取、定稿首尾帧、合并出片都不一定写 case.toml，排序会明显偏旧，不满足用户按活动找 case 的用法。
+- 后端按每种排序各出一个分支：排序是展示层偏好，数据量小，前端一次拿到全部行本地排序最简单。
+
+**验证**
+
+- 同一份 26 个 case 的实测：`_brief` 冷进程合计从约 4.0 秒降到 31.5 ms 以内（单 case 最慢 2.6 ms）；`/api/cases` 端到端 35–46 ms、24 KB 响应。
+- 新增 `test_cases_list_does_not_decode_or_hash_assets`：把 `_media_meta` 与 `check_assets` 钉成一旦调用就失败，`GET /api/cases` 仍返回 200，锁住轻量路径。
+- 新增 `test_cases_list_sorts_by_last_activity_desc`：两轮 case 的 case.toml 都改旧、其中一轮的成片改新，断言列表按成片时间排序且 `updated_ts` 更大。
+- `uv run pytest` 全绿（含新增两条）、`uv run ruff check .` 通过；前端 `npm run typecheck`、`lint`、`build` 通过，vitest 26 个文件 146 条用例全绿。
+- 未做真实浏览器点击计时：排序控件在列表页 toolbar，交互与筛选下拉同构，由类型检查与现有挂载测试覆盖。
+
+**涉及文件**
+
+`vrstudio/src/vrstudio/web/app.py` 的 `_output_files` / `_outputs` / `_gates` / `_brief` / `_last_activity` / `api_cases`、`vrstudio/tests/test_web_console.py`、`vrstudio/frontend/src/views/CaseListView.vue`、`vrstudio/frontend/src/types/case.ts`。
+
+**后续入口**
+
+- 列表页再要新字段时先问「是不是详情页的东西」：`_asset_details`、`_media_meta`、哈希校验都属于详情页，不要加回 `_brief`。
+- 「最近活动」的口径集中在 `_last_activity` 一处；新增会改变 case 状态的文件类型时在那里补路径，不要在别处再算一遍。
+- 排序键集中在 `CaseListView.vue` 的 `primaryCompare` 与 `SORT_OPTIONS`；新增键只改这两处，主键同值按名称升序兜底。
 
 ## 待决与未做
 
