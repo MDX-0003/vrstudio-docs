@@ -309,9 +309,14 @@ regions = "relight/regions.json"   # 可选：区域覆盖定义；不写表示�
 - **区域覆盖**：`[relight]` 可选键 `regions` 指向 case 目录内的一个 JSON 文件（相对路径，
   缺省表示没有区域；写入时与其余键一样只接受 case 内的相对路径）。区域是球面多边形，
   顶点为 `[lon, lat]`，单位度，经度允许超出 ±180（不 wrap，跨接缝时由读方平移）。
+  可选 `pole` 为 `"north"` / `"south"` 时表示含该极点的盖帽：`verts` 是绕该极点一圈的
+  闭环，区域取极点所在的一侧，栅格化时由读方把首个顶点按 ±360 复制成接缝边、再沿
+  纬度 ±90 闭合；缺省或 `null` 表示普通闭合多边形。盖帽只能表示含极点的一侧，不能表示
+  环带、洞或极点的补集。
   每个区域用稀疏的 `params` 覆盖 `strength` / `local_shading` / `clip`，`null` 或缺失表示
   沿用 `[relight]` 的默认值；`ranges` 首版恒为 `null`（整段），第二阶段表示生效区间。
   区域最多 16 个、每个最多 64 个顶点、纬度限制在 ±89.5°，违反按参数错（退出 2）。
+  `pole` 非空时边界必须绕该极点恰好一圈；扭转量不是 ±1 或边自交同样按参数错。
   `vrstudio relight --regions FILE` 可直接指定；`--case` 模式缺省读 `[relight] regions`，
   显式文件优先。`--sample-at 12,240,600` 按帧号出小样，与 `--sample N` 互斥。
 - **区域文件的字段集**（`version = 1`，与 `[relight]` 一样只认这些键）：
@@ -326,6 +331,7 @@ regions = "relight/regions.json"   # 可选：区域覆盖定义；不写表示�
       "color": "#f59e0b",
       "enabled": true,
       "verts": [[-24.0, 8.0], [-8.0, 11.0], [-4.0, 1.0], [-18.0, -3.0]],
+      "pole": null,
       "feather_deg": 3.0,
       "params": {
         "strength": 0.45,
