@@ -277,6 +277,7 @@ highlight_clip = false
 clip_knee = 0.72
 clip_max = 0.98
 ref_frame = 12
+regions = "relight/regions.json"   # 可选：区域覆盖定义；不写表示没有区域
 ```
 
 设计说明：
@@ -305,6 +306,40 @@ ref_frame = 12
 - `[relight]` 是 flow 的唯一草稿段。`current` 指向最近一次成片（相对 case 目录），对比步认它；
   其余键是上一次运行的参数，用来回填面板。不复用 `[adopt]`：那两个字段的语义是 vrgen 台账轮次，
   而 relight 没有轮次。写入只发生在 vrstudio，未知键按真实原因拒绝。
+- **区域覆盖**：`[relight]` 可选键 `regions` 指向 case 目录内的一个 JSON 文件（相对路径，
+  缺省表示没有区域；写入时与其余键一样只接受 case 内的相对路径）。区域是球面多边形，
+  顶点为 `[lon, lat]`，单位度，经度允许超出 ±180（不 wrap，跨接缝时由读方平移）。
+  每个区域用稀疏的 `params` 覆盖 `strength` / `local_shading` / `clip`，`null` 或缺失表示
+  沿用 `[relight]` 的默认值；`ranges` 首版恒为 `null`（整段），第二阶段表示生效区间。
+  区域最多 16 个、每个最多 64 个顶点、纬度限制在 ±89.5°，违反按参数错（退出 2）。
+  `vrstudio relight --regions FILE` 可直接指定；`--case` 模式缺省读 `[relight] regions`，
+  显式文件优先。`--sample-at 12,240,600` 按帧号出小样，与 `--sample N` 互斥。
+- **区域文件的字段集**（`version = 1`，与 `[relight]` 一样只认这些键）：
+
+```json
+{
+  "version": 1,
+  "regions": [
+    {
+      "id": "r1",
+      "name": "窗边高光",
+      "color": "#f59e0b",
+      "enabled": true,
+      "verts": [[-24.0, 8.0], [-8.0, 11.0], [-4.0, 1.0], [-18.0, -3.0]],
+      "feather_deg": 3.0,
+      "params": {
+        "strength": 0.45,
+        "local_shading": null,
+        "clip": { "knee": 0.72, "max": 0.98 }
+      },
+      "ranges": null
+    }
+  ]
+}
+```
+
+  重叠按数组顺序处理，后一个盖在前一个上面；羽化只在该区域边界与下方值之间过渡。
+  没有区域或所有区域 `enabled = false` 时，引擎走原标量路径，成片与改动前逐位一致。
 - relight 不调 vrgen、不花额度、不需要项目会话，所以没有 `[submit]`、`[adopt]`、`generation.toml`
   与提示词；`/api/case` 对这条流程不下发 prompt 与 generation_params。
 - 产物目录沿用 `out/`：整段写 `out/<时间戳>_relit.mp4`，单帧写 `out/<时间戳>_relit.png`，
