@@ -462,6 +462,11 @@ vrgen submit --job <名> --refs <提交资产清单.json> \
                                            # 三个流程共用的唯一提交入口；断点续跑、task_id 防重发
                                            # --audio none：平台无「不生成声音」参数，结果下载后去音轨
                                            # --resubmit：放弃本轮复用、另开一轮（会重新计费）
+vrgen prep --video <路径> [--mask <路径>] --canvas WxH --source WxH --out <目录> \
+           [--scale auto|full|half|WxH] [--video-model-id 37] [--mode videoEdit] \
+           [--workdir <dir>] [--dry-run]
+                                           # 只按平台限额缩放上传件：不建轮次、不碰平台
+                                           # 写 upload_pad_<W>x<H>.mp4 / _mask_<W>x<H>.png / .json
 vrgen image submit --job <名> (--prompt <文本> | --template <id> [--vars-file <文件名>]) \
            [--image-role <角色>]… [--image-note <说明>]… [--image-model-id <图片模型 id>] \
            --image <路径> [--image <路径>]… \
@@ -579,6 +584,16 @@ mask 条目由装配器追加在所有用户图片之后，不在 `[submit] sele
 - 首尾图合规性首期按“直接传本地路径、不做 SD 合规素材登记”实现：CLI 的
   `--first-image` / `--last-image` 没有对应的 asset-id 参数。若平台在真实提交时
   拒绝，按 `firstlast-dev-plan.md` 的 R1 回退，不在首期自建登记流程。
+
+### 上传件：轮次目录与 case 侧的两份产物
+
+`submit` 在轮次目录里写下 `upload_<id>_<W>x<H>.<ext>`，这是平台实际收到的文件。同一个文件也可以脱离提交单独产出：
+`vrgen prep` 把 pad 视频与 mask 缩放到同一尺寸，写到调用方指定的目录（vrstudio 用 `cases/<名>/derived/`），并以
+`upload_pad_<W>x<H>.json` 记录画布、源尺寸、上传尺寸、缩放比例、冗余带列号与平台上限。
+
+- 两处使用同一套规划与编码参数，同一输入下 sha256 相同；轮次目录那份仍由 `submit` 自己生成，台账结构不变。
+- 上传件不参与 `recompose`：裁回只认 manifest 与 `seedance_input.mp4`，两组文件不互相替代。
+- `--scale full` 在上传件仍超限时按运行失败（退出码 1）结束，与 `submit` 的判定一致。
 
 ### 生成参数（web 生成页的数据源，决策 20）
 
