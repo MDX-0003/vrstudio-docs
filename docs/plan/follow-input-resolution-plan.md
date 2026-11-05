@@ -1,6 +1,8 @@
 # 跟随输入分辨率计划（视频 recompose 与图片 merge）
 
 状态：2026-11-04 用户认可整体方向与三项选择，待实施。
+**§3 的缩放规则已由决策 90 取代**（改为按输入件自身宽高派生，见
+`docs/plan/follow-input-upload-size-plan.md`）；本文保留作历史记录与输出命名、对比页识别的依据。
 关联：决策 79，`docs/case-model.md` 的 `[merge]` 段与目录布局，`docs/plan/video-merge-input-plan.md`。
 
 ## 1. 问题

@@ -99,13 +99,15 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 | `docs/plan/relight-atmo-video-plan.md` | 视频氛围重打光：氛围源从单张图扩成图或视频，固定相似变换 + 逐帧光场、按归一化进度对齐、允许分辨率/帧率不同、1080p 氛围与 fullredraw 成片交接、WP0–WP5（审查稿，四项关键选择已确认） |
 | `docs/plan/recompose-perf-plan.md` | 视频 recompose 性能：4K/8K 的逐阶段实测与瓶颈根因、R 区直通、缓冲复用、闸门最多分析 48 帧三项改动、预期收益与字节一致性验收（决策 77） |
 | `docs/plan/video-merge-input-plan.md` | 视频拼接输入：复用图片流的 `[merge] input` 指针与 `merge_input` 角色，视频「裁回原尺寸」可用采用结果、上传的 21:9 画布视频或素材库视频；前端抽共用控件（决策 78） |
-| `docs/plan/follow-input-resolution-plan.md` | 输出跟随输入分辨率：视频 recompose 与图片 merge 共用 `--follow-input` 的缩放规则、两条流程的输出命名、web `output_options` 与前端下拉框，含对比页识别与缩放闭合恒等式验收（决策 79） |
+| `docs/plan/follow-input-resolution-plan.md` | 输出跟随输入分辨率：视频 recompose 与图片 merge 共用 `--follow-input` 的缩放规则、两条流程的输出命名、web `output_options` 与前端下拉框，含对比页识别与缩放闭合恒等式验收（决策 79；§3 的缩放规则已由决策 90 取代） |
+| `docs/plan/follow-input-upload-size-plan.md` | 跟随输入改为按上传件自身尺寸派生：输出高取输入件高、带宽由输入件宽高比算出，取消「不小于源宽就不跟随」的闸门，配准曲线平坦时 `d*` 归零，含测试与 110503 实测验收（决策 90） |
 | `docs/plan/relight-8k-compose-perf-plan.md` | 8K 重打光合成性能：日志拆分（compose 占 85%）、`apply` 与 `soft_clip` 的逐项实测、四项像素等价改动与排除方案、优化前后对照与验收（决策 80） |
 | `docs/plan/relight-compose-threads-plan.md` | 8K 重打光合成读取与多线程：64 KB `os.read` 传输（298→62 ms/帧）、行带线程化 `apply`/`soft_clip`/引导滤波/求幂、内存实例生命周期七条、像素等价论证与验收（决策 82） |
 | `docs/plan/relight-tone-fidelity-plan.md` | 重打光强度区间与色彩保真：暗部置信权重让 strength 全区间可用、色度差低通压掉彩色台阶、交付统一 BT.709 标签；含锯齿来源判定、编码影响实测、行带并行加速与 WP0–WP5 验收（决策 84/85/86） |
 | `docs/plan/relight-regions-plan.md` | 重打光区域参数覆盖：球面多边形区域 + 逐参数覆盖（strength/local_shading/软裁切）、360 工作台与区域列表、逐像素参数场与零区域逐位一致、时间区间拆第二阶段、含极点盖帽第三阶段（决策 88/89；第一阶段与盖帽已实施） |
 | `docs/test-runs/20261105-relight-regions.md` | 区域覆盖阶段一验收：19 个区域单测与 web/前端单测、8K 素材单帧小样的区域内外差异、浏览器画区/覆盖/拖动与刷新持久化、未做的整段渲染与时间轴 |
 | `docs/test-runs/20261105-relight-pole-regions.md` | 区域盖帽（决策 89）实施与验收：`pole` 契约、引擎接缝/极点合成、前端唯一几何与「包含上方/下方」确认框；已做单测与 CLI 对照，浏览器端到端与 8K 整段待补 |
+| `docs/test-runs/20261105-follow-input-upload-size.md` | 跟随输入改为按上传件尺寸派生（决策 90）的实施与 110503 实测：下拉框消失与 43 px 残影两处根因、1892×946 与 1440×720 两次 CLI 结果、`d*=0` 对照与未做项 |
 | `docs/test-runs/20261030-relight-frontend.md` | 重打光前端接入的实施与验收：落点、合并后的 CLI 契约、槽位模型从「角色即槽位」改成「候选库 + 指针」的原因、8K 真实素材的 CLI 与浏览器两轮验收指标、`prompt` 短路修掉的 500、未做的浏览器上传与代理限制 |
 | `docs/test-runs/20261030-relight-space-e2e.md` | 视频重打光闭环验收：视频首帧 → 一次 4 张 4K 生成 → 画布闸门与拼接选型 → 整段重打光；含三处修复（提示词带宽只有白带一半、选帧前置闸门误杀、扫描解码器泄漏）与四张候选的逐项指标 |
 | `docs/test-runs/20261102-relight-decode-cache.md` | 视频重打光去重、缓存与运行计时验收：378 帧 8K 小样冷 66.6 秒/热 30.3 秒（原 128.1 秒）、换氛围图重新选帧、20 帧整段冷/热逐帧 maxdiff 0、各阶段耗时与门禁 |
