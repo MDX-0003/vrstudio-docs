@@ -47,7 +47,10 @@ vrstudio relight --gt …space.mp4 --atmo …cand2.png --out <dir> \
 
 - 退出码 0，单帧小样 3.40 秒（scan 0.04、read 0.59、align 0.24、fields 0.34、
   decode 0.57、compose 0.46、write 0.53）。
-- 报告新增 `regions`：`count 1`、`enabled 1`、`coverage 0.00804`、`clip false`。
+- 报告新增 `regions`：`file` 与 `sha256`（这次用的是哪一份区域文件）、`count`、`enabled`、
+  `clip`，以及逐区域的完整定义（`verts`、`params`、`feather_deg`）与 `coverage`。
+  完整定义写进报告，事后验收不依赖 `regions.json` 是否被改过；CLI 另外打一行
+  `regions: N defined, M enabled, from <path>` 进任务日志。
 
 与不带区域的一次运行逐像素比较（同一帧、同一参考帧）：
 
