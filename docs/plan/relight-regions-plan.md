@@ -1,8 +1,9 @@
 # 重打光区域参数覆盖（relight regions）方案
 
 状态：已批准（2026-11-05），对应决策 88；第一阶段 WP0–WP6 已实施，验收见
-`docs/test-runs/20261105-relight-regions.md`；第二阶段（时间区间）的方案见
-`docs/plan/relight-regions-time-plan.md`（审查稿，待批）；第三阶段
+`docs/test-runs/20261105-relight-regions.md`；第二阶段（时间区间）已实施，方案与验收见
+`docs/plan/relight-regions-time-plan.md` 与
+`docs/test-runs/20261106-relight-regions-time.md`；第三阶段
 （含极点盖帽，决策 89）已实施，验收见 `docs/test-runs/20261105-relight-pole-regions.md`。
 前置决策：48（relight 引擎）、
 56/59/60（视频重打光与前端一条 flow）、64/65（缓存与报告）、84/85（暗部权重与色度低通）、
