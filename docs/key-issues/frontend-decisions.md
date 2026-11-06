@@ -1014,6 +1014,45 @@ vitest 新增 `compare-step.spec.ts` 4 条：只渲染一块 canvas 与分割线
 - 其它流程若也要导出上传件，先确认它有「母版 + 画布」这一对尺寸；patch 的 clip 在 `firstLastFrame` 下不是母版，不能直接复用。
 - 上传件按 `<W>x<H>` 命名，改参数会多出一份；若要自动清理，先定「保留几份」的规则再动后端。
 
+## 30. 2026-11-06 · patch 选区页增加剪贴板导入导出范围
+
+**问题**
+
+同一场景的多个 patch case 经常要复用同一套取景，选区页只能在当前 case 里点全景、拖 inner、调 fov；跨 case 要么重做一遍，要么手改 `case.toml`。
+
+**原因**
+
+选区草稿（viewport/inner/frames）是 per-case 的，页面没有跨 case 搬运入口；`set_draft` 只接受调用方传进来的段，没有任何「从别处整段复制」的路径。
+
+**决策**
+
+- 右栏「重置选区」下面单独一行放「导出范围」「导入范围」两个并列按钮，只对 `flow = "patch"` 显示。
+- 剪贴板是 `vrstudio.patch.region` v1 JSON：`viewport`（yaw/pitch/fov/width/height）、`inner`、`frames`，另带来源 `case` 与 `exported_at` 仅供溯源，导入忽略。
+- 导出走 `GET /api/case/{name}/region/export` 读 `case.toml` 已保存值，不用前端可能尚未落盘的 ref。
+- 导入走 `POST /api/case/{name}/region/import`：先整段校验，再一次性写 viewport（只改角度，目标视口尺寸不变）、inner 与 frames；来源与目标视口尺寸不同时 inner 按宽高各自比例缩放并钳制，应答的 `scaled` 决定提示文案。
+- 导入应答沿用轻量 `_geometry_payload` 并附 `frames`，页面调现有 `applyGeometry()` 刷新预览与文字，同时向 `WizardView` 发出 `geometry` 事件把 `frames` 一并写进 `caseInfo`，切步回来不会看到旧帧范围。
+- 浏览器不支持 `navigator.clipboard` 或拒绝权限时：写失败先用 `document.execCommand('copy')` 兜底，仍失败弹「手动复制」框；读失败弹「手动粘贴」框，粘贴后走同一导入路径。
+
+**排除的方案**
+
+- 前端直接从 `props.info` 导出：fov 滑杆拖动中、其他标签页刚写入时拿到的不是 `case.toml` 的已保存值。
+- 只让前端 `POST /draft` 再自己拼预览：`/draft` 返回完整 case info（数秒），且不会刷新 `previews.vp` 的缓存 key。
+- 不带视口尺寸、inner 直接写像素：跨 1920×1080 与 3840×2160 时越界或错位。
+- 导入时把目标视口尺寸改成来源尺寸：会悄悄改掉目标 case 已定的采样密度与后续 merge 口径。
+
+**验证**
+
+`tests/test_web_console.py` 覆盖导出、同尺寸/不同尺寸导入、非法 payload、409 与 revision 递增；`frontend/tests/unit/pick-step.spec.ts` 覆盖按钮显隐、导出写剪贴板、导入后页面状态与 `geometry` 事件、非 JSON 不调接口、手动粘贴；浏览器端到端待人工执行（本会话没有浏览器工具），步骤见 `docs/test-runs/20261106-patch-region-clipboard.md`。
+
+**涉及文件**
+
+`vrstudio/src/vrstudio/web/app.py`、`web/render.py`、`frontend/src/views/wizard/PickStep.vue`、`views/WizardView.vue`、`api/workflow.ts`、`utils/clipboard.ts`、`types/case-info.ts`、`tests/test_web_console.py`、`frontend/tests/unit/pick-step.spec.ts`、`frontend/tests/unit/clipboard.spec.ts`。
+
+**后续入口**
+
+- patchimg 若也要复制选区，先补 fov 与帧范围的缺省语义，复用同一 payload 时必须把 `frames` 标成可选，不要另起一套格式。
+- 若将来要复制到完全不同的源视频，`inner` 的像素意义只由视口尺寸决定，与源 ERP 分辨率无关；需要「按 ERP 覆盖区域」复制时另立字段，不要改现有三段的含义。
+
 ## 待决与未做
 
 ### fullredraw 的 pad 不自动进提交清单（2026-10-27，待决）
