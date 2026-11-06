@@ -44,7 +44,9 @@ patch 的选区由三部分组成：视口的 yaw/pitch/fov、视口像素里的
     "height": 1080
   },
   "inner": { "x": 480, "y": 270, "width": 960, "height": 540 },
-  "frames": { "start": 0, "end": 299 }
+  "frames": { "start": 0, "end": 299 },
+  "fps": 30.0,
+  "frame_count": 300
 }
 ```
 
@@ -53,7 +55,10 @@ patch 的选区由三部分组成：视口的 yaw/pitch/fov、视口像素里的
 - `case` 与 `exported_at` 只用于人读和溯源，导入时忽略；不同 case 之间粘贴是正常用法。
 - `viewport.width`/`viewport.height` 是来源视口的采样尺寸，只参与 inner 缩放，不写进
   目标 case。
-- `frames.end` 与 `case.toml` 的 `[frames]` 一致，闭区间。
+- `frames` 是来源 fps 下的绝对帧号，闭区间；`fps` 与 `frame_count` 用来把它换成秒、
+  再落到目标 case 的时间轴，帧号本身不直接搬进目标。
+- 同一段 0.5–1.5 秒的选区，从 30 fps 的来源导到 24 fps 的目标会从 15–44 帧变成
+  12–35 帧；目标更短时结束帧截到最后一帧。
 
 ## 后端
 
@@ -80,18 +85,23 @@ case 不存在返回 404。导出只读，不推进 revision；导入写入 `cas
 - 角度按现有 setter 的精度落盘：yaw/pitch 保留两位小数，fov 保留一位。
 - `viewport.width`、`height` 是正整数；`inner` 的 x/y 非负、width/height 为正，且
   `x + width <= 来源视口宽`、`y + height <= 来源视口高`。
-- `frames.start`、`end` 是整数，`0 <= start < end <= 当前 case 帧数 - 1`；读不到当前
-  case 帧数时返回 400，提示无法校验帧范围。
+- `fps` 为正数，`frame_count` 为正整数；`frames.start`、`end` 是整数，并且
+  `0 <= start < end <= 来源 frame_count - 1`。
+- 帧范围换算：来源与目标 fps 相同（相对误差 1e-3 内）时保留原帧号；不同时按
+  `start / source_fps`、`(end + 1) / source_fps` 得到半开秒区间，再乘目标 fps 取整。
+  换算后起点超过目标最后一帧时返回 400，提示目标时长与来源秒区间；结束帧超过目标
+  最后一帧时截到最后一帧，应答带 `frames_clamped=true`。
 - inner 按 `目标视口宽 / 来源视口宽`、`目标视口高 / 来源视口高` 缩放并四舍五入；
   取整可能越界 1 像素，写盘前把 x/y 钳到 `[0, 目标尺寸 - 1]`、width/height 钳到不越界。
-- 当前 case 没有视口时返回 400，提示先在选区页选一次视口尺寸。
+- 当前 case 没有视口、或读不到来源/目标的 fps 与帧数时返回 400，提示无法换算。
 
 ### 写入与预览刷新
 
 `PreviewStore.import_region()` 一次调用写入 viewport（只改 yaw/pitch/fov，尺寸保持）、
 inner 和 frames，再刷新预览 key；端点用 `_remember_store()` 保住已解码的 ERP 帧缓存，
-返回 `_geometry_payload(store, name, frames=..., scaled=...)`。`scaled` 表示 inner 是否
-因尺寸不同被缩放，前端用它决定提示文案。应答里的 `frames` 让前端不必再拉完整 case info。
+返回 `_geometry_payload(store, name, frames=..., scaled=..., frames_clamped=...)`。
+`scaled` 表示 inner 是否因尺寸不同被缩放，`frames_clamped` 表示帧范围是否被目标时长
+截断，前端用这两项决定提示文案。应答里的 `frames` 让前端不必再拉完整 case info。
 
 ### 缩放规则共用
 
@@ -133,8 +143,9 @@ inner 和 frames，再刷新预览 key；端点用 `_remember_store()` 保住已
    - 用应答的 `frames` 更新帧范围输入框；
    - 向父组件 `emit('geometry')`，使 `WizardView` 的 `caseInfo` 同步 viewport/inner/
      previews/frames，切走再回来不会看到旧帧范围。
-4. 成功提示：尺寸一致时 `已导入选区范围`；尺寸不同时
-   `已导入选区范围；inner 已按当前视口 1920×1080 缩放`。
+4. 成功提示：尺寸一致且帧范围未截断时 `已导入选区范围`；尺寸不同时追加
+   `inner 已按当前视口 1920×1080 缩放`；帧范围被截断时追加
+   `帧范围已按目标时长截到 0–239`。两项都发生时用「；」连接。
 
 剪贴板工具放 `frontend/src/utils/clipboard.ts`：`writeClipboard(text)` 返回是否成功，
 `readClipboard()` 在不可用时抛 `ClipboardUnavailableError`，页面据此决定是否弹手动对话框。
@@ -143,14 +154,19 @@ inner 和 frames，再刷新预览 key；端点用 `_remember_store()` 保住已
 
 ### 后端（`tests/test_web_console.py`）
 
-1. 导出返回已保存的 viewport/inner/frames、`kind` 与 `version`，不返回完整 case info。
+1. 导出返回已保存的 viewport/inner/frames、来源 `fps`/`frame_count`、`kind` 与
+   `version`，不返回完整 case info。
 2. 导出对 fullredraw 与 patchimg 返回 400，未知 case 返回 404。
 3. 同尺寸导入：yaw/pitch/fov/inner/frames 逐字段落盘，应答含 `frames`、`scaled=false`。
 4. 不同尺寸导入：目标视口尺寸不变，inner 按比例缩放取整，应答 `scaled=true`。
-5. 非法 payload：kind/version 不符、fov 越界、pitch 越界、inner 超出来源视口、
-   帧范围超过当前 case 帧数、缺 frames，全部 400 且 case.toml 不变。
-6. 带过期 `X-Case-Revision` 的导入返回 409，不写盘。
-7. 导入成功后 revision 加一，`case.toml` 的 `[frames]` 与 `[inner]` 同步更新。
+5. 不同 fps：来源 30 fps 的 15–44 帧（0.5–1.5 秒）导到 24 fps 目标，落成 12–35 帧。
+6. 目标更短：来源 0–299 帧导到 8 帧目标，截成 0–7 并返回 `frames_clamped=true`。
+7. 起点已超过目标时长：400，提示目标最后一帧与来源秒区间，不写盘。
+8. 非法 payload：kind/version 不符、fov/pitch/yaw 越界、inner 超出来源视口、
+   帧范围超出来源总帧数、缺 frames/fps/frame_count、fps 非正，全部 400 且
+   case.toml 不变。
+9. 带过期 `X-Case-Revision` 的导入返回 409，不写盘。
+10. 导入成功后 revision 加一，`case.toml` 的 `[frames]` 与 `[inner]` 同步更新。
 
 ### 前端（`frontend/tests/unit/pick-step.spec.ts`、`clipboard.spec.ts`）
 
@@ -158,9 +174,10 @@ inner 和 frames，再刷新预览 key；端点用 `_remember_store()` 保住已
 2. 点击导出调用 `exportRegion` 并把格式化 JSON 写入剪贴板，提示含尺寸与帧范围。
 3. 点击导入把解析后的对象交给 `importRegion`，成功后 yaw/pitch、inner 文案、fov
    数值与帧范围全部更新，`geometry` 事件带 `frames`。
-4. 剪贴板内容不是 JSON 时不调用导入端点，提示错误。
-5. `navigator.clipboard.readText` 不存在时打开手动粘贴对话框，提交后走同一导入路径。
-6. `clipboard.ts`：正常读写、写失败时走 `execCommand` 兜底、读不可用时抛专用错误。
+4. 应答带 `frames_clamped` 时提示「帧范围已按目标时长截到 …」。
+5. 剪贴板内容不是 JSON 时不调用导入端点，提示错误。
+6. `navigator.clipboard.readText` 不存在时打开手动粘贴对话框，提交后走同一导入路径。
+7. `clipboard.ts`：正常读写、写失败时走 `execCommand` 兜底、读不可用时抛专用错误。
 
 ## 验收
 
@@ -170,7 +187,9 @@ inner 和 frames，再刷新预览 key；端点用 `_remember_store()` 保住已
    B 的预览图、inner 框、yaw/pitch、fov 与帧输入框立即变成 A 的值；刷新后仍在。
 4. 两个 case 视口尺寸不同时，B 的视口尺寸不变，inner 的相对位置与大小按比例保留，
    提示带「已缩放」。
-5. 剪贴板里塞一段普通文本再点导入，页面提示内容不是选区且 case 不被修改。
+5. 目标 case 比来源短时，导入后的结束帧落在目标最后一帧，提示带「已按目标时长截到」；
+   目标 case 的 fps 与来源不同时，帧号按时间换算后落在同一段秒区间。
+6. 剪贴板里塞一段普通文本再点导入，页面提示内容不是选区且 case 不被修改。
 
 ## 工作包
 
