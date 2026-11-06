@@ -1055,6 +1055,45 @@ vitest 新增 `compare-step.spec.ts` 4 条：只渲染一块 canvas 与分割线
 - patchimg 若也要复制选区，先补 fov 与帧范围的缺省语义，复用同一 payload 时必须把 `frames` 标成可选，不要另起一套格式。
 - 若将来要复制到完全不同的源视频，`inner` 的像素意义只由视口尺寸决定，与源 ERP 分辨率无关；需要「按 ERP 覆盖区域」复制时另立字段，不要改现有三段的含义。
 
+## 31. 2026-11-06 · 裁回失败后给出「还是出片（诊断）」
+
+**问题**
+
+裁回（recompose）的几何前提闸门判 `fail` 时，CLI 故意不出片并退出 1。前端只能看到一条报错，既没有传 `--force` 的手段，也没有任何提示说明「什么时候值得强制看一眼」；运维或美术想让用户先确认内容时，只能去命令行手动跑。
+
+**原因**
+
+`--force` 从搬入以来只有 CLI 开关，web 的 `_op_argv` 没有把它翻出来；任务视图只有 `error` 原文，前端无法判断这次失败是不是「渲染被闸门拒绝」这一类。直接加一个常驻开关，用户在正常流程里勾上就会拿到一张接缝重复、绕一圈接不上的成片，而且它覆盖同名文件。
+
+**决策**
+
+- 入口跟着报错出现：只在最近一次裁回失败、且失败原因是几何前提闸门时，在「最近任务」的报错下面给出「还是出片（诊断）」按钮。不做常驻开关，也不给 patch 的 merge/拼接加这个入口（`vrstudio merge` 没有 `--force`）。
+- 按钮上方常驻两段说明：第一段写利害（接缝出现重复或错位、最后一段接回开头时接不上、只能用来先看画面不能交付、会覆盖同名成片），第二段写适用范围（只有「几何前提校验失败」值得点；文件缺失、参数错、编码失败之类的报错点它没有意义）。
+- 点击先走 `ElMessageBox.confirm`，确认框里重复利害与适用范围；确认后以 `{ force: true }` 重新提交 `recompose`，取消则不发请求。
+- 任务视图新增 `error_kind` 字段，由服务端按报错原文里的稳定片段归类（`web/tasks.py` 的 `ERROR_KINDS`，当前只有 `geometry premise failed` → `geometry`）。前端只认类别名，不匹配报错原文；文案变化只改服务端一处。
+- `POST /api/case/{name}/run` 的 recompose 分支在 `force` 为真时追加 `--force`；闸门判定与 `verdict` 语义完全留在 CLI，web 不做第二套判定。
+
+**排除的方案**
+
+- 常驻开关：误点概率最高，用户不需要报错也能勾上，违背「入口出现即说明原因」。
+- 常驻开关 + 失败后才可勾选：多一层状态判断，视觉上仍是一个平时就在的控件，说明文字与报错分离。
+- 前端直接匹配 `latest.error` 里的英文前缀：CLI 文案一改前端就静默失效，且文案知识会散落到两处。
+- 给 `force` 单开一个接口：现有 `/run` 已经是 op + body 的唯一入口，多一个端点等于多一份转发逻辑。
+- 强制出片后改文件名（加 `_forced` 后缀）：会让成片列表出现两份同名来源，`_output_files`、对比页与代理缓存都要跟着加例外；覆盖同名是既有语义，确认框里已经写明。
+
+**验证**
+
+`tests/test_recompose_force.py` 覆盖 `_op_argv` 带/不带 `force`、与 `--follow-input` 同时出现、`error_kind` 只认几何闸门原文、`Task.view()` 输出 `error_kind`；`frontend/tests/unit/merge-step.spec.ts` 覆盖按钮只在 `error_kind = "geometry"` 时出现、其它报错不出现、确认后调用 `runOperation('p1', 'recompose', { force: true, output_mode: 'case' })`、取消时不发请求。`uv run pytest` 与 `uv run ruff check .`、`vue-tsc -b`、`eslint`、`prettier --check` 全绿；浏览器端到端待人工执行（需要一次真实的几何闸门失败）。
+
+**涉及文件**
+
+`vrstudio/src/vrstudio/web/app.py`、`web/tasks.py`、`frontend/src/views/wizard/MergeStep.vue`、`types/task.ts`、`tests/test_recompose_force.py`、`frontend/tests/unit/merge-step.spec.ts`。
+
+**后续入口**
+
+- 若以后还有别的「拒绝出片但想先看一眼」的闸门（例如图片拼接的 `stitch_image`），先给那条 CLI 加显式 `--force`，再在 `ERROR_KINDS` 里登记一个类别，页面按类别复用同一个确认框，不要为每条流程各写一个按钮。
+- `error_kind` 是任务视图的字段，不是冻结契约；新增类别不改变已有取值。
+
 ## 待决与未做
 
 ### fullredraw 的 pad 不自动进提交清单（2026-10-27，待决）
