@@ -1,7 +1,8 @@
 # 重打光区域参数覆盖（relight regions）方案
 
 状态：已批准（2026-11-05），对应决策 88；第一阶段 WP0–WP6 已实施，验收见
-`docs/test-runs/20261105-relight-regions.md`；第二阶段（时间区间）待做；第三阶段
+`docs/test-runs/20261105-relight-regions.md`；第二阶段（时间区间）的方案见
+`docs/plan/relight-regions-time-plan.md`（审查稿，待批）；第三阶段
 （含极点盖帽，决策 89）已实施，验收见 `docs/test-runs/20261105-relight-pole-regions.md`。
 前置决策：48（relight 引擎）、
 56/59/60（视频重打光与前端一条 flow）、64/65（缓存与报告）、84/85（暗部权重与色度低通）、
@@ -190,7 +191,8 @@ JSON 校验自动跟上。CLI 侧同一份表用于校验未知键与取值。
 
 - `components/relight/RegionWorkbench.vue`：工作台容器，持有区域状态与保存队列。
 - `components/relight/ErpRegionViewer.vue`：视图与叠加层，暴露 `yaw/pitch/fov` 与指针事件。
-- `components/relight/RegionList.vue`、`RegionParamGroup.vue`、`RegionTimeline.vue`。
+- 区域列表与参数组目前在 `RegionWorkbench.vue` 与 `ParamRow.vue` 内；第二阶段新增
+  `components/relight/RegionTimeline.vue`。
 - `constants/relightParams.ts`：可覆盖参数的描述表（唯一来源）。
 - `components/relight/ParamRow.vue`：按描述表渲染一行控件，默认卡与区域卡共用；两者都不含
   手写的控件清单，差异只有「是否显示覆盖开关」这一个 prop。
@@ -298,9 +300,10 @@ out_lin = GT_lin × [I + s(x,y) × (W − I)] × gain × vis
 ### 4.5 小样按区域取帧
 
 新增 `--sample-at`：显式帧号列表优先于 `--sample N`。前端按选中区域的时间区间取起点、
-中点、终点三帧（无区间时取全片 25%/50%/75%），解决「均匀采样可能一张都没落在区域内」。
+中点、终点三帧（无区间时取全片 25%/50%/75%）的设想不在第二阶段接入（决策 91）：
+小样仍按 `--sample N` 全片均匀采样，区间内的取帧留给以后。
 
-### 4.5 区域高亮的实现
+### 4.6 区域高亮的实现
 
 填充不走屏幕空间多边形，而是把区域光栅化到一张 2:1 的等距柱状掩码（2048×1024），
 由片元着色器按经纬度采样后与视频混合。屏幕空间填充要求所有顶点都在相机前方，
@@ -318,10 +321,10 @@ out_lin = GT_lin × [I + s(x,y) × (W − I)] × gain × vis
 - **WP2 选区编辑**：多边形绘制（含实时虚线）、顶点拖动、删除、改名、配色、跨经线。
 - **WP3 参数组**：描述表驱动的参数行、默认/覆盖、软裁切、羽化、保存与回读。
 - **WP4 引擎**：`regions.py`、逐像素场、区域软裁切、白平衡混合；零区域逐位一致基线。
-- **WP5 小样**：`--sample-at` 与前端三帧选取。
+- **WP5 小样**：`--sample-at`（CLI；前端三帧选取按决策 91 推迟）。
 - **WP6 验收**：真实 8K 素材一轮完整流程，记录耗时、内存与报告。
 
-第二阶段：时间区间。
+第二阶段：时间区间（细化方案见 `docs/plan/relight-regions-time-plan.md`）。
 
 - **WP7 数据与引擎分段**：`ranges` 参与分段与场缓存；区间外等于区域不存在。
 - **WP8 时间轴**：区间拖拽、增删、播放头联动、列表摘要。
