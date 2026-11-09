@@ -95,7 +95,7 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 | `docs/plan/360-img-ab-routes-plan.md` | 8K 静图重绘的两条路线：分段局部链式（多 case 沿 360 传递、需 case 分组与子目录识别）vs 全幅 4K + 氛围参考（`fullRedrawImg` 流程，21:9 pad + mask + X 张 lighting_ref），含开发前置、CLI 工作包、评测指标与成本（决策 47；审查稿，待批） |
 | `docs/plan/patch-4k-region-plan.md` | patch 4K 大区域重绘：fov 与分辨率的分工、firstLastFrame / allMediaRef 两条 4K 路线、全流程操作、验收与失败处理（决策 49；P1 CLI 试点与 P2 Web 全链路待实施） |
 | `docs/plan/patch-region-clipboard-plan.md` | patch 选区范围的剪贴板导出/导入：`vrstudio.patch.region` v1 格式、视口尺寸与 inner 缩放、帧范围校验、两个端点与选区页按钮（决策 92） |
-| `docs/plan/pick-range-presets-plan.md` | pick 选区范围预设与合并输入：`[[range_preset]]` 列表与 active 指针、`derived/pick/draft.toml` 工作草稿、preset 保存/另存/双击载入、抽取 `--preset`、合并页按几何分组列抽取版本、patch 的 `[merge] input`（决策 97） |
+| `docs/plan/pick-range-presets-plan.md` | pick 选区范围预设与合并输入：`[[range_preset]]` 列表与 active 指针、`derived/pick/draft.toml` 工作草稿、preset 按首次保存时间命名、保存/另存/单击选中双击载入、抽取页复用 preset 列表、合并页按几何分组列抽取版本、patch 的 `[merge] input`（决策 97） |
 | `docs/plan/relight-video-plan.md` | 视频重打光最小方案：固定机位下一张氛围图打一段 GT 视频，对齐与光照场只估一次整段复用、参考帧来源、适用边界与验收（决策 56；已实施，验收见 `docs/test-runs/20261030-relight-video.md`；后续优化见 `relight-decode-cache-plan.md`） |
 | `docs/plan/relight-frontend-plan.md` | 重打光前端接入：一条 `relight` flow 按 GT 媒体派发、建 case 不绑源、素材库多候选 + 两把槽位指针、视频 N 帧小样预览、CLI 合并与 `--sample`/`--case`、三个子页与 WP0–WP5（已实施，验收见 `docs/test-runs/20261030-relight-frontend.md`） |
 | `docs/plan/relight-decode-cache-plan.md` | 视频重打光消除重复解码与固定光照缓存：删除同位检查、单遍取参考帧、按 GT/氛围图/参考帧缓存全精度相似变换、运行时间与分段计时（决策 64/65；代码已实施，8K 冷/热验收待补） |

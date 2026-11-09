@@ -32,8 +32,8 @@ active = "r1"
 
 [[range_preset]]        # 手动保存的选区；可多条，id 递增、删除后不复用
 id = "r1"
-name = "默认"
 created_at = "2026-11-09T16:30:00+08:00"
+updated_at = "2026-11-09T17:05:00+08:00"
 
 [range_preset.viewport] # 选区角度与视口像素尺寸
 yaw_deg = 0.0
@@ -80,8 +80,8 @@ active = "r1"
 
 [[range_preset]]
 id = "r1"
-name = "默认"
 created_at = "2026-11-09T16:30:00+08:00"
+updated_at = "2026-11-09T17:05:00+08:00"
 
 [range_preset.viewport]
 yaw_deg = -101.0
@@ -238,9 +238,9 @@ round = "dusk-3c1a4b2d"
 - `[submit]` 是可选的提交集：`selected` 是本次提交的有序 id 列表，`roles` 是可选的逐 id 角色映射。没有默认集，缺省等于空集，勾选才提交。角色按 `roles[id]` 取；没有该键时回退到 `[[assets]] role`，因此旧 case 不需要迁移。同一份清单里一个素材只出现一次；跨步骤可以重复引用，角色各自记录。clip/pad 用固定 id 也可以出现在 `selected` 里；mask 不写进 `selected`，由装配器在提交时自动追加。写入只发生在 vrstudio，vrgen 只读 refs JSON，不认识这两个字段。删除素材时同步从 `selected` 与 `roles` 移除；重排不改 id，`selected` 不动。旧 case 没有这个字段时按空集处理，升级后首次打开需要重新勾选一次。
 - `target_aspect` 不在 case 里——它是平台 bucket 参数，进 vrstudio 项目配置。
 - `[[range_preset]]` 是手动保存的选区（可变）；`[pick] active` 指向当前选中的那条。
-  preset 的 name 与 viewport/inner/frames 都可改：`保存` 用当前工作草稿覆盖当前条，
-  `另存为` 新建一条；`vrstudio extract name --case X [--preset ID]` 按选中的 preset 抽取，
-  缺省用 active。
+  preset 不写名字：`created_at` 是首次保存时间，界面用它做标题；`updated_at` 是最近保存时间。
+  `保存` 用当前工作草稿覆盖当前条并刷新 `updated_at`，`另存为` 按当前时间新建一条；
+  `vrstudio extract name --case X [--preset ID]` 按选中的 preset 抽取，缺省用 active。
 - `derived/pick/draft.toml` 是 pick 页的工作草稿：点全景、拖 inner、改 fov、换视口尺寸、
   摇杆、改帧范围都只写它，不写 `case.toml`。它不是契约，CLI 不直接读；带
   `source_sha256`，源片换了就回退 active preset。
@@ -511,7 +511,7 @@ cases/<名>/
   result.mp4                     # 被采用的那轮结果
 ```
 
-patch/patchimg 的抽取版本不写 `meta.json`：preset 的 name 与几何都可变，preset id 不是稳定的历史键；版本的真实几何只在 `clip.json` / `image.json` 里。合并页按冻结几何分组，preset 只在几何匹配时作为标签出现。
+patch/patchimg 的抽取版本不写 `meta.json`：preset 的时间戳与几何都可变，preset id 不是稳定的历史键；版本的真实几何只在 `clip.json` / `image.json` 里。合并页按冻结几何分组，preset 只在几何匹配时按 `created_at` 作为标签出现。
 
 ## 4. vrgen CLI 契约
 
