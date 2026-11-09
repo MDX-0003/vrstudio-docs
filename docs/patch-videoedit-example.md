@@ -15,11 +15,11 @@
 ## 普通 videoEdit 的完整流程
 
 1. 新建 patch case，源片是完整视频。case.toml 里记录源文件路径和 sha256。
-2. 在 pick 页确定 viewport、inner、frames 三段草稿，点“保存范围”只写 case.toml；这时它们仍然可改。
-3. 点“运行抽取”。`vrstudio extract name` 把草稿冻结成 `extracts/<版本>/clip.mp4`、`clip_mask.png`、`clip.json`，同时从写好的 `clip.mp4` 读取首末帧并导出为 `first_frame_raw.png` / `last_frame_raw.png`（不是从原始 360 视频抽），供首尾帧工作台使用，并把 `[extract] current` 指向这个版本。冻结之后，已生成版本的几何和时间不再随草稿变化。
+2. 在 pick 页确定 viewport、inner、frames；点全景、拖 inner、改 fov、改帧范围都只写 `derived/pick/draft.toml`。点“保存”（或“另存为”）把当前 draft 写成 `case.toml` 的 `[[range_preset]]` 一条，并设为 `[pick] active`；之后仍可改，保存更新当前条，另存为新建一条。
+3. 点“运行抽取”。`vrstudio extract name --preset <id>` 把选中的 preset 冻结成 `extracts/<版本>/clip.mp4`、`clip_mask.png`、`clip.json`，同时从写好的 `clip.mp4` 读取首末帧并导出为 `first_frame_raw.png` / `last_frame_raw.png`（不是从原始 360 视频抽），供首尾帧工作台使用，并把 `[extract] current` 指向这个版本。冻结之后，已生成版本的几何和时间不再随 preset 或 draft 变化。
 4. videoEdit 提交。当前 clip 是整段 viewport 视频，模型看到的是这段 201 帧、带背景外圈的画面；在生成页勾选 clip（编辑母版）后提交；mask 作为编辑区域控制图由装配器自动附带，不参与勾选与编号，记录 inner，供 merge 融合使用。
 5. 采用结果。返回件落到 `extracts/<当前版本>/result.mp4`，adopt 指针写入 case。
-6. 运行 merge。merge 读源片、`clip.json` 和 `result.mp4`，重建 viewport 投影，把 AI 结果对齐到 clip 的帧数和 fps，只在 inner 区域融合，再把 viewport 反投影贴回 ERP 画布。
+6. 运行 merge。merge 读源片、`clip.json` 和 `result.mp4`（或 `[merge] input` 指向的外部重绘视口视频），重建 viewport 投影，把 AI 结果对齐到 clip 的帧数和 fps，只在 inner 区域融合，再把 viewport 反投影贴回 ERP 画布。
 7. `merge` 输出 `out/<抽取版本>_space.mp4`。它是 201 帧、完整 ERP 画布（8000×4000），第 i 帧对应源片第 `100 + i` 帧，不是整条 600 帧视频。
 8. `vrstudio assemble` 以源片、`_space.mp4`、`clip.json` 为输入，校验帧数/fps/源片哈希后，把源片前缀（0–99）、中段（100–300）、后缀（301–599）写成 `out/<抽取版本>_frame.mp4`；输出保持源片帧数、fps 与音频。web 在 merge 成功后自动排这个任务，整片抽取则跳过。
 

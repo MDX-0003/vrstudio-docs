@@ -27,20 +27,28 @@ flow = "patch"
 path = "../sources/ue_render_03.mp4"
 sha256 = "…"            # merge 前校验；防"几何配错视频"
 
-[viewport]              # 选区草稿：web pick 写入，extract 时冻结进 clip.json
+[pick]                  # 当前选中的范围预设；没有 preset 时可以为空
+active = "r1"
+
+[[range_preset]]        # 手动保存的选区；可多条，id 递增、删除后不复用
+id = "r1"
+name = "默认"
+created_at = "2026-11-09T16:30:00+08:00"
+
+[range_preset.viewport] # 选区角度与视口像素尺寸
 yaw_deg = 0.0
 pitch_deg = -10.0
 fov_h_deg = 90.0
 width = 1470
 height = 943
 
-[inner]                 # 白膜子区（视口内坐标）：真正送去重绘的部分
+[range_preset.inner]    # 白膜子区（视口内坐标）：真正送去重绘的部分
 x = 400
 y = 200
 width = 600
 height = 500
 
-[frames]
+[range_preset.frames]
 start = 24
 end = 168
 
@@ -49,9 +57,14 @@ current = "20260923T073001"   # → extracts/<时间戳>/；generate 与 merge �
 
 [adopt]                 # vrgen 台账里被采用的轮次；采用时结果已拷入本 case
 round = "dusk-c3a41f90"
+
+[merge]                 # 可选：外部重绘的视口视频；缺省回退 extracts/<current>/result.mp4
+input = "v2"            # 本 case 素材库里 kind = video 的一条
 ```
 
 patch 与 fullredraw 也可以有 `[[assets]]`（三视图、重绘定稿帧等文件素材）和可选的 `[submit] selected`，格式与 gen 示例相同；源视频仍然只放在 `[source]`。流程产物不写进 `[[assets]]`，路径由 `[extract] current` 或 manifest 决定；其中 patch 的 `clip`、fullredraw 的 `pad` 是用户可勾选的候选，mask 是流程自动附带的控制图（fullredraw 视频在没有任何用户图片时不附带，见 §2），首尾原始帧只进工作台输入区（见 §4 `--refs` 清单）。
+
+web pick 的高频操作只写 `derived/pick/draft.toml`；`vrstudio extract name --case X [--preset ID]` 按选中的 preset 抽取，缺省用 `[pick] active`。抽取版本的几何冻结在 `clip.json`，不记录 preset id。
 
 ### flow = "patchimg"（360 静图局部重绘：视口局部）
 
@@ -62,14 +75,22 @@ flow = "patchimg"
 path = "../sources/pano_8k.png"
 sha256 = "…"            # merge 前校验；源图必须是 2:1 ERP
 
-[viewport]              # 选区草稿：web pick 写入，extract 时冻结进 image.json
+[pick]
+active = "r1"
+
+[[range_preset]]
+id = "r1"
+name = "默认"
+created_at = "2026-11-09T16:30:00+08:00"
+
+[range_preset.viewport]
 yaw_deg = -101.0
 pitch_deg = 0.0
 fov_h_deg = 70.0
 width = 1920            # 16:9：图片模型支持的档位
 height = 1080
 
-[inner]                 # 视口内坐标：真正要重绘的区域，必须覆盖完整主体
+[range_preset.inner]    # 视口内坐标：真正要重绘的区域，必须覆盖完整主体
 x = 420
 y = 280
 width = 1080
@@ -146,9 +167,9 @@ input = "i2"            # 本 case 素材库里 kind = image 的一条，必须�
 ### 图片两条流程的共同契约（web 视角，2026-10-30 起）
 
 - 源与建案例：`[source] path/sha256`，源文件是 2:1 ERP 图片。`vrstudio case new --flow patchimg|fullRedrawImg --source <erp.png>` 与 web 建案例走同一条校验：比例绝对偏差超过 0.001 拒绝并报实际宽高；web 的图片源来自 `sources/` 目录或上传，后缀取 `_IMAGE_EXTS`。patchimg 建好即写入默认 16:9 草稿，fullRedrawImg 没有选区草稿、建完即可 extract。
-- 五步以 case 为单位：`case draft`（仅 patchimg）→ `extract name --case` → `generate submit --case [--num N] [--resolution 1K|2K|4K] [--image-model-id <id>] [--session-id <id>]` → `generate adopt --case --index N` → `merge --case`。web 复用现有 op（extract / submit / dry_run / adopt / merge），不新增 op 或子命令。
+- 五步以 case 为单位：`case draft`（仅 patchimg）→ `extract name --case [--preset ID]` → `generate submit --case [--num N] [--resolution 1K|2K|4K] [--image-model-id <id>] [--session-id <id>]` → `generate adopt --case --index N` → `merge --case`。web 复用现有 op（extract / submit / dry_run / adopt / merge），不新增 op 或子命令。
 - `[adopt] index` 两条流程都必填：`generate adopt` 在缺下标时直接拒绝，web 的 adopt 必须透传下标。
-- `[merge] input` 属于 fullRedrawImg 与 fullredraw：图片流程的 `merge --case` 按它取拼接输入，缺省或清空后回退 `extracts/<current>/result.png`；视频流程的 `recompose` 按它取输入，缺省或清空后回退 case 根目录的 `result.mp4`。web 的门控接受这两种来源，步骤页显示实际要用的那个文件。
+- `[merge] input` 属于 patch、fullRedrawImg 与 fullredraw：patch 的 `merge --case` 按它取外部重绘的视口视频，缺省或清空后回退 `extracts/<current>/result.mp4`；图片流程的 `merge --case` 按它取拼接输入，缺省或清空后回退 `extracts/<current>/result.png`；fullredraw 的 `recompose` 按它取输入，缺省或清空后回退 case 根目录的 `result.mp4`。web 的门控接受这些来源，步骤页显示实际要用的那个文件。
 - 输出分辨率默认等于 case 源尺寸；`recompose`（视频）与 `merge`（图片）都接受 `--follow-input`，改由输入件自身的宽高派生输出几何（画布等于输入件尺寸、带宽由输入件的宽高比算出），输入比案例分辨率大时输出也会更大，规则与边界见 `docs/plan/follow-input-upload-size-plan.md`。跟随输入时视频写 `out/<轮次>_<W>x<H>.mp4`、图片写 `out/<extract>_image_<W>x<H>.png`，与案例分辨率的成片并存；该选择只随单次运行，不写进 `case.toml`。配准代价曲线平坦（`warn`）时 `d*` 按 0 混合，报告记 0。
 - 产物：patchimg 写 `clip.png`、`clip_mask.png`、`image.json`；fullRedrawImg 写 `padded.png`、`padded_mask.png`、`image_pad.json`，提交时另存 `upload.png`/`upload_mask.png` 副本。两条流程的交付物都是 `out/<版本>_image.png`（不是 mp4）。
 - `image.json` 与 `image_pad.json` 的字段集不变；后者 manifest 的 `kind` 值为 `image`。
@@ -209,17 +230,26 @@ round = "dusk-3c1a4b2d"
 
 设计说明：
 
-- `[[assets]]` 不再是 gen 专属：patch、fullredraw 也可以有文件素材列表（三视图、重绘定稿帧等）。三条流程的既有段（patch 的 `[source]/[viewport]/[inner]/[frames]`、fullredraw 的 `[source]`、以及 `*_pad.json` manifest）不变。
+- `[[assets]]` 不再是 gen 专属：patch、fullredraw 也可以有文件素材列表（三视图、重绘定稿帧等）。三条流程的既有段（patch/patchimg 的 `[source]/[[range_preset]]`、fullredraw 的 `[source]`、以及 `*_pad.json` manifest）不变。
 - 原始源视频与流程产物（patch 的 clip/mask/首尾原始帧、fullredraw 的 pad/mask）不写进 `[[assets]]`，路径由 `[extract] current` 或 manifest 决定，避免与 `[source]` 的哈希契约形成双重真源。其中 clip/pad 作为可勾选候选；mask 由装配器自动附带，不作为用户素材；首尾原始帧只作工作台输入。提交契约不区分来源，也没有 `derived` 标记。merge 成片是流程输出，不作为生成提交候选。
 - 源视频为什么不并进 `[[assets]]`（2026-10-27 补充，与 gen 的差异在此说明）：patch 的 `[source] sha256` 是 merge 前的校验契约，同一份视频再记一条素材就是双重真源；fullredraw 的生成母版是 `pad` 产物（候选 id `pad`、角色 `edit_master`），源视频只被 `vrstudio pad` 读一次，并进素材库会让候选里出现两个 `edit_master` 视频，而提交几何由 manifest 决定，选错源会静默错片。此外 `[[assets]]` 的语义是"复制进 `cases/<name>/assets/` 的文件"，源视频是从共享池 `sources/` 直接引用的数 GB 原片，按 case 复制一份没有收益。gen 既没有流程段也没有流程母版，源视频本身就是第一条素材，所以 gen 反过来取消 `[source]`（见本节末尾的迁移说明）。界面上的统一由素材库承担：素材库在 `[[assets]]` 表格上方以只读「流程文件」组显示源视频与流程母版（`info.source_file` 与 `source === 'flow'` 的候选，可查名、查路径、打开原片，母版还标出是否已加入本次提交），不改动以上数据规则。
 - 角色词表：`edit_master`、`motion_ref`、`space_ref`、`scene_ref`、`lighting_ref`（光照参考，只给光源位置、色温、明暗对比与空气质感，不给构图与画面内容）、`subject_ref`、`first_frame`（首帧定稿图）、`last_frame`（尾帧定稿图）、`mid_frame`（中间过渡帧，预留）、`first_frame_raw`、`last_frame_raw`（工作台输入底图，由 patch 的 extract 从 clip 首尾导出）、`mask`（编辑区域标注图；由 patch/fullredraw 的流程产物提供，装配器自动附带，不作为用户候选，也不参与 `@ImageN` 编号；fullredraw 视频无前置图片时不附带，见 §2）。机器可读的权威是 `docs/roles.json`（每项含 name/label/help/prompt/kinds/modes/open/reserved），两仓库各存一份逐字节相同的副本。图片步另有 `detail_ref`（细节参考），只存在于 `keyframe.toml` 的 `refs`，不进入视频提交清单。用户素材的角色由用户在引用清单里选择，不按顺序推断；空角色是未完成状态，提交前必须补齐。
 - 当前前端开放的角色按素材种类区分：视频为 `edit_master`、`subject_ref`、`motion_ref`；图片在这三个之外增加 `lighting_ref`，因为光照参考只对图片成立。`firstLastFrame` 模式另开 `first_frame` / `last_frame`。`scene_ref`、`space_ref`、`mid_frame` 仍在后端词表里，用于旧 case 与直接调用 CLI 的路径；普通下拉不展示，旧值以「旧角色」标记显示，可改成开放角色。
 - `[submit]` 是可选的提交集：`selected` 是本次提交的有序 id 列表，`roles` 是可选的逐 id 角色映射。没有默认集，缺省等于空集，勾选才提交。角色按 `roles[id]` 取；没有该键时回退到 `[[assets]] role`，因此旧 case 不需要迁移。同一份清单里一个素材只出现一次；跨步骤可以重复引用，角色各自记录。clip/pad 用固定 id 也可以出现在 `selected` 里；mask 不写进 `selected`，由装配器在提交时自动追加。写入只发生在 vrstudio，vrgen 只读 refs JSON，不认识这两个字段。删除素材时同步从 `selected` 与 `roles` 移除；重排不改 id，`selected` 不动。旧 case 没有这个字段时按空集处理，升级后首次打开需要重新勾选一次。
 - `target_aspect` 不在 case 里——它是平台 bucket 参数，进 vrstudio 项目配置。
-- `[viewport]/[inner]/[frames]` 是**草稿**（可变）；`clip.json` 是**契约**（冻结）。
-  改范围 = 改草稿重新 extract = 新版本目录，两者分离避免 pick 迭代造成版本爆炸。
+- `[[range_preset]]` 是手动保存的选区（可变）；`[pick] active` 指向当前选中的那条。
+  preset 的 name 与 viewport/inner/frames 都可改：`保存` 用当前工作草稿覆盖当前条，
+  `另存为` 新建一条；`vrstudio extract name --case X [--preset ID]` 按选中的 preset 抽取，
+  缺省用 active。
+- `derived/pick/draft.toml` 是 pick 页的工作草稿：点全景、拖 inner、改 fov、换视口尺寸、
+  摇杆、改帧范围都只写它，不写 `case.toml`。它不是契约，CLI 不直接读；带
+  `source_sha256`，源片换了就回退 active preset。
+- `clip.json` / `image.json` 是抽取时冻结的契约；抽取版本不记录 preset id，也不写
+  `meta.json`。preset 可变，id 不是稳定的历史键；版本的真实几何只在冻结文件里。
+- 改范围 = 改 preset/draft 后重新 extract = 新版本目录，两者分离避免 pick 迭代造成版本爆炸。
 - `[extract] current` 是草稿→契约的"当前生效"指针：generate 与 merge 都认它，
   不采用"最新时间戳"这种在手工复制目录时会出错的隐式约定（vrpatch 先例）。
+- 合并页只列抽取记录，不把未抽取的 preset 当成合并项；preset 只在几何匹配时作为标签出现。
 - prompt-vars（提示词可变块：theme/style，外加模板选择）在 vrgen 侧按 job（=case 名）
   保存为 `runs/<job>/prompt-vars.toml`，case 不知道提示词的存在。
   **术语**：不用 vrpad 的 "brief"——避免与 vrpatch 网页选区草稿（viewport/inner）混淆。
@@ -447,6 +477,7 @@ cases/<名>/
     last_frame_raw.png           #   clip.mp4 末帧原始图（从 clip 读，不从源片抽）
     result.mp4                   #   被采用的那轮结果（adopt 时从 vrgen 拷入）
   derived/                       # 旧 merge 产物 out_<版本>.mp4 + .merge.json + pick/ 预览缓存
+    pick/draft.toml              #   pick 页工作草稿（web 私有，不是契约；高频几何写这里）
   out/<版本>_space.mp4           # 空间合并（merge）产物：n_seg 帧中段
   out/<版本>_frame.mp4           # 时间拼接（assemble）产物：整条源片等长
                                  # 整片抽取只有 _space；下游按 _frame → _space 回退
@@ -479,6 +510,8 @@ cases/<名>/
   # --- flow = gen ---
   result.mp4                     # 被采用的那轮结果
 ```
+
+patch/patchimg 的抽取版本不写 `meta.json`：preset 的 name 与几何都可变，preset id 不是稳定的历史键；版本的真实几何只在 `clip.json` / `image.json` 里。合并页按冻结几何分组，preset 只在几何匹配时作为标签出现。
 
 ## 4. vrgen CLI 契约
 

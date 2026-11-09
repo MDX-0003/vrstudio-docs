@@ -1,7 +1,9 @@
 # 视频拼接输入计划
 
-状态：2026-11-04 用户确认功能与文案，方案待实施。
-关联：决策 66、67、78，`docs/case-model.md` 的 `[merge]` 段与角色词表，`docs/roles.json`。
+状态：2026-11-04 用户确认功能与文案，方案待实施；2026-11-09 扩展到 patch（外部重绘的视口视频）。
+关联：决策 66、67、78、97，`docs/case-model.md` 的 `[merge]` 段与角色词表，`docs/roles.json`，`docs/plan/pick-range-presets-plan.md`。
+
+2026-11-09 补记：patch 的 `merge --case` 也认 `[merge] input`，指针指向本 case 素材库里 `kind = video` 的外部重绘视口视频；缺省或清空后回退 `extracts/<current>/result.mp4`。前端在合并页复用 `MergeInputControls`（`kind = "video"`），文案改成“外部重绘的视口视频”；patchimg 的贴回仍只接受 adopt 结果。
 
 ## 1. 现状
 
