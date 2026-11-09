@@ -159,7 +159,7 @@ end = 56
 - 顶部放一份与 pick 页同款的“保存的范围”列表，数据源是 `case.toml` 的 preset；不再有下拉框。点击行只选中本次抽取的 preset，不改变 draft；默认选中 active。
 - 运行抽取时把选中的 preset id 传给后端，CLI 用 `--preset` 读该 preset 的几何。
 - 抽取只在 preset 上运行，不读 draft；draft 有未保存改动时页面提示“先保存再抽取”。
-- 下面“抽取版本”列表的数据源是 `extracts`；行内显示版本时间、几何摘要、按时间匹配到的 preset 标签、是否有结果。点击版本行即把它设为 `[extract] current`，不再有“设为当前”“载入到当前范围”按钮。
+- 下面“抽取版本”列表的数据源是 `extracts`，只读展示；行内显示版本时间、几何摘要、按时间匹配到的 preset 标签、是否有结果。最新一版标“最新”，表示 generate 使用它；不再有“设为当前”“载入到当前范围”按钮，也不可点击。
 - 抽取页与 pick 页共用同一个行组件与样式，区别只在数据源与动作：preset 行可删除，版本行不可删除。
 - 抽取完成后 `[extract] current` 指到新版本，与现有行为一致。
 
@@ -169,11 +169,11 @@ end = 56
 - 抽取记录按几何分组去重：
   - 分组键是 `viewport` + `inner` + `frames`；角度按写入精度比较，inner 与帧号按整数比较。
   - 组头显示一次几何摘要，并显示来源标签：匹配到当前 preset 时按首次保存时间写“与 11-09 16:30 的范围相同”，没有匹配写“仅抽取记录”。
-  - 组内每个版本一行：时间戳、fps、是否有结果、是否当前；点击行即选中该版本并设置 `[extract] current`，行内不放“载入”“设为当前”按钮。
+  - 组内每个版本一行：时间戳、fps、是否有结果、是否已选；点击行只决定“本次合并用哪版”，不写 `[extract] current`，行内不放“载入”“设为当前”按钮。
   - 合并页与抽取页共用同一个行组件与样式，但数据源是 `extracts`；版本行不可删除。
-- 新增“合并输入”卡片，复用 `MergeInputControls`（`kind="video"`），文案改成“外部重绘的视口视频”；支持上传、从素材库选、用回采用结果。
-- 合并门控：当前抽取版本存在，且有采用结果或外部拼接输入；没有输入时给出具体原因。
-- 换版本时提示“请确认拼接输入是用当前版本的 clip 生成的”；第一版不做按版本绑定。
+- 新增“合并输入”卡片，复用 `MergeInputControls`（`kind="video"`），文案改成“外部重绘的视口视频”；只保留“上传并用作拼接输入”一个按钮。存在外部输入时，在输入名旁显示“改用采用结果”条件链接，用来清除 `[merge] input` 指针；不再有“从素材库选择”和并列的“用回生成结果”按钮。
+- 合并门控：所选版本存在，且有采用结果或外部拼接输入；没有输入时给出具体原因。
+- 换版本时提示“请确认拼接输入是用所选版本的 clip 生成的”；第一版不做按版本绑定。
 
 ### 4.4 剪贴板
 
@@ -192,9 +192,8 @@ end = 56
 - `POST /api/case/{name}/range-presets/{id}/save`：用当前 draft 覆盖该 preset 的 geometry 并刷新 `updated_at`；推进 revision。
 - `POST /api/case/{name}/range-presets/{id}/load`：把 preset 复制进 draft 并设 active；推进 revision。
 - `DELETE /api/case/{name}/range-presets/{id}`：删除；推进 revision。
-- `POST /api/case/{name}/extract-current`：body `{version}`；设置 `[extract] current`；推进 revision。
 - `POST /api/case/{name}/region/import`：改为写 draft；从 revision 写端点列表移除。
-- `POST /api/case/{name}/run`：`extract` 接受 `preset` 字段，转成 CLI `--preset`；`merge` 仍用当前抽取版本。
+- `POST /api/case/{name}/run`：`extract` 接受 `preset` 字段，转成 CLI `--preset`；`merge` 接受 `extract` 字段，转成 merge/assemble 的 `--extract`。合并页选版本不改 `[extract] current`。
 - 删除 `POST /api/case/{name}/draft` 与前端 `saveDraft`。
 
 `merge_ranges` 的结构：
@@ -222,7 +221,9 @@ end = 56
 
 - `vrstudio extract name --case X [--preset ID]`：缺省用 active；preset 不存在或不完整时报参数错并列出可用 id。
 - `vrstudio case draft --file ...`：默认更新 active preset；加 `--new` 时按当前时间新建一条。
-- `vrstudio merge --case X`：patch 也认 `[merge] input`；没有外部输入时回退 `extracts/<current>/result.mp4`。
+- `vrstudio merge --case X [--extract VERSION]`：patch 也认 `[merge] input`；没有外部输入时回退所选版本的 `result.mp4`；缺省 `--extract` 时用 `[extract] current`。
+- `vrstudio assemble --case X [--extract VERSION]`：时间拼接与 merge 使用同一个版本，避免合并了旧版、拼接却拿新版。
+- `[extract] current` 由 extract 自动指向新版本；generate 与首尾帧用它。合并页选版本不写这个指针。
 - `vrstudio case show`：显示 `presets=N active=ID`，便于排查。
 
 ## 7. 前端布局与交互
@@ -239,14 +240,14 @@ end = 56
 ### 7.2 抽取页
 
 - 顶部放一份与 pick 页同款的“保存的范围”列表，数据源是 `case.toml` 的 preset；不再有下拉框。点击行只选中本次抽取的范围，默认选中 active。
-- 下面“抽取版本”列表的数据源是 `extracts`；点击版本行即设为 `[extract] current`，行内不放“设为当前”“载入到当前范围”。
-- 两份列表共用同一个行组件与样式；preset 行可删除，版本行不可删除；徽标分别写“本次抽取”与“当前版本”。
+- 下面“抽取版本”列表的数据源是 `extracts`，只读；最新一版标“最新”，行内不放“设为当前”“载入到当前范围”，也不可点击。
+- 两份列表共用同一个行组件与样式；preset 行可删除，版本行不可删除；徽标分别写“本次抽取”与“最新”。
 - dirty 提示放在运行抽取按钮上方。
 
 ### 7.3 合并页
 
-- “合并范围”卡片按几何分组列版本；组头是几何摘要与按首次保存时间写的 preset 标签；组内版本整行点击即选中，行内不放按钮。
-- “合并输入”卡片放在合并范围下方；上传或选择外部视频后显示当前输入文件。
+- “合并范围”卡片按几何分组列版本；组头是几何摘要与按首次保存时间写的 preset 标签；组内版本整行点击即“本次合并选这版”，行内不放按钮；选版本不写 `[extract] current`。
+- “合并输入”卡片放在合并范围下方；只保留“上传并用作拼接输入”一个按钮；存在外部输入时在输入名旁显示“改用采用结果”链接，不再有“从素材库选择”。
 - 选中版本与当前输入不匹配的风险用文案提示，不做硬校验。
 
 ### 7.4 原型
@@ -254,7 +255,7 @@ end = 56
 WP0 先做静态可点击原型，覆盖：
 
 - pick 左栏的时间标签范围列表、保存/另存为、单击选中/双击载入、行尾删除；
-- 抽取页的 preset 列表与版本列表，共用行组件，点击即选中，不再有下拉框；
+- 抽取页的 preset 列表点击选中本次抽取范围，版本列表只读标“最新”，不再有下拉框；
 - 合并页的几何分组、整行点击选版本、合并输入。
 
 原型只做布局与状态，不接后端；用户确认后再写业务代码。原型与截图放在 `vrstudio/.tmp_prototype/`，不提交业务代码库。
@@ -283,8 +284,8 @@ WP0 先做静态可点击原型，覆盖：
 ### WP2：Web 草稿与 API
 
 - 新增 `web/pick_draft.py`；`PreviewStore` 改为读写 draft，缓存键加入 draft mtime。
-- `web/app.py`：`pick` 对象、preset 新建/保存/载入/删除、`pick-draft`、`extract-current`、`merge_ranges`、`_gates`、revision 正则、删除 `/draft`。
-- 测试：draft 不写 `case.toml`、源哈希守卫、损坏回退、preset CRUD、`extract-current`、`merge_ranges` 去重、合并门控。
+- `web/app.py`：`pick` 对象、preset 新建/保存/载入/删除、`pick-draft`、`merge_ranges`、`_gates`、revision 正则、删除 `/draft`；`merge` / `assemble` op 接受选中的 `extract` 版本。
+- 测试：draft 不写 `case.toml`、源哈希守卫、损坏回退、preset CRUD、`merge_ranges` 去重、合并门控、merge/assemble 使用显式版本。
 - 提交：vrstudio 一笔 `web:`。
 
 ### WP3：pick 页
@@ -296,9 +297,9 @@ WP0 先做静态可点击原型，覆盖：
 
 ### WP4：抽取页与合并页
 
-- 抽取页 preset 列表（复用行组件）与 `--preset` 传参；版本列表按时间显示 preset 标签，点击版本行设为当前。
-- 合并页几何分组版本列表、整行点击设 `extract-current`、`MergeInputControls` patch 文案、门控。
-- 测试：preset 选择、版本选择、外部输入、门控、切换提示。
+- 抽取页 preset 列表（复用行组件）与 `--preset` 传参；版本列表只读，最新一版标“最新”。
+- 合并页几何分组版本列表、整行点击只设置本次合并的局部版本、`MergeInputControls` 只留上传按钮、存在外部输入时显示“改用采用结果”链接、门控。
+- 测试：preset 选择、局部版本选择、外部输入、条件链接、门控、切换提示。
 - 提交：vrstudio 一笔 `前端：`。
 
 ### WP5：验收与收尾
@@ -315,16 +316,16 @@ WP0 先做静态可点击原型，覆盖：
 - 旧 case 顶层三段加载为 `r1`，保存后 `[[range_preset]]` 数值不变，`clip.json` 不被改写。
 - 新建 patch case 写默认 preset；patchimg preset 没有 frames；active 指向不存在的 id 报错。
 - `vrstudio extract --preset` 使用指定 preset 的几何；缺 preset 或不完整时报参数错。
-- patch 的 merge 用 `[merge] input` 指向的视频；没有指针时回退 `extracts/<current>/result.mp4`。
+- patch 的 merge 用 `[merge] input` 指向的视频；没有指针时回退所选版本的 `result.mp4`；`--extract` 显式指定版本时不用 `[extract] current`。
 - `_merge_ranges` 对同几何的多个版本只出一组，对仅抽取记录给空 preset 列表，对未抽取 preset 不出现。
-- 写 draft 的端点不改 `case.toml` mtime；preset 写端点与 `extract-current` 会推进 revision。
+- 写 draft 的端点不改 `case.toml` mtime；preset 写端点会推进 revision；合并页选版本只在前端局部生效，不写 case.toml。
 
 ### 9.2 前端
 
 - pick 页左栏列表显示 preset 的首次保存时间与最近保存时间；保存更新 active 与最近保存时间；另存为新建；单击选中、双击载入；删除生效；dirty 标记正确。
 - 帧范围改动只写 draft；刷新后 draft 还在，active 不变。
-- 抽取页顶部 preset 列表只选中本次抽取范围，不改变 draft；版本列表按时间显示 preset 标签，点击即设为当前。
-- 合并页只列抽取记录；同几何版本合并成组；组头标签按首次保存时间；点击版本行后 merge 用对应 `clip.json`；上传外部视频后 merge 门控放行。
+- 抽取页顶部 preset 列表只选中本次抽取范围，不改变 draft；版本列表只读，最新一版标“最新”，点击不改变任何状态。
+- 合并页只列抽取记录；同几何版本合并成组；组头标签按首次保存时间；点击版本行只决定本次合并用哪版；merge 用对应 `clip.json`；上传外部视频后 merge 门控放行；有外部输入时出现“改用采用结果”链接。
 
 ### 9.3 浏览器验收
 
@@ -335,7 +336,7 @@ WP0 先做静态可点击原型，覆盖：
 3. 合并页出现两个几何组；组头按 A/B 的首次保存时间显示匹配标签；上传一份外部视口视频，选中 A 的版本合并，确认输出用的是 A 的 `clip.json`。
 4. 切换到 B 的版本，确认合并输入提示与门控正确。
 5. 刷新 pick 页，确认 draft、active、dirty 状态正确；双击 preset 能载入。
-6. 点全景、拖 inner、改 fov、摇杆、改帧号时，`case.toml` mtime 不变；保存/载入/删除/切换抽取版本时变。
+6. 点全景、拖 inner、改 fov、摇杆、改帧号时，`case.toml` mtime 不变；保存/载入/删除 preset 时变；合并页切换版本不改 `case.toml`。
 
 ### 9.4 门禁
 

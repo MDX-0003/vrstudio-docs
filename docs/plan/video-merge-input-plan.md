@@ -3,7 +3,7 @@
 状态：2026-11-04 用户确认功能与文案，方案待实施；2026-11-09 扩展到 patch（外部重绘的视口视频）。
 关联：决策 66、67、78、97，`docs/case-model.md` 的 `[merge]` 段与角色词表，`docs/roles.json`，`docs/plan/pick-range-presets-plan.md`。
 
-2026-11-09 补记：patch 的 `merge --case` 也认 `[merge] input`，指针指向本 case 素材库里 `kind = video` 的外部重绘视口视频；缺省或清空后回退 `extracts/<current>/result.mp4`。前端在合并页复用 `MergeInputControls`（`kind = "video"`），文案改成“外部重绘的视口视频”；patchimg 的贴回仍只接受 adopt 结果。
+2026-11-09 补记：patch 的 `merge --case` 也认 `[merge] input`，指针指向本 case 素材库里 `kind = video` 的外部重绘视口视频；缺省或清空后回退所选版本的 `result.mp4`。前端在合并页复用 `MergeInputControls`（`kind = "video"`），文案改成“外部重绘的视口视频”；patchimg 的贴回仍只接受 adopt 结果。同日简化：拼接输入只保留“上传并用作拼接输入”一个按钮；存在外部输入时在输入名旁显示“改用采用结果”条件链接；共用组件里的“从素材库选择”和并列的“用回生成结果”按钮全部删除，fullRedrawImg 与 fullredraw 也按这套简化。
 
 ## 1. 现状
 
@@ -46,20 +46,20 @@
 
 ### 3.3 前端
 
-- 新增 `components/assets/MergeInputControls.vue`：展示当前输入、上传并用作拼接输入、从素材库选择、用回生成结果、提示文案；复用现有 `AssetUploadDialog` 与 `AssetPickerDialog`，向上 emit `updated`。
+- 新增 `components/assets/MergeInputControls.vue`：展示当前输入、上传并用作拼接输入、提示文案；存在外部输入时显示“改用采用结果”链接。复用现有 `AssetUploadDialog`，向上 emit `updated`；不再引入 `AssetPickerDialog`。
 - `MergeStep.vue` 的图片分支改用这个组件，行为不变；视频分支在「裁回原尺寸」按钮旁渲染同一个组件，`kind = "video"`。
 - `AssetUploadDialog.vue` 的 `destination="merge-input"` 增加 `mergeInputKind` prop，收件后缀、种类校验、标题与按钮文案按它取值。
-- `AssetPickerDialog.vue` 增加 `onlyKind` prop：现有 `mode="video"` 会同时列出图片，拼接输入需要只列目标种类。
+- 不再为拼接输入给 `AssetPickerDialog` 增加 `onlyKind` prop；共用组件的“从素材库选择”入口删除。
 
 ## 4. 验收
 
 1. 后端：`uv run pytest` 全绿、`uv run ruff check .` 干净。
 2. 前端：`npm run lint`、`npm run format:check`、`npm run test`、`npm run build` 全绿。
-3. 免额度端到端：临时 cases 目录建 fullredraw case，先 `pad` 出 21:9 画布视频，再把它作为拼接输入上传并选中；确认 `case.toml` 写入 `[merge] input`、步骤页输入显示该素材、`recompose` 参数使用它而不是 `result.mp4`，最后能出片。全程不调用生成接口。
-4. 图片流程回归：fullRedrawImg 的拼接输入用例全部保持通过。
+3. 免额度端到端：临时 cases 目录建 fullredraw case，先 `pad` 出 21:9 画布视频，再把它作为拼接输入上传并选中；确认 `case.toml` 写入 `[merge] input`、步骤页输入显示该素材、`recompose` 参数使用它而不是 `result.mp4`，最后能出片；存在外部输入时点“改用采用结果”能清空指针并回退。全程不调用生成接口。
+4. 图片流程回归：fullRedrawImg 的拼接输入用例全部保持通过；共用控件不再显示“从素材库选择”。
 
 ## 5. 提交
 
 1. 根仓库一笔 `docs:`：`case-model.md`、两份 `roles.json`、决策 78、本文与 `AGENTS.md` 索引。
 2. vrstudio 后端一笔：`case.py`、`web/app.py`、`roles.json` 与 SHA、后端测试。
-3. vrstudio 前端一笔：共用控件、上传对话框、素材选择器与前端测试。
+3. vrstudio 前端一笔：共用控件、上传对话框与前端测试。

@@ -52,8 +52,8 @@ height = 500
 start = 24
 end = 168
 
-[extract]               # 当前生效的抽取版本（web extract 时写入）
-current = "20260923T073001"   # → extracts/<时间戳>/；generate 与 merge 都以它为准
+[extract]               # 最新抽取版本（extract 时自动写入）
+current = "20260923T073001"   # → extracts/<时间戳>/；generate 与首尾帧默认以它为准，merge 可显式指定版本
 
 [adopt]                 # vrgen 台账里被采用的轮次；采用时结果已拷入本 case
 round = "dusk-c3a41f90"
@@ -247,8 +247,9 @@ round = "dusk-3c1a4b2d"
 - `clip.json` / `image.json` 是抽取时冻结的契约；抽取版本不记录 preset id，也不写
   `meta.json`。preset 可变，id 不是稳定的历史键；版本的真实几何只在冻结文件里。
 - 改范围 = 改 preset/draft 后重新 extract = 新版本目录，两者分离避免 pick 迭代造成版本爆炸。
-- `[extract] current` 是草稿→契约的"当前生效"指针：generate 与 merge 都认它，
-  不采用"最新时间戳"这种在手工复制目录时会出错的隐式约定（vrpatch 先例）。
+- `[extract] current` 是草稿→契约的“最新抽取”指针：generate 与首尾帧认它；merge 默认也认它，
+  但合并页选版本时通过显式参数指定，不写这个指针，避免为了合旧版把 generate 的当前版本改掉。
+  不采用“最新时间戳”这种在手工复制目录时会出错的隐式约定（vrpatch 先例）。
 - 合并页只列抽取记录，不把未抽取的 preset 当成合并项；preset 只在几何匹配时作为标签出现。
 - prompt-vars（提示词可变块：theme/style，外加模板选择）在 vrgen 侧按 job（=case 名）
   保存为 `runs/<job>/prompt-vars.toml`，case 不知道提示词的存在。
