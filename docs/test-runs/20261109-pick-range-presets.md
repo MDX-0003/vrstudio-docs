@@ -17,6 +17,7 @@
 - `vrstudio` `efdf013`：pick 页保存范围列表与草稿交互。
 - `vrstudio` `a82c2d9`：抽取页、合并页复用范围行与局部选版，合并输入控件简化。
 - `vrstudio` `80dab55`：载入 preset 时同步 active，修正合并输入显示。
+- `vrstudio` `3331521`：帧范围草稿写入后同步父级选区状态。
 - 根仓库：本验收记录与 `AGENTS.md` 索引。
 
 ## 自动门禁
