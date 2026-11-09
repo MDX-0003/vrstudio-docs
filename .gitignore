@@ -21,5 +21,9 @@ wizard-pick.png
 /tmp_green_probe/
 /docs/relight-explain/
 
+# 根目录下的本地测试素材与临时 case 副本：只在本机使用，不进文档仓库
+/*.mp4
+/.1109-test-gen/
+
 # 系统
 Thumbs.db
