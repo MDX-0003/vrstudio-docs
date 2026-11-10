@@ -1,6 +1,12 @@
 # 保存冲突的三条修复：覆盖出口、冲突收敛、几何落定校验
 
 状态：已实施，Playwright 端到端验证通过（2026-10-27）。
+2026-11-10 修订：**改动三「几何草稿落定帧带 revision 校验」已退役**。
+几何端点写的是 `derived/pick/draft.toml`，不再进入 revision 中间件，
+也不由前端带 revision 头；快速连点不再互相 409。revision 只守护
+`case.toml` 的显式保存。原因见决策 98，回归测试见
+`vrstudio/tests/test_revision_geometry.py`。
+
 涉及：`vrstudio/src/vrstudio/web/app.py`（revision 中间件）、
 `vrstudio/frontend/src/api/client.ts`、`views/WizardView.vue`。
 

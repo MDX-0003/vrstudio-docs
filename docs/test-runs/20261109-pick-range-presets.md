@@ -71,3 +71,17 @@
 - 未在浏览器里执行真实抽取与合并任务，因此没有新的 `clip.json` 与成片字节对照；显式 `--extract` / `[merge] input` 的 CLI 行为由 `tests/test_range_presets.py` 覆盖。
 - 外部视口视频上传后的“改用采用结果”链接与合并门控由 `frontend/tests/unit/merge-step.spec.ts` 的 stub 覆盖，未在浏览器里走真实上传。
 - 浏览器验收使用临时 case 副本与手工构造的两份 `clip.json`/`result.mp4`，只用于验证几何分组、标签与局部选版；它们不是真实抽取产物。
+
+## 2026-11-10 补充：快速点选触发保存冲突
+
+用户以访客身份快速点击全景时弹出“case 已被访客修改”。根因是旧的几何 revision 校验：前端给所有 case 请求自动带 `X-Case-Revision`，几何端点成功后又 `touch` revision；快速连点的多个请求携带同一 revision，第一个成功后其余 409。
+
+修复（vrstudio `a756b50`）：
+
+- `viewport` / `inner` / `nudge` / `viewport-size` / `pick-draft` / `region/import` 不再进入 `CaseRevisionMiddleware`，不检查、不推进、不返回 revision。
+- 前端 `withRevision` 不给这些几何路径加 revision 头；preset 保存等改 `case.toml` 的请求仍然带。
+- 回归测试：`tests/test_revision_geometry.py` 覆盖带头、旧头、坏头都被忽略且 revision 不推进；`api-client.spec.ts` 覆盖几何不带头、显式保存仍带头。
+
+浏览器回归：同一 pick 页面连续触发 8 次全景点击，全部落成 draft（yaw 从 `-49.4°` 到 `107.6°`），页面出现“未保存改动”，无冲突弹窗；`case-meta.json` revision 保持 `15` 不变。
+
+自动门禁：`uv run pytest` 全绿、`uv run ruff check .` 通过；前端 31 个测试文件、220 条测试通过，`npm run lint` 与 `npm run build` 通过。
