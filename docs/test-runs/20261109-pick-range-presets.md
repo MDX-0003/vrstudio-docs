@@ -85,3 +85,18 @@
 浏览器回归：同一 pick 页面连续触发 8 次全景点击，全部落成 draft（yaw 从 `-49.4°` 到 `107.6°`），页面出现“未保存改动”，无冲突弹窗；`case-meta.json` revision 保持 `15` 不变。
 
 自动门禁：`uv run pytest` 全绿、`uv run ruff check .` 通过；前端 31 个测试文件、220 条测试通过，`npm run lint` 与 `npm run build` 通过。
+
+## 2026-11-10 补充：抽取页去掉重复的“最新版本”并改写版本条目
+
+用户确认采用 A 方案：版本条目按几何匹配当前 preset，不新增 `extract.json`。
+
+- 删除抽取页顶部“最新版本 / 门控 / 抽取按钮”整条栏；按钮移到“保存的范围”右上角，文案为“抽取选中范围”，每次只按当前选中 preset 启动任务并新增版本。
+- “保存的范围”下方先展示“抽取版本”和“最近一次抽取任务”，“最新抽取产物”移到后面。
+- 版本条目改成带字段标签的卡片：
+  - `抽取于`：版本冻结文件（`clip.json` / `image.json` / `image_pad.json`）的 mtime；
+  - `对应范围`：按 `viewport + inner + frames` 精确匹配当前 preset，显示其 `updated_at`；多条同几何时显示最近保存并注明条数；匹配不上显示“未匹配到当前保存的范围”并加“范围已变”标签；
+  - `视口`：yaw / pitch / fov；
+  - `选区`：inner x/y、宽高、帧范围。
+- web `_extracts` 新增 `extracted_at`，不新增版本目录文件；前端类型同步。
+
+自动门禁：`uv run pytest` 全绿、`uv run ruff check .` 通过；前端 31 个测试文件、222 条测试通过，`npm run lint`、`npm run typecheck`、`npm run build` 通过。提交：vrstudio `4356af8`。
