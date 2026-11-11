@@ -28,8 +28,9 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
    重打光的对齐相似变换只在 `vrstudio/relight/align`；
    画布↔源映射只在 `_pad.json` manifest。别处不得复制这些规则。
 4. **像素基线**：几何/编码相关改动必须 pytest 全绿（含随迁的恒等式与 maxdiff==0 基线测试）
-   才能提交。编码语义以 `vrstudio/media` 的显式 profile 为准（决策 19 起全流程只有
-   H.264 8-bit yuv420p delivery 一档；像素基线测试自行钉 crf 0）。
+   才能提交。编码语义以 `vrstudio/media` 的显式 profile 为准（决策 99 起帧泵是 16-bit、
+   交付档是 HEVC Main10 yuv420p10le；只有浏览器预览代理保留 H.264 8-bit yuv420p；
+   像素基线测试自行钉 crf 0）。
 5. **流式逐帧**：视频处理一帧一帧过，禁止整片驻留内存（6K/8K 素材是硬约束）；
    禁止模块级可变缓存。
 6. **开发与提交门禁**：开工前先确认根仓库与相关子仓库 `git status` 干净；
@@ -109,6 +110,7 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 | `docs/plan/relight-tone-fidelity-plan.md` | 重打光强度区间与色彩保真：暗部置信权重让 strength 全区间可用、色度差低通压掉彩色台阶、交付统一 BT.709 标签；含锯齿来源判定、编码影响实测、行带并行加速与 WP0–WP5 验收（决策 84/85/86） |
 | `docs/plan/relight-regions-plan.md` | 重打光区域参数覆盖：球面多边形区域 + 逐参数覆盖（strength/local_shading/软裁切）、360 工作台与区域列表、逐像素参数场与零区域逐位一致、时间区间拆第二阶段、含极点盖帽第三阶段（决策 88/89；第一阶段与盖帽已实施） |
 | `docs/plan/relight-regions-time-plan.md` | 重打光区域时间区间（决策 91）：`ranges` 并集与校验、微秒级帧换算与分段、三条渲染路径的按段缓存与内存释放、时间轴交互与同轨不重叠、图片底版隐藏与兜底拒绝、WP0–WP6 与逐位基线（已实施，验收见 `docs/test-runs/20261106-relight-regions-time.md`） |
+| `docs/plan/video-10bit-plan.md` | 视频链路 16-bit 帧泵与 10-bit 交付档（决策 99）：色带实测依据、影响面清单、WP0–WP6 与验收；契约已改，代码待做 |
 | `docs/test-runs/20261105-relight-regions.md` | 区域覆盖阶段一验收：19 个区域单测与 web/前端单测、8K 素材单帧小样的区域内外差异、浏览器画区/覆盖/拖动与刷新持久化、未做的整段渲染与时间轴 |
 | `docs/test-runs/20261105-relight-pole-regions.md` | 区域盖帽（决策 89）实施与验收：`pole` 契约、引擎接缝/极点合成、前端唯一几何与「包含上方/下方」确认框；已做单测与 CLI 对照，浏览器端到端与 8K 整段待补 |
 | `docs/test-runs/20261106-relight-regions-time.md` | 重打光区域时间区间（决策 91）验收：8K 小样区间内外像素、378 帧整段 9 段耗时与内存、默认 crf 的前瞻差异归因、crf 0 短片段逐帧一致、浏览器新建/保存/刷新回读 |

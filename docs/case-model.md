@@ -514,6 +514,10 @@ cases/<名>/
 
 patch/patchimg 的抽取版本不写 `meta.json`：preset 的时间戳与几何都可变，preset id 不是稳定的历史键；版本的真实几何只在 `clip.json` / `image.json` 里。合并页按冻结几何分组，preset 只在几何匹配时按 `created_at` 作为标签出现。
 
+### `_pad.json` 的 `video` 表
+
+字段集不变，仍是 `encoder` / `crf` / `preset` / `pix_fmt` / `audio` / `metadata`；取值按决策 99 写 10-bit：`encoder = "libx265"`、`crf = 14`、`preset = "slow"`、`pix_fmt = "yuv420p10le"`、`audio = "copy"`、`metadata = "copy"`。读端只认 manifest 里写下的值，不从当前配置回填；改标准只改写入值，不改字段集。
+
 ## 4. vrgen CLI 契约
 
 case 创建入口（vrstudio）：
