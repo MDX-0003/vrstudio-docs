@@ -144,6 +144,20 @@
 改动：3.8 与 `docs/test-runs/` 的验收记录。
 验收：`uv run pytest` 全绿、`uv run ruff check .` 干净、前端单测通过；真实 case 的指标表与改动前逐项对照。
 
+## 4.1 提交切分
+
+硬规则 6 要求的是「提交前 pytest 全绿」，不是任何时刻全绿。所以红的状态只留在未提交的工作区里，能绿的提交只能发生在契约翻面的那一刻。两种切法：
+
+- **一次翻面**：media、redraw、patch、relight、web 与所有断言同一次提交。最终形态最干净，代价是三十多个文件的单次 diff，出问题时定位范围大；靠改动前的对照产物（旧成片 SHA256、PSNR 与色带指标表）保证每个 WP 有独立验收点。
+- **三步走**：第一步给 `FrameReader`/`FrameWriter` 加显式 depth 参数、默认仍 8-bit，配一条直接测 16-bit 往返的新测试，这一步是绿的且是真实新增能力；第二步翻默认（`FRAME_PIX_FMT` 改 `bgr48le`、拆掉 `config.py` 的 `pix_fmt` 锁、同步改全部消费方与断言），这是那个大提交；第三步把第一步留下的 8-bit 分支删干净，回到单一 16-bit 路径。代价是 media 层改两遍，中间态存在一条两种帧格式都能进的分支。
+
+### 测试纪律
+
+- 迁移期间不新增任何 `skip` / `xfail`。仓库里本来就有一层静默跳过：`test_videoio_smoke`、`test_e2e_fullredraw`、`test_assemble`、`test_patch_flow`、`test_relight_video`、`test_relight_regions` 在 `bin/ffmpeg.exe` 不存在时整文件 skip，而 CI 的 runner 上没有 `bin/`，所以 CI 今天就已经把全部真实编码测试跳过了。把 `bin/` 挪走能让本地「全绿」，绿掉的恰好是唯一能证明 16-bit 帧泵成立的几条。
+- 像素基线不能关。crf 0 的 `maxdiff == 0`（`test_videoio_smoke` 与 `test_roundtrip`）是「16-bit 改造没有动画面」的唯一证据。
+- 新增的色带回归测试与 16-bit 往返测试在本地写、本地跑红、改代码到绿，红的时候不提交。
+- WP6 验收加一条：`pytest -q -rs` 的跳过清单与改动前逐条一致，且 CI 上新增的跳过数为 0。
+
 ## 5. 风险与验证点
 
 - **平台输入件**：Seedance 的输入件能不能吃 10-bit HEVC 目前没有验证。WP1a 用一次真实提交换结论，这是唯一需要提前花的额度。
@@ -169,3 +183,20 @@
 5. 对比页默认代理可播，下载原件是 10-bit。
 6. pytest、ruff、前端测试全绿。
 7. 8K 内存与耗时数据记录在 `docs/test-runs/`。
+
+## 8. 实施状态（2026-11-11）
+
+已落地（vrstudio `563e02f`）：
+
+- 帧泵 `bgr48le`/uint16，交付与中间件 `libx265 + yuv420p10le`，`crf 0` 自动切 x265 无损。
+- `recompose` 量化到 0..65535，`to_gray` 统一回到 0..255 口径，注册与接缝指标含义不变。
+- `pad`、`recompose`、`seam_center` 全 16-bit；`merge`/`assemble`/`restore` 的 crf 默认改 14、preset 改 slow。
+- 浏览器对比页默认走代理；代理仍是 H.264 8-bit。
+- `pytest` 全绿、`ruff` 干净、前端 222 项通过。
+
+未做（按计划顺序）：
+
+- WP3 patch：`extract`/`restore` 仍用 `cv2.VideoCapture` 与 8-bit PNG，内部是 8-bit 内容写进 10-bit 容器；RIFE 的 PNG 中间件是外部工具，需要单独确认位深能力。
+- WP4 relight：`cli/relight.py` 新增 `_u8_reader`，在入口把 16-bit 降回 8-bit；引擎的 LUT 与 `SHADOW_PIVOT` 仍是 0..255 口径。
+- WP1a 平台输入件接受度：尚未做真实提交。
+- WP2 验收：尚未用 `cases/1110-0101` 重跑对比色带与 PSNR。
