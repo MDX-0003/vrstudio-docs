@@ -1,6 +1,7 @@
 # 首尾帧页排布重做（A2 · 通栏）与抽取页产物条
 
 状态：已实施（2026-10-26）。首尾帧页提交 `a0f51e7`，抽取页提交 `8695fd2`；浏览器验收记录见 `docs/test-runs/20261026-keyframe-extract-layout.md`。
+2026-11-12 修正：候选面板头部的图片模型/分辨率/候选张数/生成按钮行已删除，生成参数迁入与视频页共用的固定底栏；§3.1 与 WP3 里「头部放分辨率、数量、刷新、生成按钮」不再有效。替代方案见 `docs/key-issues/frontend-decisions.md` 条目 32。
 关联：`docs/plan/frontend-refactor-plan.md`（新前端总体计划）、`docs/key-issues/frontend-decisions.md`（前端决策惯例）、
 `vrgen/templates/keyframe-first.md` 与 `keyframe-last.md`（图1/图2/图3 的参考图分工来源）、
 `docs/plan/unified-file-view-plan.md`（`FileOpenLink` 与 `/file` 打开入口的既有机制）。
