@@ -55,3 +55,29 @@
 ## 5. 回退
 
 前端改动集中在 `frontend/src` 的六个文件与 `styles/base.css`；回退时把 `KeyframeStep.vue` 的底栏与候选标题栏恢复、删掉三个新组件即可。不涉及数据、`generation.toml` 格式或 CLI 契约。
+
+## 6. 第二轮：模型名称与档位跟随模型能力（同日）
+
+### 6.1 改动
+
+- `vrgen` 的 `mglc model list --type image` 不再传 `--page-size`；当前 mglc 不接受该 flag，之前整条列表命令失败，页面只能显示「模型 #44」。
+- `params show` 新增 `image`：从 `mglc model --type image --model-id <id>` 的 `componentSettings` 取 `name`、`ratios`、`resolutions`、`max_num`、`default_num`，按 job+model 24h 缓存；失败时用陈旧缓存，仍失败只回 `model_id`（有列表名时带 `name`）与 `error`。
+- 首尾帧底栏增加「比例」；比例选项是模型支持且与 patch 视口一致的值（当前只有 16:9）。分辨率与候选数改为消费 `image`；模型名优先用详情 `name`，列表读不到也不退回 id。
+- `keyframe/run` 接收 `ratio`，并在服务端校验 patch 视口比例与模型支持的档位。
+
+### 6.2 自动门禁
+
+- `vrgen`：`uv run pytest -q tests/test_cli.py` 全绿；新增列表无 `--page-size`、详情解析与缓存、缓存过期降级、无缓存降级四条断言。
+- `vrstudio`：`uv run pytest -q tests/test_web_console.py -k keyframe_run` 4 条全绿；新增比例与分辨率校验一条。
+- 前端：`vue-tsc -b` 通过；`keyframe-step.spec.ts` 17 条、`generate-step.spec.ts` 10 条全绿；`npm run build` 通过。
+
+### 6.3 真实数据与浏览器
+
+- `vrgen params show --job walk_4k` 返回 15 个图片模型；`image = {"model_id": 44, "name": "专业图片-2.5", "ratios": [8 个], "resolutions": ["1K","2K","4K"], "max_num": 4}`。
+- `mglc model --type image --model-id 25` 返回 `Seedream 4.5`，`resolutions = ["2K","4K"]`，`generateCountOptions = [1,2,3,4]`；对应模型切换后的档位收窄由前端单测覆盖。
+- Chrome headless（1600 宽，`walk_4k` 首尾帧页）确认底栏显示「专业图片-2.5 / 16:9 / 2K / 4 张」，模型名不再是「模型 #44」。
+- 未做：真实切换模型后提交（会扣额度）；比例下拉展开后的视觉检查（当前单项 16:9）。
+
+### 6.4 回退
+
+回退时删掉 `params show` 的 `image` 字段与 `models_image_<id>.json` 缓存、恢复 `--page-size`（仅当 mglc 重新支持）、把首尾帧底栏的比例/模型档位恢复为写死值。比例校验与 `keyframe/run` 的 `ratio` 字段一并回退。

@@ -116,7 +116,7 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 | `docs/test-runs/20261106-relight-regions-time.md` | 重打光区域时间区间（决策 91）验收：8K 小样区间内外像素、378 帧整段 9 段耗时与内存、默认 crf 的前瞻差异归因、crf 0 短片段逐帧一致、浏览器新建/保存/刷新回读 |
 | `docs/test-runs/20261106-patch-region-clipboard.md` | patch 选区范围剪贴板导入导出验收：8 条接口测试、9 条前端测试、构建产物与待人工执行的浏览器步骤 |
 | `docs/test-runs/20261109-pick-range-presets.md` | 选区范围预设与合并选版验收：真实旧 case 迁移、preset/draft 接口与前端测试、Chrome headless 的 pick/抽取/合并页面验收与未覆盖边界 |
-| `docs/test-runs/20261112-keyframe-submit-bar.md` | 首尾帧页复用生成页固定底栏验收：候选标题栏参数行删除、图片底栏字段、共用外壳与额度行、225 条前端测试与 Chrome headless 1440 宽验证、2 条与本轮无关的 pytest 环境失败 |
+| `docs/test-runs/20261112-keyframe-submit-bar.md` | 首尾帧页复用生成页固定底栏验收：候选标题栏参数行删除、图片底栏字段、共用外壳与额度行、225 条前端测试与 Chrome headless 1440 宽验证；第二轮补图片模型名称与按模型收窄的比例/分辨率/候选数（228 条前端测试）、2 条与本轮无关的 pytest 环境失败 |
 | `docs/test-runs/20261105-follow-input-upload-size.md` | 跟随输入改为按上传件尺寸派生（决策 90）的实施与 110503 实测：下拉框消失与 43 px 残影两处根因、1892×946 与 1440×720 两次 CLI 结果、`d*=0` 对照与未做项 |
 | `docs/test-runs/20261030-relight-frontend.md` | 重打光前端接入的实施与验收：落点、合并后的 CLI 契约、槽位模型从「角色即槽位」改成「候选库 + 指针」的原因、8K 真实素材的 CLI 与浏览器两轮验收指标、`prompt` 短路修掉的 500、未做的浏览器上传与代理限制 |
 | `docs/test-runs/20261030-relight-space-e2e.md` | 视频重打光闭环验收：视频首帧 → 一次 4 张 4K 生成 → 画布闸门与拼接选型 → 整段重打光；含三处修复（提示词带宽只有白带一半、选帧前置闸门误杀、扫描解码器泄漏）与四张候选的逐项指标 |

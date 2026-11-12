@@ -1135,6 +1135,50 @@ vitest 新增 `compare-step.spec.ts` 4 条：只渲染一块 canvas 与分割线
 - 首尾帧底栏的分辨率与候选张数仍只随本次提交生效，不写 `generation.toml`：视频页的 `resolution` 是视频输出档，两者语义不同；若以后要记住图片步的选择，另立字段，不要复用 `current.resolution`。
 - 会话保存在首尾帧页改为防抖 300 ms 并在生成前强制 flush；新增其他写 `generation.toml` 的控件时沿用同一队列，避免同一字段两个写入方。
 
+## 33. 2026-11-12 · 图片模型名称与档位跟随模型能力
+
+**问题**
+
+首尾帧底栏上线后，用户截图反馈图片模型下拉只有一个「模型 #44」，而且只写 id 认不出是哪个模型；同时分辨率固定 1K/2K/4K、比例固定 16:9，没有随图片模型变化。用户要求：
+
+> 图片模型只有一个可选项，且没有显示其通用名称，只写id用户是看不明白的。另外我需要确保分辨率、宽高比选项根据所选的不同图片模型，有不同的可选内容。
+
+**原因**
+
+1. `vrgen` 的 `_image_models_payload` 给 `mglc model list` 传了 `--page-size 100`，当前 mglc 0.2.3 不认识这个 flag，整条命令报错，列表返回空数组，页面只能把已保存的 id 补成「模型 #44」。
+2. 图片模型的比例与分辨率在 `mglc model --type image --model-id <id>` 的 `componentSettings` 里；`params show` 从未下发，前端只能写死 1K/2K/4K 与 16:9。
+3. 首尾帧页是 patch 专用，`merge` 对非 16:9 的 AI 成片直接拒绝，所以比例不能像视频页那样自由选。
+
+**决策**
+
+- `image_models` 不再传 `--page-size`；列表恢复 15 个图片模型与它们的通用名称。
+- `params show` 新增 `image`：`model_id`、`name`、`ratios`、`resolutions`、`max_num`、`default_num`，来自单模型详情的 `componentSettings`；按 job+model 24h 缓存，失败时用陈旧缓存，仍失败只回 id（有列表名时带名）与 `error`。
+- 首尾帧底栏新增「比例」；选项是模型支持且与 patch 视口一致的比例（当前只有 16:9）。分辨率与候选数改成模型能力：例如专业图片-2.5 是 1K/2K/4K，Seedream 4.5 只有 2K/4K、候选上限 2。
+- 模型名优先用详情 `name`；列表读不到时也不退回 id。
+- 切换模型保存后，`params show` 返回新的 `image`，页面按新档位收窄；当前值不在新清单时回落到可用档位。
+- `keyframe/run` 接收 `ratio`，并对 patch 视口与模型能力校验；模型不支持的档位在起任务前拒绝。
+
+**排除的方案**
+
+- 前端硬编码「模型 44 = 专业图片-2.5」：平台换 id、下架或改名就漂移，且第二份真源。
+- 只修列表、不修档位：用户的后半句需求仍在，分辨率与比例仍写死。
+- 比例放开成模型支持的全部 8 种：patch 的 firstLastFrame 成片会变成非 16:9，merge 直接拒绝，错误被推迟到视频步。
+- 在列表接口里给 15 个模型逐个拉详情：多 15 次 mglc 子进程，页面加载明显变慢，而页面一次只用一个模型。
+
+**验证**
+
+`vrgen/tests/test_cli.py` 覆盖列表不再带 `--page-size`、详情解析与缓存、缓存过期降级、无缓存降级保留名字；`vrstudio/tests/test_web_console.py` 覆盖 21:9 被 patch 视口拒绝、模型不支持的 1K 被拒绝、合规档位进入 argv。`frontend/tests/unit/keyframe-step.spec.ts` 覆盖模型名回退、模型能力收窄、切换模型后重算，17 条全绿；`generate-step.spec.ts` 10 条全绿。真实 `params show` 返回 15 个图片模型与 `image = 专业图片-2.5 / 1K,2K,4K / 8 个比例`；Chrome headless 在 `walk_4k` 上确认底栏显示「专业图片-2.5 / 16:9 / 2K / 4 张」。
+
+**涉及文件**
+
+`vrgen/src/vrgen/platform/models.py`、`vrgen/src/vrgen/cli.py`、`vrgen/tests/test_cli.py`、`vrstudio/src/vrstudio/web/app.py`、`vrstudio/tests/test_web_console.py`、`vrstudio/frontend/src/components/generate/KeyframeSubmitBar.vue`、`views/wizard/KeyframeStep.vue`、`api/keyframe.ts`、`types/case-info.ts`、`frontend/tests/unit/keyframe-step.spec.ts`、`docs/case-model.md`。
+
+**后续入口**
+
+- 图片模型详情缓存在 `vrgen_runs/<job>/models_image_<id>.json`；以后新增图片流程页面直接消费 `generation_params.image`，不要在前端写档位表。
+- 若以后要放开比例，先让 `merge` 接受与视口不同的成片（显式裁切或重新对齐），再改这里的比例过滤；不要只改下拉。
+- 模型详情读不到时页面仍可生成，但档位退回 1K/2K/4K 与视口比例；这是兜底，不应成为常态。
+
 ## 待决与未做
 
 ### fullredraw 的 pad 不自动进提交清单（2026-10-27，待决）
