@@ -149,7 +149,7 @@ case.toml ──写/读──▶ vrstudio/case.py ──校验(roles.py 词表 +
 1. **`modes` 目前只约束界面**。后端不逐条校验“角色 × 模式”；模式专属角色靠各模式的语义规则兜底（firstLastFrame 要求恰好一对首尾帧、不能带视频）。若未来要硬校验，在 `validate_mode` 里按已传入的 `mode` 逐条比对每个 ref 的 `modes` 即可，不需要扩展 refs 清单。
 2. **没有流程（flow）维度**。`modes` 是生成模式，不是流程；一个 `open` 的角色只要模式匹配，在 patch / fullredraw / gen 三个生成页都会出现。需要“只在 fullredraw 出现”这类角色时，要加 `flows` 字段并同时扩 payload 与前端过滤。
 3. **跨仓库漂移无法在单仓 CI 发现**。只能依靠逐字节副本 + 两个测试里的同一摘要，属于纪律性约束。
-4. **关键帧图片步是另一份小词表**：`subject_ref` / `detail_ref` 只存在于 `vrstudio/src/vrstudio/keyframe.py`（:25）与前端 `KEYFRAME_ROLE_OPTIONS`，服务于 `keyframe.toml`，不进入视频提交清单与 `roles.json`。改它不要动角色快照。
+4. **关键帧图片步是另一份小词表**：`subject_ref` / `detail_ref` / `lighting_ref` 只存在于 `vrstudio/src/vrstudio/keyframe.py` 与前端 `KEYFRAME_ROLE_OPTIONS`，服务于 `keyframe.toml`，不进入视频提交清单与 `roles.json`。改它不要动角色快照。
 5. **“旧角色”标签语义偏宽**：既表示“历史上用过、现在不开放”，也表示“当前模式不可用”。排查时先看该角色在当前 `modes` 里是否成立。
 6. **默认角色仍是前端规则**：新增角色不会自动成为默认；要改默认必须改 `defaultRole` 并跑前端测试。
 7. **快照内容与文档可能不同步**：`docs/case-model.md` §2 是人读说明，`roles.json` 是机器契约。改词表时两处一起改；契约测试只保证代码与快照一致，不保证文档同步。

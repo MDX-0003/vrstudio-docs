@@ -420,10 +420,14 @@ regions = "relight/regions.json"   # 可选：区域覆盖定义；不写表示�
 - 首尾帧工作台的当前状态存于 case 目录的 `keyframe.toml`（vrstudio 自有，不是
   case.toml 的段，也不是 vrgen 的契约）：`extract`（定稿基于哪个抽取版本）、
   `refs`（图片步的有序参考图清单，每项含 `asset`、`role`、`note`；`role` 为
-  `subject_ref` 或 `detail_ref`，恰好一张 `subject_ref`）、`[first]` / `[last]`
-  （轮次、候选序号、素材 id）。旧格式的单值 `sheet` 读取时视为只有一项
-  `subject_ref` 的清单。图片步的参考图由这份文件与原始帧解析，不读 `[submit]`；
-  视频提交清单只由生成页的引用条目决定，两者互不影响。
+  `subject_ref`、`detail_ref` 或 `lighting_ref`，`subject_ref` 最多一张、可以不在
+  第一位）、`[first]` / `[last]`（轮次、候选序号、素材 id）。`refs` 的顺序就是
+  图片步的上传顺序；首帧定稿在尾帧步骤追加在参考图之后。空清单写成
+  `refs = []`，表示用户明确要0 张；没有 `refs` 键时仍按旧 `sheet` 与素材库里
+  唯一一张 `subject_ref` 兼容。旧格式的单值 `sheet` 读取时视为只有一项
+  `subject_ref` 的清单。图片步单次最多10 张输入图（含底图与首帧定稿），所以
+  首帧参考图最多9 张、尾帧最多8 张。图片步的参考图由这份文件与原始帧解析，
+  不读 `[submit]`；视频提交清单只由生成页的引用条目决定，两者互不影响。
 - 每帧的定稿有两条路：从生成候选里挑（`[first].round` 是轮次目录名），或
   「直接用原始帧」——把当前抽取的 `*_frame_raw.png` 复制进 `[[assets]]`、角色
   写 `first_frame` / `last_frame`，`round` 记为 `extract`、`index` 为 1。
@@ -606,7 +610,7 @@ vrgen image submit --job <case 名> --template fullRedrawImg --vars-file prompt-
 
 `prompt show` 与 `prompt save` 在提供 `--refs` / `--mode` / `--canvas` / `--source` 时，会额外返回 `rendered`（展开后的完整提示词）和 `render_error`（缺哪个占位符）。展开只读，不建轮次、不碰平台；前端提示词面板默认显示 `rendered`，模板骨架可切换查看。
 
-`--vars-file` 指定草稿文件名（默认 `prompt-vars.toml`），只接受 job 目录下的裸文件名、必须以 `.toml` 结尾；首尾帧工作台用 `keyframe-vars.toml`，与视频提示词草稿互不覆盖。`--image-role` 与 `--image` 一一对应，用于展开模板里的计算键 `image_roles`（图片步的「图1/图2/图3」分工）；它不写进草稿，也不能用 `--set` 修改。
+`--vars-file` 指定草稿文件名（默认 `prompt-vars.toml`），只接受 job 目录下的裸文件名、必须以 `.toml` 结尾；首尾帧工作台用 `keyframe-vars.toml`，与视频提示词草稿互不覆盖。`--image-role` 与 `--image` 一一对应，用于展开模板里的计算键 `image_roles`（图片步的「图1/图2/图3」分工）；首尾帧模板另用 `image_roles_section`、`detail_rule`、`lighting_rule` 三个计算键做结构条件（详见 `docs/plan/keyframe-input-cap-plan.md` §3）。它们都不写进草稿，也不能用 `--set` 修改。
 
 ### `--refs` 提交资产清单（三个流程共用的唯一提交入口）
 

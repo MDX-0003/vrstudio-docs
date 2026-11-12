@@ -86,6 +86,7 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 | `docs/keyframe-workbench-plan.md` | 首尾帧重绘工作台方案：两帧展示、图片步提示词框架、两批手动生成与到视频步的交接（patch 已实施） |
 | `docs/plan/keyframe-page-layout-plan.md` | 首尾帧页排布重做（A2 通栏）与抽取页产物条：四格输入、三视图抽屉、候选与提示词通栏（已实施，验收见 `docs/test-runs/20261026-keyframe-extract-layout.md`） |
 | `docs/plan/asset-library-separation-plan.md` | 素材库独立页面与步骤内引用清单：文件库、视频提交集、图片参考集三层分离，选择器、旧版兼容与迁移（审查稿，待原型确认） |
+| `docs/plan/keyframe-input-cap-plan.md` | 首尾帧图片输入重排与 10 张上限：图1 进清单、0 张放行、三类角色、首帧9/尾帧8、结构条件计算键与提示词刷新（已实施，验收见 `docs/test-runs/20261112-keyframe-input-cap.md`） |
 | `docs/plan/unified-file-view-plan.md` | 统一文件视图方案：/file 按根寻址的白名单直开路由 + FileRow 组件，所有展示资产可查名查路径可单独打开（已实施，验收见 `docs/test-runs/20261026-unified-file-view.md`） |
 | `docs/plan/frontend-perf-compare-playback.md` | 对比页 360 视频播放卡顿排查与修复：B 路从未播放只靠 seek 挪进度（Playwright 实测实锤）、隐藏视频元素失去 GPU 上传快路径、每帧强制布局、播放画质下拉框（代理/原始分辨率，已实施，待真实浏览器验证） |
 | `docs/plan/case-owner-transfer-plan.md` | Case 负责人归属行与「归属到我的名下」方案：改主端点 + revision 乐观并发，不做认领/指派（已实施，Playwright 验证通过） |
@@ -117,6 +118,7 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 | `docs/test-runs/20261106-patch-region-clipboard.md` | patch 选区范围剪贴板导入导出验收：8 条接口测试、9 条前端测试、构建产物与待人工执行的浏览器步骤 |
 | `docs/test-runs/20261109-pick-range-presets.md` | 选区范围预设与合并选版验收：真实旧 case 迁移、preset/draft 接口与前端测试、Chrome headless 的 pick/抽取/合并页面验收与未覆盖边界 |
 | `docs/test-runs/20261112-keyframe-submit-bar.md` | 首尾帧页复用生成页固定底栏验收：候选标题栏参数行删除、图片底栏字段、共用外壳与额度行、225 条前端测试与 Chrome headless 1440 宽验证；第二轮补图片模型名称与按模型收窄的比例/分辨率/候选数（228 条前端测试）、2 条与本轮无关的 pytest 环境失败 |
+| `docs/test-runs/20261112-keyframe-input-cap.md` | 首尾帧图片输入重排与 10 张上限验收：0/9/10 张、图11 超限、提示词结构条件与刷新、233 条前端测试、8761 临时环境 21 条 CDP 断言 |
 | `docs/test-runs/20261105-follow-input-upload-size.md` | 跟随输入改为按上传件尺寸派生（决策 90）的实施与 110503 实测：下拉框消失与 43 px 残影两处根因、1892×946 与 1440×720 两次 CLI 结果、`d*=0` 对照与未做项 |
 | `docs/test-runs/20261030-relight-frontend.md` | 重打光前端接入的实施与验收：落点、合并后的 CLI 契约、槽位模型从「角色即槽位」改成「候选库 + 指针」的原因、8K 真实素材的 CLI 与浏览器两轮验收指标、`prompt` 短路修掉的 500、未做的浏览器上传与代理限制 |
 | `docs/test-runs/20261030-relight-space-e2e.md` | 视频重打光闭环验收：视频首帧 → 一次 4 张 4K 生成 → 画布闸门与拼接选型 → 整段重打光；含三处修复（提示词带宽只有白带一半、选帧前置闸门误杀、扫描解码器泄漏）与四张候选的逐项指标 |
