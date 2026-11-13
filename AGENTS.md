@@ -112,7 +112,8 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 | `docs/plan/relight-regions-plan.md` | 重打光区域参数覆盖：球面多边形区域 + 逐参数覆盖（strength/local_shading/软裁切）、360 工作台与区域列表、逐像素参数场与零区域逐位一致、时间区间拆第二阶段、含极点盖帽第三阶段（决策 88/89；第一阶段与盖帽已实施） |
 | `docs/plan/relight-region-boolean-plan.md` | 重打光区域选区的挖空渲染与几何式布尔：重叠语义不变（上层独占），画布按列表顺序叠色做到所见即引擎所得、区域排序操作、PS 式减去/相交为选中区域 `verts` 的几何裁剪（决策 100；已实施，浏览器验收待做） |
 | `docs/plan/relight-regions-time-plan.md` | 重打光区域时间区间（决策 91）：`ranges` 并集与校验、微秒级帧换算与分段、三条渲染路径的按段缓存与内存释放、时间轴交互与同轨不重叠、图片底版隐藏与兜底拒绝、WP0–WP6 与逐位基线（已实施，验收见 `docs/test-runs/20261106-relight-regions-time.md`） |
-| `docs/plan/video-10bit-plan.md` | 视频链路 16-bit 帧泵与 10-bit 交付档（决策 99）：色带实测依据、影响面清单、WP0–WP6 与验收；帧泵、recompose 与交付档已实施，patch/relight 内部仍 8-bit（WP3/WP4 待做） |
+| `docs/plan/video-10bit-plan.md` | 视频链路 16-bit 帧泵与 10-bit 交付档（决策 99）：色带实测依据、影响面清单、WP0–WP6 与验收；帧泵、recompose、patch 域（WP3）与 relight 域（WP4）均已 16-bit，验收见 `docs/test-runs/20261113-video-10bit-wp3-wp4.md`；WP1a 平台接受度与 WP2 真实 case 对照待做 |
+| `docs/test-runs/20261113-video-10bit-wp3-wp4.md` | WP3/WP4 实施与验收记录：patch 读写下 16-bit 帧泵、`FfmpegSink` 接 `[video]`、relight LUT 改 65536 项与 65535 满量程、8-bit 输入的行为等价论证、8K 整段 378 帧实测（374.8 s / 2737 MiB）、未做项 |
 | `docs/test-runs/20261105-relight-regions.md` | 区域覆盖阶段一验收：19 个区域单测与 web/前端单测、8K 素材单帧小样的区域内外差异、浏览器画区/覆盖/拖动与刷新持久化、未做的整段渲染与时间轴 |
 | `docs/test-runs/20261105-relight-pole-regions.md` | 区域盖帽（决策 89）实施与验收：`pole` 契约、引擎接缝/极点合成、前端唯一几何与「包含上方/下方」确认框；已做单测与 CLI 对照，浏览器端到端与 8K 整段待补 |
 | `docs/test-runs/20261106-relight-regions-time.md` | 重打光区域时间区间（决策 91）验收：8K 小样区间内外像素、378 帧整段 9 段耗时与内存、默认 crf 的前瞻差异归因、crf 0 短片段逐帧一致、浏览器新建/保存/刷新回读 |

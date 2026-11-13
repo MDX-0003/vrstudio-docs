@@ -184,19 +184,19 @@
 6. pytest、ruff、前端测试全绿。
 7. 8K 内存与耗时数据记录在 `docs/test-runs/`。
 
-## 8. 实施状态（2026-11-11）
+## 8. 实施状态（2026-11-13 更新）
 
-已落地（vrstudio `563e02f`）：
+已落地：
 
-- 帧泵 `bgr48le`/uint16，交付与中间件 `libx265 + yuv420p10le`，`crf 0` 自动切 x265 无损。
-- `recompose` 量化到 0..65535，`to_gray` 统一回到 0..255 口径，注册与接缝指标含义不变。
-- `pad`、`recompose`、`seam_center` 全 16-bit；`merge`/`assemble`/`restore` 的 crf 默认改 14、preset 改 slow。
-- 浏览器对比页默认走代理；代理仍是 H.264 8-bit。
-- `pytest` 全绿、`ruff` 干净、前端 222 项通过。
+- 帧泵 `bgr48le`/uint16，交付与中间件 `libx265 + yuv420p10le`，`crf 0` 自动切 x265 无损（vrstudio `563e02f`）。
+- `recompose` 量化到 0..65535，`to_gray` 统一回到 0..255 口径，注册与接缝指标含义不变（`563e02f`）。
+- `pad`、`recompose`、`seam_center` 全 16-bit（`563e02f`）；浏览器对比页默认走代理，代理仍是 H.264 8-bit（`563e02f`）。
+- WP3 patch 域全 16-bit（`f448036`，2026-11-13）：extract/restore/merge/assemble 的读写全部走 16-bit 帧泵，`to_u16` 是 8-bit 边界的唯一显式升位点；`FfmpegSink` 缺省改从 `[video]` 取（`--set` 对 patch 全链生效），libx264 过时注释与报告字段修掉。
+- WP4 relight 域全 16-bit（`97491b3`，2026-11-13）：删 `_u8_reader`，sRGB LUT 改 65536 项（反向表网格 2^20），compose 全部换 65535 满量程；8K 整段 378 帧实测与等价论证见 `docs/test-runs/20261113-video-10bit-wp3-wp4.md`。
 
 未做（按计划顺序）：
 
-- WP3 patch：`extract`/`restore` 仍用 `cv2.VideoCapture` 与 8-bit PNG，内部是 8-bit 内容写进 10-bit 容器；RIFE 的 PNG 中间件是外部工具，需要单独确认位深能力。
-- WP4 relight：`cli/relight.py` 新增 `_u8_reader`，在入口把 16-bit 降回 8-bit；引擎的 LUT 与 `SHADOW_PIVOT` 仍是 0..255 口径。
+- WP3 遗留：`cli/extract.py` 的 ERP 源解码（clip 中间件输入侧）仍走 cv2 8-bit，影响交给平台的输入件精度上限，不影响交付成片。
+- WP4 遗留观察：`GUIDED_EPS = 300` 疑似历史遗留（引导项实测不生效），改它会改画面，建议单独立项；拿到真实 10-bit 素材后应重跑 8K 对照。
 - WP1a 平台输入件接受度：尚未做真实提交。
 - WP2 验收：尚未用 `cases/1110-0101` 重跑对比色带与 PSNR。
