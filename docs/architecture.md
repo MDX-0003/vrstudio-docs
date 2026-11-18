@@ -195,24 +195,26 @@ vrpatch 的 ai-clip 注册端点改为调 `vrgen register`；extract/merge 仍 s
   vrstudio/              cases/  sources/  vrgen_runs/  logs/  bin/
 ```
 
-- **路径锚点**：`case.toml` 的 `[source] path` 相对仓库根，`[[assets]] path` 相对
-  case 目录，`REPO_ROOT` 由 `vrstudio/src/vrstudio/config.py` 的文件位置推导。
-  因此整仓搬到别的盘符或父目录后，代码与 case 都不需要改配置；仓库外的源文件
-  （绝对路径）是例外，搬迁后要人工改回可解析的路径。
-- **数据不能挪出仓库**：`sources/`、`logs/`、`bin/` 没有配置开关，路径都按
-  `REPO_ROOT` 拼；只有 `cases/`（`serve --cases-dir`）与 vrgen 台账
-  （`[generate] workdir`）能指到别处。把数据放到仓库外等于要求新增数据根配置键，
-  与决策 101 的取舍冲突。跨设备迁移的做法是：整个工作区按同样的相对位置重建，
-  运行时数据按同样的相对位置还原。
+- **路径锚点**：`case.toml` 的 `[source] path` 相对数据根，`[[assets]] path` 相对
+  case 目录。数据根由配置 `[paths] data_root` 决定，源码检出时等于仓库根；
+  `paths.data_root()` 是唯一解析点，`paths.resource_dir()` 负责程序资源
+  （`bin\`、`config\`、`templates\`、前端产物）。数据根外的源文件存绝对路径，
+  搬迁后要人工改回可解析的路径。
+- **数据与程序分离**：可写数据（`cases/`、`sources/`、`vrgen_runs/`、`logs/`）放在
+  数据根下，安装版可以把数据根指到非系统盘；`bin/`、`config/`、`templates/` 属于
+  程序资源，随安装目录，不跟数据根走。源码检出时两者同为仓库根，所以现有的
+  相对路径写法不用迁移。
 - **新设备部署**：`scripts/bootstrap.ps1` 做四件事——检查 git/uv/Node/7z、克隆或更新
   两个子仓库、装依赖并构建前端、解压运行时包。运行时目录已存在且非空时默认拒绝
   覆盖（`-Force` 才改名备份后覆盖），并生成本机 `vrstudio.toml`、在缺 mglc 时安装它。
+- **安装版分发**：源码之外还有一条 PyInstaller 目录式 + Inno Setup 的分发形态，
+  按当前用户安装到 `%LOCALAPPDATA%\Programs\VRAIGC`，程序资源随安装目录、可写数据
+  按 `[paths] data_root` 放在非系统盘。冻结后 `__file__` 落在 `<程序目录>\_internal\`，
+  `parents[2]`/`parents[3]` 仍指向程序目录，所以 `bin\`、`config\`、`templates\` 的
+  解析代码不变；数据根、自举与配置搜索顺序是这条分发形态唯一多出来的约定。
+  详见 `docs/plan/exe-packaging-plan.md` 与决策 102。
 - **旧数据迁移**：`vrstudio` 的 `scripts/migrate_source_paths.py` 把 `case.toml`
-  里落在仓库内的绝对路径改写成仓库根相对写法；默认 dry-run，`--apply` 落盘，
-  重复执行报 0 个。历史产物 JSON（`extracts/*/report.json`、`derived/*.json`）
-  里的绝对路径只用于显示，不参与几何解析，不迁移。
-- **旧数据迁移**：`vrstudio` 的 `scripts/migrate_source_paths.py` 把 `case.toml`
-  里落在仓库内的绝对路径改写成仓库根相对写法；默认 dry-run，`--apply` 落盘，
+  里落在数据根内的绝对路径改写成数据根相对写法；默认 dry-run，`--apply` 写回文件，
   重复执行报 0 个。历史产物 JSON（`extracts/*/report.json`、`derived/*.json`）
   里的绝对路径只用于显示，不参与几何解析，不迁移。
 

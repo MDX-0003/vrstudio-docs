@@ -25,5 +25,8 @@ wizard-pick.png
 /*.mp4
 /.1109-test-gen/
 
+# 打包产物（scripts/build-installer.ps1 写到工作区根的 build/）
+/build/
+
 # 系统
 Thumbs.db

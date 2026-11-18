@@ -35,7 +35,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$Root = (Split-Path -Parent $PSScriptRoot),
+    [string]$Root,
     [string]$Archive,
     [string]$RepoBase = 'https://github.com/MDX-0003',
     [switch]$Force,
@@ -45,6 +45,12 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+
+if (-not $Root) {
+    # $PSScriptRoot 在参数默认值里并非在所有调用方式下都可用，放到脚本体里再算。
+    if (-not $PSScriptRoot) { Write-Host '错误：拿不到脚本目录，请用 -Root 指定工作区根。' -ForegroundColor Red; exit 1 }
+    $Root = Split-Path -Parent $PSScriptRoot
+}
 
 # 运行时数据目录：解压后必须在这些位置上
 $RuntimeDirs = @('cases', 'cases_qa', 'sources', 'vrgen_runs', 'logs', 'bin')

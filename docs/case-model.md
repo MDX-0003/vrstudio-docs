@@ -16,15 +16,17 @@ vrgen 侧已于 2026-10-21 迁移完成（`submit` 只剩 `--refs`，本地半�
 生成侧的一切（提示词、分辨率档、task_id、素材 id、调用日志）都不进 case；
 它们住在 vrgen 的台账树里。case → vrgen 的唯一耦合是一行 `[adopt]` 指针。
 
-**文件路径一律按仓库根锚定，不写字面绝对路径。**
-`[source] path` 存相对仓库根的路径（正斜杠，如 `sources/ue_render_03.mp4`），
-读取时一律按仓库根解析；仓库外的文件（例如放在别的盘上的源片）才存绝对路径，
+**文件路径一律按数据根锚定，不写字面绝对路径。**
+数据根是可写数据的父目录（`cases/`、`sources/`、`vrgen_runs/`、`logs/` 都在它下面），
+由配置 `[paths] data_root` 决定；源码检出时数据根就是仓库根，所以下面的示例与老 case 都不用改。
+`[source] path` 存相对数据根的路径（正斜杠，如 `sources/ue_render_03.mp4`），
+读取时一律按数据根解析；数据根外的文件（例如放在别的盘上的源片）才存绝对路径，
 这类 case 换机器或换盘符后需要人工改回可解析的路径。`[[assets]] path` 是另一种
 锚点：相对 case 目录（`assets/…`），因为素材是复制进 case 的文件。
 两个锚点各管一类字段，不要再给第三种写法。
 旧 case 里的绝对路径用 `vrstudio` 仓库的 `scripts/migrate_source_paths.py` 一次性改写
-（默认 dry-run，`--apply` 落盘）：只把落在仓库内的绝对路径换成仓库根相对写法，
-仓库外的路径原样保留并列为待人工处理。
+（默认 dry-run，`--apply` 落盘）：只把落在数据根内的绝对路径换成数据根相对写法，
+数据根外的路径原样保留并列为待人工处理。
 
 ## 2. case.toml 格式
 
@@ -34,7 +36,7 @@ vrgen 侧已于 2026-10-21 迁移完成（`submit` 只剩 `--refs`，本地半�
 flow = "patch"
 
 [source]
-path = "sources/ue_render_03.mp4"    # 相对仓库根；换机器不用改
+path = "sources/ue_render_03.mp4"    # 相对数据根；换机器不用改
 sha256 = "…"            # merge 前校验；防"几何配错视频"
 
 [pick]                  # 当前选中的范围预设；没有 preset 时可以为空
