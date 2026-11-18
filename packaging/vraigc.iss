@@ -37,6 +37,14 @@ Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs c
 [Dirs]
 Name: "{app}\tools"
 
+[Tasks]
+Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: "附加图标："; Flags: unchecked
+
+[Icons]
+Name: "{group}\VRAIGC"; Filename: "{app}\vrstudio.exe"; WorkingDir: "{app}"
+Name: "{group}\卸载 VRAIGC"; Filename: "{uninstallexe}"
+Name: "{autodesktop}\VRAIGC"; Filename: "{app}\vrstudio.exe"; WorkingDir: "{app}"; Tasks: desktopicon
+
 [Run]
 Filename: "{app}\vrstudio.exe"; Description: "启动 VRAIGC"; Flags: postinstall nowait skipifsilent
 
@@ -120,7 +128,7 @@ begin
   ConfigPath := ExpandConstant('{userappdata}\vrstudio\default.toml');
   ForceDirectories(ExtractFileDir(ConfigPath));
   Text :=
-    '# 由 VRAIGC 安装器写入（决策 102）：数据根与两个可执行文件位置。' + CRLF +
+    '# Written by the VRAIGC installer (decision 102): data root and binary paths.' + CRLF +
     '[paths]' + CRLF +
     'data_root = "' + EscapeToml(DataRoot) + '"' + CRLF +
     CRLF +

@@ -24,11 +24,15 @@
    - 数据目录不要放在系统盘，也不要放在 OneDrive 等同步目录。
 
 3. 启动
-   - 双击安装目录里的 vrstudio.exe，或从开始菜单打开 VRAIGC。
-   - 控制台会打印 http://0.0.0.0:8760/ 与 data 目录位置；浏览器打开 127.0.0.1:8760。
-   - 局域网其它机器访问时，用本机 IP 加 8760，并放行防火墙：
-     New-NetFirewallRule -DisplayName 'VRAIGC 8760' -Direction Inbound -Protocol TCP -LocalPort 8760 -Action Allow
+   - 双击安装目录里的 vrstudio.exe，或从开始菜单打开 VRAIGC：它会直接启动控制台并打开浏览器
+     （监听 127.0.0.1:8760）。控制台窗口关掉，服务就停。
+   - 要让局域网其它机器访问，用命令行启动并指定监听地址：
+       vrstudio.exe --host 0.0.0.0 --port 8760
+     然后放行防火墙：
+       New-NetFirewallRule -DisplayName 'VRAIGC 8760' -Direction Inbound -Protocol TCP -LocalPort 8760 -Action Allow
+     其它机器用「本机 IP:8760」访问。
    - 控制台没有登录认证，只在可信网络里对外开放。
+   - 命令行还有全部子命令（extract / merge / relight 等）：vrstudio.exe --help。
 
 常见问题
 --------
