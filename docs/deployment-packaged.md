@@ -147,8 +147,10 @@ build\app\                         组装好的程序目录，可以直接试运
   `%LOCALAPPDATA%\Programs\mglc\bin`、`<程序目录>\tools\mglc.exe`、PATH 三处找。
 - **`ffmpeg` 相关报错**：检查 `bin\ffmpeg.exe` 是否被杀软隔离，从安装包或 zip 里补回来。
 - **补帧报 Vulkan 错误**：机器缺少可用的 Vulkan 驱动，补帧不可用，其它流程正常。
-- **端口 8760 被占用**：用 `Get-NetTCPConnection -LocalPort 8760` 看占用进程；本项目自己的旧实例会被
-  自动接管，别的程序占用要换端口。
+- **端口 8760 被占用**：控制台会直接报“端口 8760 已被占用”，换一个端口重试
+  （`vrstudio.exe --port 8761`），或先结束占用进程：
+  `Get-NetTCPConnection -LocalPort 8760` 看 pid，再 `Get-Process -Id <pid>` 确认。
+  本项目的旧实例会被自动接管，别家程序占用的不会被强行结束。
 - **局域网打不开**：确认启动参数带 `--host 0.0.0.0`、防火墙放行 8760、访问的是本机局域网 IP。
 
 ## 8. 与源码部署的关系
