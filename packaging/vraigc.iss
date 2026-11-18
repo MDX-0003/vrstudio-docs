@@ -41,7 +41,8 @@ Name: "{app}\tools"
 Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: "附加图标："; Flags: unchecked
 
 [Icons]
-Name: "{group}\VRAIGC"; Filename: "{app}\vrstudio.exe"; WorkingDir: "{app}"
+Name: "{group}\VRAIGC（本机）"; Filename: "{app}\vrstudio.exe"; WorkingDir: "{app}"
+Name: "{group}\VRAIGC（局域网）"; Filename: "{app}\vrstudio.exe"; Parameters: "--lan"; WorkingDir: "{app}"
 Name: "{group}\卸载 VRAIGC"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\VRAIGC"; Filename: "{app}\vrstudio.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 

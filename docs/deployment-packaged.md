@@ -34,7 +34,6 @@ VRAIGC\
 - 可选 **7-Zip**：有的话便携版压得更快；没有就用 PowerShell 自带的压缩。
 
 ### 2.2 命令
-
 ```powershell
 cd <工作区根>
 powershell -ExecutionPolicy Bypass -File .\scripts\build-installer.ps1
@@ -123,15 +122,44 @@ build\app\                         组装好的程序目录，可以直接试运
 
 ## 6. 启动、升级、卸载
 
-- 启动：双击 `vrstudio.exe` 或开始菜单里的 VRAIGC。不带子命令时它直接启动控制台并打开浏览器
-  （`serve` 的默认参数：监听 `127.0.0.1:8760`）；要换端口或对局域网开放，用命令行：
-  `vrstudio.exe --host 0.0.0.0 --port 8860`。`vrstudio.exe --help` 仍列出全部子命令。
-- 需要不带浏览器、纯后台起服务时用 `vrstudio.exe serve --host 0.0.0.0 --port 8760`
-  （`serve` 子命令默认不打开浏览器）。
+安装版开始菜单里有两个入口，对应两种使用方式：
+
+- **VRAIGC（本机）**：只监听 `127.0.0.1:8760`，供本机浏览器使用，双击后自动打开浏览器。
+- **VRAIGC（局域网）**：等价于 `vrstudio.exe --lan`，监听 `0.0.0.0:8760`，控制台会打印本机的
+  局域网地址，其它机器用那个地址访问；需要放行防火墙端口。
+
+命令行等价写法：
+
+```powershell
+vrstudio.exe                      # 本机模式，127.0.0.1:8760
+vrstudio.exe --lan                # 局域网模式，0.0.0.0:8760
+vrstudio.exe --lan --port 8860    # 换端口
+vrstudio.exe --host 0.0.0.0 --no-open   # 不自动开浏览器的等价写法
+vrstudio.exe serve --host 0.0.0.0       # serve 子命令，纯后台、不弹浏览器
+```
+
+便携版解压后由 `setup-config.ps1` 生成两个双击入口：`启动-本机.cmd`、`启动-局域网.cmd`，
+参数与安装版快捷方式一致。
+
 - 升级：再跑一次新的安装器，覆盖程序目录；数据目录不在程序目录里，不受影响。
   便携版替换 `VRAIGC\` 目录即可，已写好的本机配置不用重做。
 - 卸载：在“应用和功能”里卸载，只删程序目录；数据目录保留，需要时手动删。
 - 回滚：保留上一版安装包或 zip，重装即可；数据格式没有版本升级步骤。
+
+## 6.1 外部依赖怎么被找到（不需要改 PATH）
+
+安装包不会修改系统或用户 PATH。各依赖按固定位置查找，PATH 只是最后兜底：
+
+- **ffmpeg / ffprobe**：`<程序目录>\bin\`，vrstudio 直接按程序目录找；启动 vrgen 时注入
+  `VRGEN_BIN_DIR=<程序目录>\bin`。
+- **rife**：`<程序目录>\bin\rife-ncnn-vulkan*\`，同一套查找。
+- **vrgen**：安装器写进 `%APPDATA%\vrstudio\default.toml` 的 `[generate] vrgen` 绝对路径。
+- **mglc**：依次查 `<程序目录>\tools\mglc.exe`、`%LOCALAPPDATA%\Programs\mglc\bin\mglc.exe`、
+  环境变量 `VRGEN_MGLC_BIN`、PATH。找到后由 vrstudio 注入子进程环境，不依赖用户手工配 PATH。
+- **Python / Node**：打包版不需要，目标机不装也能跑。
+
+所以“把路径写进 PATH”不是这套分发的必要条件；如果 mglc 装在别的位置，把 `VRGEN_MGLC_BIN`
+指向它即可，或把该目录加进 PATH 作为兜底。
 
 ## 7. 排错
 

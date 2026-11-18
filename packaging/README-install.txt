@@ -23,16 +23,19 @@
      两者布局一致。
    - 数据目录不要放在系统盘，也不要放在 OneDrive 等同步目录。
 
-3. 启动
-   - 双击安装目录里的 vrstudio.exe，或从开始菜单打开 VRAIGC：它会直接启动控制台并打开浏览器
-     （监听 127.0.0.1:8760）。控制台窗口关掉，服务就停。
-   - 要让局域网其它机器访问，用命令行启动并指定监听地址：
-       vrstudio.exe --host 0.0.0.0 --port 8760
-     然后放行防火墙：
+3. 启动（两种模式）
+   - 开始菜单里有两条：
+       VRAIGC（本机）    只监听 127.0.0.1:8760，双击后自动打开浏览器
+       VRAIGC（局域网）  监听 0.0.0.0:8760，控制台会打印本机的局域网地址
+   - 桌面图标与「本机」等价；控制台窗口关掉，服务就停。
+   - 局域网模式下，其它机器用控制台打印的地址访问；首次需要在本机放行端口：
        New-NetFirewallRule -DisplayName 'VRAIGC 8760' -Direction Inbound -Protocol TCP -LocalPort 8760 -Action Allow
-     其它机器用「本机 IP:8760」访问。
+   - 命令行等价写法：vrstudio.exe（本机）、vrstudio.exe --lan（局域网）、
+     vrstudio.exe --lan --port 8860（换端口）。--help 列出全部子命令。
    - 控制台没有登录认证，只在可信网络里对外开放。
-   - 命令行还有全部子命令（extract / merge / relight 等）：vrstudio.exe --help。
+   - mglc、ffmpeg、rife 都不需要你配 PATH：程序按固定位置查找；
+     mglc 依次找 <程序目录>\tools\mglc.exe、%LOCALAPPDATA%\Programs\mglc\bin、
+     环境变量 VRGEN_MGLC_BIN、PATH。
 
 常见问题
 --------

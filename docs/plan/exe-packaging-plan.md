@@ -99,8 +99,15 @@
 
 - WP0–WP5 已完成：决策 102、`paths.py`、`[paths] data_root`、冻结自举与 mglc/bin 环境变量注入、
   两份 spec、`build-installer.ps1`、`vraigc.iss`、`setup-config.ps1`（便携版用）。
-- WP6 部分完成：pytest 与 ruff 全绿；冻结版 `serve` 与便携版全流程在开发机验证通过；
-  安装器编译成功（Inno Setup 6.7.3，550 MB）。
-- WP6 待补：安装器在正常桌面环境执行一次真实安装。开发环境的非交互会话里 setup 进程启动后
-  停在 0 CPU、无日志，判断为不可见弹窗阻塞，与脚本本身无关。
+- 安装器在开发机完成一次真实安装（用户操作），数据目录与配置写入正常；此前“静默安装卡住”的
+  判断非脚本问题，是构建环境里不可见弹窗导致。
+- 启动分两种模式：开始菜单两条入口（本机 / 局域网），对应 `vrstudio.exe` 与 `vrstudio.exe --lan`；
+  便携版生成 `启动-本机.cmd` / `启动-局域网.cmd`。
+- 外部依赖不写 PATH：ffmpeg/rife 走程序目录 `bin\`，vrgen 走配置绝对路径，mglc 依次查
+  `<程序目录>\tools`、`%LOCALAPPDATA%\Programs\mglc\bin`、`VRGEN_MGLC_BIN`、PATH。
+- 打包前验收脚本 `scripts/preflight-packaged.ps1`：把真实 case 复制到临时数据根，用打包后的 exe
+  跑 `merge --case` 与 `relight --case --sample 3`；任何一条失败即非零退出。`VRSTUDIO_DATA_ROOT`
+  环境变量用于这类临时覆盖。
+- 已修：中文素材名导致 `cv2.imwrite` 静默失败、rife 收到空目录后访问冲突崩溃（源码版同样存在）。
+- WP6 剩余：安装器在另一台干净机器上装一次并跑同一套 preflight。
 - 分发说明见 `docs/deployment-packaged.md`。

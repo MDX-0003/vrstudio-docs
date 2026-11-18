@@ -109,12 +109,22 @@ if ($onPath) {
 '@ -ForegroundColor Yellow
 }
 
+# 便携版没有开始菜单，写两个双击入口；参数与安装版的快捷方式一致。
+$shellDir = Split-Path -Parent $AppDir
+$localCmd = "@echo off`r`nchcp 65001 >nul`r`n`"$exe`"`r`npause`r`n"
+$lanCmd = "@echo off`r`nchcp 65001 >nul`r`n`"$exe`" --lan`r`npause`r`n"
+$utf8 = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText((Join-Path $shellDir '启动-本机.cmd'), $localCmd, $utf8)
+[System.IO.File]::WriteAllText((Join-Path $shellDir '启动-局域网.cmd'), $lanCmd, $utf8)
+Write-Ok "已生成启动入口：$shellDir\启动-本机.cmd、启动-局域网.cmd"
+
 Write-Host @"
 
-配置完成。启动方式：
-  "$exe"
+配置完成。启动方式（两种模式）：
+  本机：    "$exe"
+  局域网：  "$exe" --lan
+           控制台会打印本机局域网地址；其它机器用它访问，并放行端口：
+           New-NetFirewallRule -DisplayName 'VRAIGC 8760' -Direction Inbound -Protocol TCP -LocalPort 8760 -Action Allow
 
-局域网访问：启动后控制台会打印 0.0.0.0:8760，其它机器用本机 IP 访问，
-并放行端口：
-  New-NetFirewallRule -DisplayName 'VRAIGC 8760' -Direction Inbound -Protocol TCP -LocalPort 8760 -Action Allow
+也可以直接双击上面生成的 启动-本机.cmd 或 启动-局域网.cmd。
 "@
