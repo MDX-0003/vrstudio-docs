@@ -70,7 +70,8 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 |---|---|
 | `docs/architecture.md` | 总架构、模块树、拷贝映射表、默认决策 |
 | `docs/deployment-new-host.md` | 新 host 设备部署手册：工具链、bootstrap.ps1、验收清单、踩坑排查 |
-| `docs/plan/exe-packaging-plan.md` | 离线安装版打包计划：路径与数据根约定、WP0–WP6、打包脚本与验收（审查稿） |
+| `docs/plan/exe-packaging-plan.md` | 离线安装版打包计划：路径与数据根约定、WP0–WP6、打包脚本与验收（WP0–WP5 已实施） |
+| `docs/deployment-packaged.md` | 打包版分发文档：安装器与便携版的构建、安装、升级、卸载与排错 |
 | `docs/case-model.md` | case.toml 格式、vrgen CLI 契约、台账格式（两仓库的唯一接口权威） |
 | `docs/decisions.md` | 决策记录（已拍板 + 待确认默认） |
 | `docs/spec/asset-roles.md` | 素材角色的设置与运行机制：词表快照、kind/modes 规则、新增角色的步骤、约束分层与排查表 |

@@ -94,3 +94,13 @@
 - `sys._MEIPASS` 在 PyInstaller 6 的目录式下指向 `_internal`，升级 PyInstaller 大版本时要重新验证。
 - 未签名 exe 会被 SmartScreen 拦，目标机器首次运行需要手工放行。
 - mglc 随版本更新，安装版里的提示要写成“去固定位置找最新版”，不能写死版本号。
+
+## 4. 实施状态（2026-11-18）
+
+- WP0–WP5 已完成：决策 102、`paths.py`、`[paths] data_root`、冻结自举与 mglc/bin 环境变量注入、
+  两份 spec、`build-installer.ps1`、`vraigc.iss`、`setup-config.ps1`（便携版用）。
+- WP6 部分完成：pytest 与 ruff 全绿；冻结版 `serve` 与便携版全流程在开发机验证通过；
+  安装器编译成功（Inno Setup 6.7.3，550 MB）。
+- WP6 待补：安装器在正常桌面环境执行一次真实安装。开发环境的非交互会话里 setup 进程启动后
+  停在 0 CPU、无日志，判断为不可见弹窗阻塞，与脚本本身无关。
+- 分发说明见 `docs/deployment-packaged.md`。

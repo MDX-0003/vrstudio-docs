@@ -34,7 +34,8 @@ param(
     [string]$Version,
     [switch]$SkipFrontend,
     [switch]$SkipVrgen,
-    [switch]$SkipVrstudio
+    [switch]$SkipVrstudio,
+    [switch]$Portable
 )
 
 $ErrorActionPreference = 'Stop'
@@ -147,13 +148,54 @@ Write-Ok "程序目录：$app"
 Write-Step '编译安装器'
 $iscc = @(
     'C:\Program Files (x86)\Inno Setup 6\ISCC.exe',
-    'C:\Program Files\Inno Setup 6\ISCC.exe'
+    'C:\Program Files\Inno Setup 6\ISCC.exe',
+    (Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe')
 ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+function New-PortablePackage {
+    param([string]$Version, [string]$AppDir, [string]$OutDir)
+    $stageDir = Join-Path $build 'portable'
+    if (Test-Path $stageDir) { Remove-Item $stageDir -Recurse -Force }
+    New-Item -ItemType Directory -Force $stageDir | Out-Null
+    Copy-Item $AppDir (Join-Path $stageDir 'VRAIGC') -Recurse -Force
+    Copy-Item (Join-Path $Root 'packaging\setup-config.ps1') $stageDir -Force
+    Copy-Item (Join-Path $Root 'packaging\README-install.txt') $stageDir -Force
+    $zip = Join-Path $OutDir "VRAIGC-$Version-portable.zip"
+    if (Test-Path $zip) { Remove-Item $zip -Force }
+    $sevenZip = @('C:\Program Files\7-Zip\7z.exe', 'C:\Program Files (x86)\7-Zip\7z.exe') |
+        Where-Object { Test-Path $_ } | Select-Object -First 1
+    Push-Location $stageDir
+    try {
+        if ($sevenZip) {
+            & $sevenZip a -tzip -mx1 $zip 'VRAIGC' 'setup-config.ps1' 'README-install.txt' | Out-Null
+            if ($LASTEXITCODE -ne 0) { Fail '7-Zip 压缩便携版失败' }
+        } else {
+            Compress-Archive -Path 'VRAIGC', 'setup-config.ps1', 'README-install.txt' `
+                -DestinationPath $zip -CompressionLevel Fastest
+        }
+    }
+    finally { Pop-Location }
+    Remove-Item $stageDir -Recurse -Force
+    return $zip
+}
+
+if ($Portable) {
+    Write-Step '打包便携版'
+    $zip = New-PortablePackage -Version $Version -AppDir $app -OutDir $build
+    Write-Ok "便携版：$zip"
+    exit 0
+}
+
 if (-not $iscc) {
-    Write-Host '  没找到 Inno Setup 6（ISCC.exe）。' -ForegroundColor Yellow
-    Write-Host "  程序目录已就绪，可直接试运行：$app\vrstudio.exe" -ForegroundColor Yellow
-    Write-Host '  安装 Inno Setup 6 后重跑本脚本即可产出安装器。' -ForegroundColor Yellow
-    exit 1
+    Write-Host '  没找到 Inno Setup 6（ISCC.exe），改为产出便携版 zip。' -ForegroundColor Yellow
+    $zip = New-PortablePackage -Version $Version -AppDir $app -OutDir $build
+    Write-Ok "便携版：$zip"
+    Write-Host @'
+  对方用法：解压到任意英文路径，先运行 setup-config.ps1 写配置，
+  再双击 VRAIGC\vrstudio.exe 启动。
+  想产出安装器：安装 Inno Setup 6（winget install --id JRSoftware.InnoSetup -e）后重跑本脚本。
+'@ -ForegroundColor Yellow
+    exit 0
 }
 & $iscc "/DAppVersion=$Version" "/DStageDir=$app" "/DOutputDir=$build" `
     (Join-Path $Root 'packaging\vraigc.iss')

@@ -49,12 +49,33 @@ var
   DataPage: TInputDirWizardPage;
   DataRoot: String;
 
+const
+  CRLF = #13#10;
+
+procedure ShowInfo(const Text: String);
+begin
+  // 静默安装（/SILENT 或 /VERYSILENT）下不弹窗，否则会卡住无人值守安装。
+  if not WizardSilent then
+    MsgBox(Text, mbInformation, MB_OK);
+end;
+
 function EscapeToml(S: String): String;
+var
+  I: Integer;
+  R: String;
 begin
   // TOML 基本字符串里反斜杠是转义符，Windows 路径必须写成双反斜杠。
-  S := StringChangeEx(S, '\', '\\', True);
-  S := StringChangeEx(S, '"', '\"', True);
-  Result := S;
+  R := '';
+  for I := 1 to Length(S) do
+  begin
+    if S[I] = '\' then
+      R := R + '\\'
+    else if S[I] = '"' then
+      R := R + '\"'
+    else
+      R := R + S[I];
+  end;
+  Result := R;
 end;
 
 procedure InitializeWizard;
@@ -99,18 +120,18 @@ begin
   ConfigPath := ExpandConstant('{userappdata}\vrstudio\default.toml');
   ForceDirectories(ExtractFileDir(ConfigPath));
   Text :=
-    '# 由 VRAIGC 安装器写入（决策 102）：数据根与两个可执行文件位置。' + #13#10 +
-    '[paths]' + #13#10 +
-    'data_root = "' + EscapeToml(DataRoot) + '"' + #13#10 +
-    #13#10 +
-    '[generate]' + #13#10 +
-    'vrgen = "' + EscapeToml(ExpandConstant('{app}\vrgen\vrgen.exe')) + '"' + #13#10 +
-    #13#10 +
-    '[bin]' + #13#10 +
-    'dir = "' + EscapeToml(ExpandConstant('{app}\bin')) + '"' + #13#10;
+    '# 由 VRAIGC 安装器写入（决策 102）：数据根与两个可执行文件位置。' + CRLF +
+    '[paths]' + CRLF +
+    'data_root = "' + EscapeToml(DataRoot) + '"' + CRLF +
+    CRLF +
+    '[generate]' + CRLF +
+    'vrgen = "' + EscapeToml(ExpandConstant('{app}\vrgen\vrgen.exe')) + '"' + CRLF +
+    CRLF +
+    '[bin]' + CRLF +
+    'dir = "' + EscapeToml(ExpandConstant('{app}\bin')) + '"' + CRLF;
   if not SaveStringToFile(ConfigPath, Text, False) then
-    MsgBox('写本机配置失败：' + ConfigPath + #13#10 +
-           '可以手工创建该文件，内容见安装目录下的 README-install.txt。', mbError, MB_OK);
+    ShowInfo('写本机配置失败：' + ConfigPath + CRLF +
+             '可以手工创建该文件，内容见安装目录下的 README-install.txt。');
 end;
 
 procedure CheckMglc;
@@ -123,11 +144,11 @@ begin
     Exit;
   if Exec('cmd.exe', '/c where mglc >nul 2>nul', '', SW_HIDE, ewWaitUntilTerminated, Rc) and (Rc = 0) then
     Exit;
-  MsgBox('未检测到 mglc，生成功能暂时不可用。' + #13#10#13#10 +
-         '1) 向管理员索取 mglc 的 Windows 版本；' + #13#10 +
-         '2) 解压到 ' + ExpandConstant('{localappdata}') + '\Programs\mglc\bin；' + #13#10 +
-         '3) 新开终端执行：mglc login --access-key <AK> --secret-key <SK>。' + #13#10#13#10 +
-         '详见安装目录下的 README-install.txt。', mbInformation, MB_OK);
+  ShowInfo('未检测到 mglc，生成功能暂时不可用。' + CRLF + CRLF +
+           '1) 向管理员索取 mglc 的 Windows 版本；' + CRLF +
+           '2) 解压到 ' + ExpandConstant('{localappdata}') + '\Programs\mglc\bin；' + CRLF +
+           '3) 新开终端执行：mglc login --access-key <AK> --secret-key <SK>。' + CRLF + CRLF +
+           '详见安装目录下的 README-install.txt。');
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
