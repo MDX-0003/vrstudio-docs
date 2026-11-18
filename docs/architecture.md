@@ -186,13 +186,13 @@ vrpatch 的 ai-clip 注册端点改为调 `vrgen register`；extract/merge 仍 s
 
 ## 6. 数据位置与整仓搬迁
 
-工作区由三个仓库并排组成，运行时数据全部落在各自仓库目录内，不进 git：
+工作区以 docs 仓库的工作树为根，两个子仓库是它的子目录，运行时数据全部落在各自
+仓库目录内，不进 git：
 
 ```
-<父目录>/
-  docs 仓库（AGENTS.md + docs/）
-  vrgen/       runs/  logs/  （台账树）
-  vrstudio/    cases/  sources/  vrgen_runs/  logs/  bin/
+<根>/                    docs 仓库（AGENTS.md、docs/、scripts/）
+  vrgen/                 runs/  logs/  （台账树）
+  vrstudio/              cases/  sources/  vrgen_runs/  logs/  bin/
 ```
 
 - **路径锚点**：`case.toml` 的 `[source] path` 相对仓库根，`[[assets]] path` 相对
@@ -202,8 +202,15 @@ vrpatch 的 ai-clip 注册端点改为调 `vrgen register`；extract/merge 仍 s
 - **数据不能挪出仓库**：`sources/`、`logs/`、`bin/` 没有配置开关，路径都按
   `REPO_ROOT` 拼；只有 `cases/`（`serve --cases-dir`）与 vrgen 台账
   （`[generate] workdir`）能指到别处。把数据放到仓库外等于要求新增数据根配置键，
-  与决策 101 的取舍冲突。跨设备迁移的做法是：三个仓库并排搬走，运行时数据按
-  同样的相对位置还原。
+  与决策 101 的取舍冲突。跨设备迁移的做法是：整个工作区按同样的相对位置重建，
+  运行时数据按同样的相对位置还原。
+- **新设备部署**：`scripts/bootstrap.ps1` 做四件事——检查 git/uv/Node/7z、克隆或更新
+  两个子仓库、装依赖并构建前端、解压运行时包。运行时目录已存在且非空时默认拒绝
+  覆盖（`-Force` 才改名备份后覆盖），并生成本机 `vrstudio.toml`、在缺 mglc 时安装它。
+- **旧数据迁移**：`vrstudio` 的 `scripts/migrate_source_paths.py` 把 `case.toml`
+  里落在仓库内的绝对路径改写成仓库根相对写法；默认 dry-run，`--apply` 落盘，
+  重复执行报 0 个。历史产物 JSON（`extracts/*/report.json`、`derived/*.json`）
+  里的绝对路径只用于显示，不参与几何解析，不迁移。
 - **旧数据迁移**：`vrstudio` 的 `scripts/migrate_source_paths.py` 把 `case.toml`
   里落在仓库内的绝对路径改写成仓库根相对写法；默认 dry-run，`--apply` 落盘，
   重复执行报 0 个。历史产物 JSON（`extracts/*/report.json`、`derived/*.json`）
