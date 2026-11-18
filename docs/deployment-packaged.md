@@ -157,19 +157,23 @@ vrstudio.exe serve --host 0.0.0.0       # serve 子命令，纯后台、不弹�
 - 卸载：在“应用和功能”里卸载，只删程序目录；数据目录保留，需要时手动删。
 - 回滚：保留上一版安装包或 zip，重装即可；数据格式没有版本升级步骤。
 
-## 6.0 改端口
+## 6.0 改端口与改数据目录
 
-监听地址与端口写在配置 `[web]` 段，双击启动时读取：
+监听地址、端口与数据根都写在配置里，双击启动时读取：
 
 ```powershell
-vrstudio.exe config show               # 看当前 host/port 与配置文件位置
-vrstudio.exe config set web.port 8860  # 长期改端口，下次启动生效
-vrstudio.exe config set web.host 0.0.0.0
-vrstudio.exe --port 8860               # 只对本次启动生效
+vrstudio.exe config show                     # 看生效的数据根、host/port 与配置文件位置
+vrstudio.exe config set web.port 8860        # 长期改端口，下次启动生效
+vrstudio.exe config set web.host 0.0.0.0     # 双击入口默认变成局域网模式
+vrstudio.exe config set paths.data_root D:\VRAIGC-data   # 数据目录放错了就改这里
+vrstudio.exe --port 8860                     # 只对本次启动生效
 ```
 
-安装目录里的 `设置端口.cmd` 是同一件事的交互版：显示当前值、输入新端口、写回配置。
-`web.host` 默认 `127.0.0.1`，改成 `0.0.0.0` 等于让双击入口默认就是局域网模式。
+安装目录里的 `设置端口.cmd` 是改端口的交互版：显示当前值、输入新端口、写回配置。
+`config set` 只改命中那一行，`data_root`、`vrgen` 等其它设置与注释保留。
+
+安装器在升级时会**沿用已有数据目录**（从 `%APPDATA%\vrstudio\default.toml` 读回并预填）；
+如果选中的目录落在程序目录里面，安装器会弹窗确认，避免升级或卸载连带影响数据。
 
 ## 6.1 外部依赖怎么被找到（不需要改 PATH）
 

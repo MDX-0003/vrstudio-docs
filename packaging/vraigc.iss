@@ -61,6 +61,30 @@ var
 const
   CRLF = #13#10;
 
+function UnescapeToml(S: String): String;
+var
+  I: Integer;
+  R: String;
+begin
+  // 把配置里的 \\ 还原成单个 \。
+  R := '';
+  I := 1;
+  while I <= Length(S) do
+  begin
+    if (S[I] = '\') and (I < Length(S)) and (S[I + 1] = '\') then
+    begin
+      R := R + '\';
+      I := I + 2;
+    end
+    else
+    begin
+      R := R + S[I];
+      I := I + 1;
+    end;
+  end;
+  Result := R;
+end;
+
 procedure ShowInfo(const Text: String);
 begin
   // 静默安装（/SILENT 或 /VERYSILENT）下不弹窗，否则会卡住无人值守安装。
@@ -109,7 +133,11 @@ begin
       while (LastQuote > FirstQuote) and (Line[LastQuote] <> '"') do
         LastQuote := LastQuote - 1;
       if (FirstQuote > 0) and (LastQuote > FirstQuote) then
+      begin
         Result := Copy(Line, FirstQuote + 1, LastQuote - FirstQuote - 1);
+        // 配置文件里的路径是 TOML 转义写法（\\），读回来要还原成单反斜杠。
+        Result := UnescapeToml(Result);
+      end;
       Exit;
     end;
   end;
@@ -152,6 +180,20 @@ begin
     begin
       MsgBox('无法创建数据目录：' + DataRoot, mbError, MB_OK);
       Result := False;
+      Exit;
+    end;
+    // 数据放进程序目录会在升级或卸载时跟着被替换/删除，明确拦一下。
+    if CompareText(Copy(DataRoot, 1, Length(ExpandConstant('{app}'))),
+                   ExpandConstant('{app}')) = 0 then
+    begin
+      if MsgBox('数据目录在程序目录里面，升级或卸载可能影响数据。' + CRLF +
+                '建议改成程序目录之外的路径（例如 D:\VRAIGC-data）。' + CRLF + CRLF +
+                '仍然使用 ' + DataRoot + ' 吗？',
+                mbConfirmation, MB_YESNO) = IDNO then
+      begin
+        Result := False;
+        Exit;
+      end;
     end;
   end;
 end;
