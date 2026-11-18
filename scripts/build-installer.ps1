@@ -3,8 +3,8 @@
   构建 VRAIGC 离线安装版（决策 102）。
 
 .DESCRIPTION
-  依次做四件事：构建前端产物、用 PyInstaller 打出 vrgen 与 vrstudio 两个目录式包、
-  组装程序目录（含 bin/ 外部二进制与安装说明）、用 Inno Setup 编译安装器。
+  依次做五件事：构建前端产物、用 PyInstaller 打出 vrgen 与 vrstudio 两个目录式包、
+  组装程序目录（含 bin/ 外部二进制与安装说明）、（可选）打包前验收、用 Inno Setup 编译安装器。
 
   产物：
     <根>\build\app\                    程序目录（可先手动试运行）
@@ -27,6 +27,16 @@
 
 .PARAMETER SkipVrstudio
   跳过 vrstudio 的 PyInstaller 构建（已有 dist\vrstudio）。
+
+.PARAMETER Verify
+  组装完程序目录后，用 scripts\verify-package.ps1 拿真实 case 跑一遍
+  merge / relight，验收不通过就不生成安装包。默认关闭：它需要真实数据，也慢。
+
+.PARAMETER DataRoot
+  -Verify 用的真实数据根；不写时由验收脚本自己按默认位置找。
+
+.PARAMETER VerifyCases
+  -Verify 时只跑这些 case，例如 -VerifyCases walk_4k；不写则用验收脚本的默认挑选。
 #>
 [CmdletBinding()]
 param(
@@ -35,7 +45,10 @@ param(
     [switch]$SkipFrontend,
     [switch]$SkipVrgen,
     [switch]$SkipVrstudio,
-    [switch]$Portable
+    [switch]$Portable,
+    [switch]$Verify,
+    [string]$DataRoot,
+    [string[]]$VerifyCases = @()
 )
 
 $ErrorActionPreference = 'Stop'
@@ -144,6 +157,19 @@ mglc 不随安装包分发（决策 102）。
 
 Copy-Item (Join-Path $Root 'packaging\README-install.txt') (Join-Path $app 'README-install.txt') -Force
 Write-Ok "程序目录：$app"
+
+if ($Verify) {
+    Write-Step '打包前验收（用刚组装好的 exe 跑真实 case）'
+    $verifyScript = Join-Path $Root 'scripts\verify-package.ps1'
+    if (-not (Test-Path $verifyScript)) { Fail "找不到验收脚本：$verifyScript" }
+    $verifyArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $verifyScript,
+                    '-App', (Join-Path $app 'vrstudio.exe'))
+    if ($DataRoot) { $verifyArgs += @('-DataRoot', $DataRoot) }
+    if ($VerifyCases.Count -gt 0) { $verifyArgs += @('-Only', ($VerifyCases -join ',')) }
+    & powershell.exe @verifyArgs
+    if ($LASTEXITCODE -ne 0) { Fail '打包前验收未通过，安装包没有生成' }
+    Write-Ok '打包前验收通过'
+}
 
 Write-Step '编译安装器'
 $iscc = @(

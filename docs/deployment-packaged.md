@@ -45,6 +45,16 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build-installer.ps1
 - `-SkipFrontend`：跳过 `npm ci` 与 `npm run build`，前端产物已经是最新时用。
 - `-SkipVrgen` / `-SkipVrstudio`：跳过对应仓库的 PyInstaller 构建，复用 `build\dist` 里的结果。
 - `-Portable`：强制只出便携版 zip，不调用 Inno Setup。
+- `-Verify`：组装完程序目录后，用 `scripts\verify-package.ps1` 拿真实 case 跑一遍
+  `merge` / `relight`，验收不通过就不生成安装包。默认关闭，因为它需要真实数据、也要几分钟。
+- `-DataRoot`：`-Verify` 用的真实数据根。
+- `-VerifyCases`：`-Verify` 时只跑指定 case，例如 `-VerifyCases walk_4k`。
+
+```powershell
+# 带验收的完整构建：先试跑一个真实 case，通过后才编译安装器
+powershell -ExecutionPolicy Bypass -File .\scripts\build-installer.ps1 `
+  -Verify -DataRoot D:\VRAIGC-data -VerifyCases walk_4k
+```
 
 脚本依次做四件事：构建前端、用 PyInstaller 打出 `vrgen` 与 `vrstudio` 两个目录式包、组装程序目录
 （`build\app`，同时拷入 `bin\`、`tools\` 说明与 `README-install.txt`）、编译安装器。
@@ -195,15 +205,15 @@ vrstudio.exe serve --host 0.0.0.0       # serve 子命令，纯后台、不弹�
   都返回 200；`vrgen.exe --help` 正常。
 - 冻结版按 `[paths] data_root` 把 `cases/logs/sources` 建在指定目录，程序目录保持干净。
 - 便携版全流程：解压 → `setup-config.ps1` 写配置 → 启动 → 接口可用。
-- 安装器编译成功（Inno Setup 6.7.3，550 MB）。
+- 安装器在开发机完成一次真实安装：程序目录、数据目录、`%APPDATA%\vrstudio\default.toml`
+  均由向导写入正确；安装器编译体积 550 MB（Inno Setup 6.7.3）。
+- 打包前验收（`scripts\verify-package.ps1`）在打包后的 exe 上跑通两类真实 case：
+  patch 的 `merge`（含中文素材名的 rife 补帧）与 relight 的 `--sample 3`。
 
-未验证，需要在正常桌面环境补一次：
+已知边界：
 
-- **安装器实际执行安装**。本构建环境里 setup 进程启动后停在 0 CPU、无日志、无目标目录，
-  判断是非交互会话里弹窗不可见导致阻塞；编译与程序目录本身都正常。
-
-其他边界：
-
-- 不做代码签名，SmartScreen 会提示。
-- 不随包分发 mglc。
-- 安装器按当前用户安装，装到 `Program Files` 需要管理员且数据目录必须另放，不在支持范围。
+- 安装器的安装动作只在开发机上验证过；换一台干净机器时建议先跑一次
+  `-Verify` 构建，再装同一版的安装包。
+- 未做代码签名，SmartScreen 会提示。
+- 不随包分发 mglc；缺它时生成功能不可用，本地合成与对比不受影响。
+- 安装器按当前用户安装；装到 `Program Files` 需要管理员，且数据目录必须另放，不在支持范围。

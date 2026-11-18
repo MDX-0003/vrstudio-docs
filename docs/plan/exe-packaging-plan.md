@@ -1,4 +1,4 @@
-# 离线安装版打包计划（PyInstaller + Inno Setup）
+﻿# 离线安装版打包计划（PyInstaller + Inno Setup）
 
 对方要求把现在的 Web 版做成离线的 Windows 安装程序：目标机器不装 Python、Node、uv，
 双击装完就能用浏览器打开控制台。本文记录要做的工作包、改动位置与验收方式。
@@ -105,9 +105,9 @@
   便携版生成 `启动-本机.cmd` / `启动-局域网.cmd`。
 - 外部依赖不写 PATH：ffmpeg/rife 走程序目录 `bin\`，vrgen 走配置绝对路径，mglc 依次查
   `<程序目录>\tools`、`%LOCALAPPDATA%\Programs\mglc\bin`、`VRGEN_MGLC_BIN`、PATH。
-- 打包前验收脚本 `scripts/preflight-packaged.ps1`：把真实 case 复制到临时数据根，用打包后的 exe
+- 打包前验收脚本 `scripts/verify-package.ps1`：把真实 case 复制到临时数据根，用打包后的 exe
   跑 `merge --case` 与 `relight --case --sample 3`；任何一条失败即非零退出。`VRSTUDIO_DATA_ROOT`
   环境变量用于这类临时覆盖。
 - 已修：中文素材名导致 `cv2.imwrite` 静默失败、rife 收到空目录后访问冲突崩溃（源码版同样存在）。
-- WP6 剩余：安装器在另一台干净机器上装一次并跑同一套 preflight。
+- WP6 剩余：安装器在另一台干净机器上装一次并跑同一套打包前验收。
 - 分发说明见 `docs/deployment-packaged.md`。

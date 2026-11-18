@@ -27,7 +27,7 @@
   不指定 -Only 时，最多挑几个非 relight case 与一个 relight case；默认 2 + 1。加 -Full 跑全部。
 
 .EXAMPLE
-  .\scripts\preflight-packaged.ps1 -DataRoot D:\VRAIGC-data -Cases 3
+  .\scripts\verify-package.ps1 -DataRoot D:\VRAIGC-data -Cases 3
 #>
 [CmdletBinding()]
 param(
@@ -159,7 +159,7 @@ foreach ($case in $selected) {
 
 Write-Step '结果'
 if ($failures.Count -eq 0) {
-    Write-Ok "全部通过（$($selected.Count) 个 case）；临时数据根保留在 $WorkRoot"
+    Write-Ok "全部通过（$(@($selected).Count) 个 case）；临时数据根保留在 $WorkRoot"
     exit 0
 }
 Write-Bad "失败 $($failures.Count) 个：$($failures -join '、')"
