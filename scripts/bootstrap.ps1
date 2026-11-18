@@ -226,7 +226,9 @@ $caseCount = @(Get-ChildItem (Join-Path $Root 'vrstudio\cases') -Filter 'case.to
 if ($caseCount -lt 1) { Fail "解压后 vrstudio\cases 下没有任何 case.toml，包可能是错的。" }
 Write-Ok "cases：$caseCount 个 case.toml"
 foreach ($dir in $RuntimeDirs) {
-    $count = @(Get-ChildItem (Join-Path $Root "vrstudio\$dir") -Recurse -File -Force).Count
+    $path = Join-Path $Root "vrstudio\$dir"
+    if (-not (Test-Path $path)) { continue }      # 精简包可以不带 cases_qa 等目录
+    $count = @(Get-ChildItem $path -Recurse -File -Force).Count
     Write-Ok ("{0,-10} {1,5} 个文件" -f $dir, $count)
 }
 
