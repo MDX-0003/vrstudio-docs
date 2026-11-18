@@ -156,6 +156,7 @@ mglc 不随安装包分发（决策 102）。
 '@ | Set-Content -Encoding utf8 (Join-Path $app 'tools\README-mglc.txt')
 
 Copy-Item (Join-Path $Root 'packaging\README-install.txt') (Join-Path $app 'README-install.txt') -Force
+Copy-Item (Join-Path $Root 'packaging\launchers\*.cmd') $app -Force
 Write-Ok "程序目录：$app"
 
 if ($Verify) {

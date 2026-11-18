@@ -24,14 +24,16 @@
    - 数据目录不要放在系统盘，也不要放在 OneDrive 等同步目录。
 
 3. 启动（两种模式）
-   - 开始菜单里有两条：
-       VRAIGC（本机）    只监听 127.0.0.1:8760，双击后自动打开浏览器
-       VRAIGC（局域网）  监听 0.0.0.0:8760，控制台会打印本机的局域网地址
-   - 桌面图标与「本机」等价；控制台窗口关掉，服务就停。
-   - 局域网模式下，其它机器用控制台打印的地址访问；首次需要在本机放行端口：
+   - 安装目录里直接有三个双击入口：
+       启动-本机.cmd     只监听 127.0.0.1（端口见本机配置），自动开浏览器
+       启动-局域网.cmd   监听 0.0.0.0，控制台会打印本机的局域网地址
+       设置端口.cmd      查看当前端口并改成新的（写入本机配置，下次启动生效）
+   - 开始菜单也有「VRAIGC（本机）」「VRAIGC（局域网）」两条，参数与上面一致。
+   - 局域网模式下首次需要在本机放行端口（默认 8760）：
        New-NetFirewallRule -DisplayName 'VRAIGC 8760' -Direction Inbound -Protocol TCP -LocalPort 8760 -Action Allow
    - 命令行等价写法：vrstudio.exe（本机）、vrstudio.exe --lan（局域网）、
-     vrstudio.exe --lan --port 8860（换端口）。--help 列出全部子命令。
+     vrstudio.exe --port 8860（临时换端口）、vrstudio.exe config set web.port 8860（长期改）、
+     vrstudio.exe --help 列出全部子命令。
    - 控制台没有登录认证，只在可信网络里对外开放。
    - mglc、ffmpeg、rife 都不需要你配 PATH：程序按固定位置查找；
      mglc 依次找 <程序目录>\tools\mglc.exe、%LOCALAPPDATA%\Programs\mglc\bin、

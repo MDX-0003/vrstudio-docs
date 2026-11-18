@@ -87,7 +87,37 @@ begin
   Result := R;
 end;
 
+function PreviousDataRoot(): String;
+var
+  Lines: TArrayOfString;
+  I: Integer;
+  Line: String;
+  FirstQuote, LastQuote: Integer;
+begin
+  Result := '';
+  if not FileExists(ExpandConstant('{userappdata}\vrstudio\default.toml')) then
+    Exit;
+  if not LoadStringsFromFile(ExpandConstant('{userappdata}\vrstudio\default.toml'), Lines) then
+    Exit;
+  for I := 0 to GetArrayLength(Lines) - 1 do
+  begin
+    Line := Trim(Lines[I]);
+    if Pos('data_root', Line) = 1 then
+    begin
+      FirstQuote := Pos('"', Line);
+      LastQuote := Length(Line);
+      while (LastQuote > FirstQuote) and (Line[LastQuote] <> '"') do
+        LastQuote := LastQuote - 1;
+      if (FirstQuote > 0) and (LastQuote > FirstQuote) then
+        Result := Copy(Line, FirstQuote + 1, LastQuote - FirstQuote - 1);
+      Exit;
+    end;
+  end;
+end;
+
 procedure InitializeWizard;
+var
+  Previous: String;
 begin
   DataPage := CreateInputDirPage(wpSelectDir,
     '选择数据目录',
@@ -95,7 +125,11 @@ begin
     '建议放在非系统盘的英文路径；如果是从旧机器迁移，直接指到迁移包解压出的目录。',
     False, '');
   DataPage.Add('数据目录：');
-  if DirExists('D:\') then
+  // 重复运行安装器（升级）时沿用已写好的数据目录，避免手滑把数据指到别处。
+  Previous := PreviousDataRoot();
+  if Previous <> '' then
+    DataRoot := Previous
+  else if DirExists('D:\') then
     DataRoot := 'D:\VRAIGC-data'
   else
     DataRoot := ExpandConstant('{localappdata}\VRAIGC\data');
