@@ -183,3 +183,29 @@ vrpatch 的 ai-clip 注册端点改为调 `vrgen register`；extract/merge 仍 s
 - **当前测试规模**（2026-10-19 核对）：vrgen 95 个 + vrstudio 258 个（含 web 44 个），合计 353 个全绿；两仓库 `uv run ruff check .` 干净。
 - **待办**：M1/M4 的真实素材验收（需 mglc 配额）、决策 17 的多用户分层（已登记未实现）、统一提交改造（决策 33：勾选即提交、clip/pad 为候选、mask 自动附带、raw 帧仅工作台、extract 产出首尾原始帧）、patch 时间拼接 WP1–WP4（决策 30–32）、M5（README 交接规范 + 旧仓库归档）。
 - 无 CD：本地工具无部署物；CI 的 test job 即提交门禁。
+
+## 6. 数据位置与整仓搬迁
+
+工作区由三个仓库并排组成，运行时数据全部落在各自仓库目录内，不进 git：
+
+```
+<父目录>/
+  docs 仓库（AGENTS.md + docs/）
+  vrgen/       runs/  logs/  （台账树）
+  vrstudio/    cases/  sources/  vrgen_runs/  logs/  bin/
+```
+
+- **路径锚点**：`case.toml` 的 `[source] path` 相对仓库根，`[[assets]] path` 相对
+  case 目录，`REPO_ROOT` 由 `vrstudio/src/vrstudio/config.py` 的文件位置推导。
+  因此整仓搬到别的盘符或父目录后，代码与 case 都不需要改配置；仓库外的源文件
+  （绝对路径）是例外，搬迁后要人工改回可解析的路径。
+- **数据不能挪出仓库**：`sources/`、`logs/`、`bin/` 没有配置开关，路径都按
+  `REPO_ROOT` 拼；只有 `cases/`（`serve --cases-dir`）与 vrgen 台账
+  （`[generate] workdir`）能指到别处。把数据放到仓库外等于要求新增数据根配置键，
+  与决策 101 的取舍冲突。跨设备迁移的做法是：三个仓库并排搬走，运行时数据按
+  同样的相对位置还原。
+- **旧数据迁移**：`vrstudio` 的 `scripts/migrate_source_paths.py` 把 `case.toml`
+  里落在仓库内的绝对路径改写成仓库根相对写法；默认 dry-run，`--apply` 落盘，
+  重复执行报 0 个。历史产物 JSON（`extracts/*/report.json`、`derived/*.json`）
+  里的绝对路径只用于显示，不参与几何解析，不迁移。
+
