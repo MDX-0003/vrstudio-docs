@@ -69,6 +69,7 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 | 文档 | 内容 |
 |---|---|
 | `docs/architecture.md` | 总架构、模块树、拷贝映射表、默认决策 |
+| `docs/deployment-new-host.md` | 新 host 设备部署手册：工具链、bootstrap.ps1、验收清单、踩坑排查 |
 | `docs/case-model.md` | case.toml 格式、vrgen CLI 契约、台账格式（两仓库的唯一接口权威） |
 | `docs/decisions.md` | 决策记录（已拍板 + 待确认默认） |
 | `docs/spec/asset-roles.md` | 素材角色的设置与运行机制：词表快照、kind/modes 规则、新增角色的步骤、约束分层与排查表 |

@@ -141,10 +141,13 @@ if (-not $SkipHash) {
 $drive = (Get-Item $Root).PSDrive
 if ($drive -and $drive.Free) {
     $freeGB = [math]::Round($drive.Free / 1GB, 1)
-    if ($freeGB -lt 40) {
-        Fail "工作区所在盘只剩 $freeGB GB，解压需要约 34 GB。"
+    $archiveGB = (Get-Item $Archive).Length / 1GB
+    # 解压后约为压缩包的 1.2 倍，再留 6 GB 给依赖与前端构建。
+    $needGB = [math]::Ceiling($archiveGB * 2 + 6)
+    if ($freeGB -lt $needGB) {
+        Fail "工作区所在盘只剩 $freeGB GB，这个包解压加依赖约需 $needGB GB。"
     }
-    Write-Ok "磁盘剩余 $freeGB GB"
+    Write-Ok "磁盘剩余 $freeGB GB（需要约 $needGB GB）"
 }
 
 # ── 3. 两个子仓库 ──────────────────────────────────────────────────────────
