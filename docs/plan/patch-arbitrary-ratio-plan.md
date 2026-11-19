@@ -1,6 +1,6 @@
 # patch 任意比例切分与合并方案
 
-状态：已批准，实施中（2026-11-19）。本轮只动视频 patch，不碰 patchimg、fullRedrawImg 与 gen 流。
+状态：WP1–WP7 已实施（2026-11-19），WP8 的真实素材与浏览器验收待做；验收记录见 `docs/test-runs/20261119-patch-arbitrary-ratio.md`。本轮只动视频 patch，不碰 patchimg、fullRedrawImg 与 gen 流。
 决策 104 已记录，按 §7 的工作包实施。
 
 ## 1. 需求原话
@@ -291,15 +291,15 @@
 
 ## 7. 工作包与验收
 
-- WP0 文档与配置：本文件、`docs/case-model.md` 的 `params show` 字段、两个仓库的配置键。
-- WP1 几何预算模块：`patch/viewport.py` 与单测，不依赖 web 与 CLI。
-- WP2 平台限制下发：vrgen `params show` 加 `limit`，vrstudio 读取与回退，两侧测试。
-- WP3 选区端点：`viewport-ratio` 与 `viewport-box` 替换 `viewport-size`，删除档位表，web 测试。
-- WP4 合并宽高比差距：`AiFrameSource` 三段规则与报告，merge 测试，16:9 逐字节回归。
-- WP5 合并匹配：`merge-targets` 接口与排序，web 测试。
-- WP6 首尾帧比例：`_keyframe_ratio`、`_mode_ready`、`_require_ratio`、候选校验，web 与 generate 测试。
-- WP7 前端：先交可点击原型评审，再改两个页面与三个单测，最后 `npm run lint/format:check/test/build`。
-- WP8 验收：16:9 case 重跑 extract 与 merge 逐字节一致；找一段 2.39:1 的真实素材走完 extract → 外部生成 → merge → assemble；浏览器确认选区比例切换、候选过滤、强制合并三段交互。
+- WP0 文档与配置：本文件、`docs/case-model.md` 的 `params show` 字段、两个仓库的配置键。（已实施）
+- WP1 几何预算模块：`patch/viewport.py` 与单测，不依赖 web 与 CLI。（已实施）
+- WP2 平台限制下发：vrgen `params show` 加 `limit`，vrstudio 读取与回退，两侧测试。（已实施）
+- WP3 选区端点：`viewport-ratio` 与 `viewport-box` 替换 `viewport-size`，删除档位表，web 测试。（已实施）
+- WP4 合并宽高比差距：`AiFrameSource` 三段规则与报告，merge 测试，16:9 逐字节回归。（规则与单测已实施；16:9 真实素材逐字节回归待做）
+- WP5 合并匹配：`merge-targets` 接口与排序，web 测试。（已实施）
+- WP6 首尾帧比例：`_keyframe_ratio`、`_mode_ready`、`_require_ratio`、候选校验，web 与 generate 测试。（已实施）
+- WP7 前端：先交可点击原型评审，再改两个页面与三个单测，最后 `npm run lint/format:check/test/build`。（页面与单测已实施；`format:check` 仍有 12 个与本轮无关的旧文件未过）
+- WP8 验收：16:9 case 重跑 extract 与 merge 逐字节一致；找一段 2.39:1 的真实素材走完 extract → 外部生成 → merge → assemble；浏览器确认选区比例切换、候选过滤、强制合并三段交互。（待做）
 
 依赖顺序：WP1 先于 WP3；WP2 先于 WP3；WP4 先于 WP5；WP6 与 WP4 可并行。WP7 的原型在 WP3 与 WP5 的接口定稿后开始，不阻塞后端。
 
