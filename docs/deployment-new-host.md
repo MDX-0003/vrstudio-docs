@@ -33,6 +33,24 @@
 两个包的内部布局完全一致，`bootstrap.ps1` 用哪个都行。日常继续干活选精简包；要翻旧 case 选全量包。
 只缺个别旧 case 时，从全量包里单独解出该 case 目录即可，做法见 §7.1。
 
+### 1.4 离线交接包与运行时包怎样组合
+
+代码与文档可以随一个离线交接包（`VRAIGC-handoff-<日期>`）一起给，里面已经有 `vrgen\`、
+`vrstudio\`、`bin\` 与 `docs\`，但没有运行时数据。这种情况下不要按 §3 去 GitHub 克隆，
+直接把交接包当工作区根，用 `bootstrap.ps1 -SkipRepos` 组合运行时包：
+
+```powershell
+cd D:\VRAIGC-handoff-20261119
+powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1 `
+  -Archive D:\transfer\vrstudio-runtime-20261118-slim10.7z -SkipRepos
+```
+
+`-SkipRepos` 做三件事：跳过克隆与更新、校验包内 `vrgen\` 与 `vrstudio\` 有
+`pyproject.toml`、解压时跳过 `vrstudio\bin\*`（交接包自带 ffmpeg、rife 与 README）。
+依赖安装、`vrstudio.toml` 生成、mglc 安装、自检与在线模式相同。组合完成后的验收与 §5.4
+一致；关闭服务、删掉 `cases\`、`sources\`、`vrgen_runs\`、`logs\` 与 `vrstudio.toml`，
+目录就回到纯交接包状态。
+
 ## 2. 安装工具链
 
 按 Git → uv → Node 的顺序装，每一步都用给出的命令验证，验证不过不要往下走。
@@ -81,6 +99,7 @@ npm -v
    ```
 
 3. 确认根目录里出现 `AGENTS.md`、`docs\`、`scripts\`；此时还没有 `vrgen\` 与 `vrstudio\`，这是正常的。
+   用离线交接包时跳过第 2、3 步，直接把交接包解压到目标位置当工作区根，再按 §1.4 组合运行时包。
 4. 把 `VRAIGC-transfer` 拷到本机，例如 `D:\transfer`。直接从 U 盘解压也能跑，只是读盘慢很多。
 
 ## 4. 运行 bootstrap.ps1
@@ -102,6 +121,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1 `
 - `-Force`：运行时目录已存在且非空时，先改名成 `<目录>.bak-<时间戳>` 再解压。默认不加就是拒绝覆盖。
 - `-SkipHash`：跳过 SHA256 校验（校验要读完整个包）。
 - `-SkipDeps`：跳过 `uv sync` 与前端构建，只还原数据。
+- `-SkipRepos`：离线交接包模式，不克隆也不更新两个子仓库，直接用包内代码，解压时跳过
+  `vrstudio\bin\*`。见 §1.4。
 
 ### 4.3 脚本依次做什么
 
@@ -110,6 +131,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1 `
 3. 校验压缩包的 SHA256（有同名 `.sha256` 文件时）。
 4. 按压缩包大小估算所需空间并检查磁盘。
 5. 克隆或更新 `vrgen`、`vrstudio`。已存在时先看工作树是否干净，有未提交改动直接停下。
+   加 `-SkipRepos` 时这一步换成校验包内代码目录（见 §1.4）。
 6. `uv sync --extra dev`（vrgen）、`uv sync --extra dev --extra web`（vrstudio），
    然后在 `vrstudio\frontend` 跑 `npm ci` 与 `npm run build`。
 7. 检查六个运行时目录是否被占用；通过后解压。解压完统计 case 数与各目录文件数。

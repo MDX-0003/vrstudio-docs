@@ -1,4 +1,4 @@
-﻿VRAIGC 安装说明
+VRAIGC 安装说明
 ================
 
 安装完成后请按顺序做三件事。
@@ -44,5 +44,5 @@
 - 首次运行被 SmartScreen 拦下：点“更多信息 → 仍要运行”。安装包没有数字签名。
 - 提示找不到 mglc 或其版本过旧：重新按第 1 步安装最新版。
 - 补帧报 Vulkan 错误：机器缺少可用的 Vulkan 驱动，补帧功能不可用，其它流程正常。
-- 数据目录放错：删除 %APPDATA%\vrstudio\default.toml 中的 [paths] 段后重新启动，
-  或在命令行用 --set paths.data_root=<新目录> 覆盖。
+- 数据目录放错：用 `vrstudio.exe config set paths.data_root <新目录>` 改写本机配置
+  （下次启动生效），或本次启动用 `--set paths.data_root=<新目录>` 临时覆盖。

@@ -6,11 +6,12 @@
   以 docs 仓库的工作树为根（本脚本所在仓库），按固定布局准备两个子仓库并解包：
 
     <Root>\             docs 仓库（AGENTS.md、docs\、scripts\bootstrap.ps1）
-      vrgen\            git clone
-      vrstudio\         git clone + 运行时数据解压落点
+      vrgen\            git clone；-SkipRepos 时用包内代码
+      vrstudio\         git clone（或包内代码）+ 运行时数据解压落点
 
-  做四件事：检查工具链、克隆/更新两个子仓库、安装 Python 与前端依赖、解压运行时数据。
+  做四件事：检查工具链、准备两个子仓库、安装 Python 与前端依赖、解压运行时数据。
   已存在的运行时目录默认拒绝覆盖；确认要覆盖时加 -Force（先改名备份再解压）。
+  -SkipRepos 用于离线交接包：不克隆也不更新仓库，只把运行时 7z 解进包内目录。
 
 .PARAMETER Root
   工作区根；默认取本脚本的上一级（即 docs 仓库根）。
@@ -21,17 +22,26 @@
 .PARAMETER RepoBase
   仓库地址前缀，默认 https://github.com/MDX-0003。
 
+.PARAMETER SkipDeps
+  跳过 uv sync 与前端构建（只还原数据，或依赖已经装好）。
+
+.PARAMETER SkipRepos
+  离线交接包模式：代码已经随包放在 vrgen\ 与 vrstudio\ 下，脚本不克隆也不更新仓库，
+  直接使用包内代码。运行时包里的 vrstudio\bin\ 会被跳过，因为交接包自带 bin\。
+  这个模式用来把「代码 + 文档交接包」与 vrstudio-runtime-*.7z 组合成一个可运行工程。
+
 .PARAMETER Force
   运行时目录已存在且非空时，改名备份（<目录>.bak-<时间戳>）后再解压。
 
 .PARAMETER SkipHash
   跳过压缩包的 SHA256 校验（校验要读一遍 18 GB）。
 
-.PARAMETER SkipDeps
-  跳过 uv sync 与前端构建（只还原数据，或依赖已经装好）。
-
 .EXAMPLE
   .\scripts\bootstrap.ps1 -Archive D:\transfer\vrstudio-runtime-20261118.7z
+
+.EXAMPLE
+  # 离线交接包：代码与 bin 已随包，只组合运行时数据
+  .\scripts\bootstrap.ps1 -Archive .\vrstudio-runtime-20261118-slim10.7z -SkipRepos
 #>
 [CmdletBinding()]
 param(
@@ -40,7 +50,8 @@ param(
     [string]$RepoBase = 'https://github.com/MDX-0003',
     [switch]$Force,
     [switch]$SkipHash,
-    [switch]$SkipDeps
+    [switch]$SkipDeps,
+    [switch]$SkipRepos
 )
 
 $ErrorActionPreference = 'Stop'
@@ -97,8 +108,20 @@ Write-Host "运行时包：$Archive"
 
 # ── 1. 工具链 ──────────────────────────────────────────────────────────────
 Write-Step '检查工具链'
-$git = Find-Command 'git' '安装 Git for Windows：https://git-scm.com/download/win'
-Write-Ok "git     $(& $git --version)"
+if ($SkipRepos) {
+    # 离线交接包模式不需要 git；有就顺手打印版本，方便排查。
+    $gitCmd = Get-Command 'git' -ErrorAction SilentlyContinue
+    if ($gitCmd) {
+        $git = $gitCmd.Source
+        Write-Ok "git     $(& $git --version)"
+    } else {
+        $git = $null
+        Write-Warn '没有 git，跳过仓库检查（-SkipRepos 模式）'
+    }
+} else {
+    $git = Find-Command 'git' '安装 Git for Windows：https://git-scm.com/download/win'
+    Write-Ok "git     $(& $git --version)"
+}
 
 if (-not $SkipDeps) {
     $uv = Find-Command 'uv' '安装 uv：powershell -c "irm https://astral.sh/uv/install.ps1 | iex"'
@@ -148,8 +171,9 @@ $drive = (Get-Item $Root).PSDrive
 if ($drive -and $drive.Free) {
     $freeGB = [math]::Round($drive.Free / 1GB, 1)
     $archiveGB = (Get-Item $Archive).Length / 1GB
-    # 解压后约为压缩包的 1.2 倍，再留 6 GB 给依赖与前端构建。
-    $needGB = [math]::Ceiling($archiveGB * 2 + 6)
+    # 解压后约为压缩包的 1.2 倍；在线模式还要下载依赖与前端，留得更宽。
+    $factor = if ($SkipRepos) { 1.6 } else { 2 }
+    $needGB = [math]::Ceiling($archiveGB * $factor + 6)
     if ($freeGB -lt $needGB) {
         Fail "工作区所在盘只剩 $freeGB GB，这个包解压加依赖约需 $needGB GB。"
     }
@@ -157,22 +181,36 @@ if ($drive -and $drive.Free) {
 }
 
 # ── 3. 两个子仓库 ──────────────────────────────────────────────────────────
-Write-Step '准备子仓库'
-foreach ($name in @('vrgen', 'vrstudio')) {
-    $path = Join-Path $Root $name
-    if (Test-Path $path) {
-        if (-not (Test-Path (Join-Path $path '.git'))) {
-            Fail "$path 已存在但不是 git 仓库；挪走后重跑。"
+if ($SkipRepos) {
+    Write-Step '使用包内代码（-SkipRepos）'
+    foreach ($name in @('vrgen', 'vrstudio')) {
+        $path = Join-Path $Root $name
+        if (-not (Test-Path $path)) {
+            Fail "缺少 $path。离线交接包应自带 vrgen\ 与 vrstudio\ 两个代码目录。"
         }
-        $dirty = & $git -C $path status --porcelain
-        if ($dirty) { Fail "$name 有未提交改动，先处理再重跑。" }
-        & $git -C $path fetch --prune --quiet
-        & $git -C $path checkout main --quiet
-        Invoke-Native "更新 $name" { & $git -C $path pull --ff-only --quiet }
-        Write-Ok "$name 已更新到 origin/main"
-    } else {
-        Invoke-Native "克隆 $name" { & $git clone --quiet "$RepoBase/$name.git" $path }
-        Write-Ok "$name 已克隆"
+        if (-not (Test-Path (Join-Path $path 'pyproject.toml'))) {
+            Fail "$path 里没有 pyproject.toml，不像是代码目录。"
+        }
+        Write-Ok "$name 使用包内代码"
+    }
+} else {
+    Write-Step '准备子仓库'
+    foreach ($name in @('vrgen', 'vrstudio')) {
+        $path = Join-Path $Root $name
+        if (Test-Path $path) {
+            if (-not (Test-Path (Join-Path $path '.git'))) {
+                Fail "$path 已存在但不是 git 仓库；挪走后重跑。"
+            }
+            $dirty = & $git -C $path status --porcelain
+            if ($dirty) { Fail "$name 有未提交改动，先处理再重跑。" }
+            & $git -C $path fetch --prune --quiet
+            & $git -C $path checkout main --quiet
+            Invoke-Native "更新 $name" { & $git -C $path pull --ff-only --quiet }
+            Write-Ok "$name 已更新到 origin/main"
+        } else {
+            Invoke-Native "克隆 $name" { & $git clone --quiet "$RepoBase/$name.git" $path }
+            Write-Ok "$name 已克隆"
+        }
     }
 }
 
@@ -205,14 +243,20 @@ Write-Step '还原运行时数据'
 $repoPath = Join-Path $Root 'vrstudio'
 $occupied = @()
 foreach ($dir in $RuntimeDirs) {
+    # 离线交接包自带 bin\，它不属于运行数据，也不该被 7z 覆盖。
+    if ($SkipRepos -and $dir -eq 'bin') { continue }
     $path = Join-Path $repoPath $dir
     if (-not (Test-Path $path)) { continue }
     # 刚 clone 下来时 bin/ 里有被跟踪的 README.md，那不算占用；只有包外的额外文件才算。
-    $tracked = @(& $git -C $repoPath ls-files -- $dir)
-    $extra = @(Get-ChildItem $path -Recurse -File -Force -ErrorAction SilentlyContinue | Where-Object {
-        $rel = $_.FullName.Substring($repoPath.Length + 1).Replace('\', '/')
-        $tracked -notcontains $rel
-    })
+    if ($git) {
+        $tracked = @(& $git -C $repoPath ls-files -- $dir)
+        $extra = @(Get-ChildItem $path -Recurse -File -Force -ErrorAction SilentlyContinue | Where-Object {
+            $rel = $_.FullName.Substring($repoPath.Length + 1).Replace('\', '/')
+            $tracked -notcontains $rel
+        })
+    } else {
+        $extra = @(Get-ChildItem $path -Recurse -File -Force -ErrorAction SilentlyContinue)
+    }
     if ($extra.Count -gt 0) { $occupied += $dir }
 }
 if ($occupied.Count -gt 0) {
@@ -229,7 +273,9 @@ if ($occupied.Count -gt 0) {
     }
 }
 
-Invoke-Native '解压运行时数据' { & $sevenZip x $Archive "-o$Root" -y -bso0 -bsp0 }
+$extractArgs = @('x', $Archive, "-o$Root", '-y', '-bso0', '-bsp0')
+if ($SkipRepos) { $extractArgs += '-x!vrstudio\bin\*' }
+Invoke-Native '解压运行时数据' { & $sevenZip @extractArgs }
 
 $caseCount = @(Get-ChildItem (Join-Path $Root 'vrstudio\cases') -Filter 'case.toml' -Recurse -File).Count
 if ($caseCount -lt 1) { Fail "解压后 vrstudio\cases 下没有任何 case.toml，包可能是错的。" }

@@ -265,7 +265,82 @@ serve 在 `/`、`/case/walk_01`、`/api/case/walk_01` 上连续 500，最后一�
 - `vrstudio/src/vrstudio/patch/still.py` `changed_inside` 按像素统计
 - `vrgen/src/vrgen/round/ledger.py` `RunStore.open` 目录名匹配
 
-## 7. 记录模板
+## 7. 2026-11-18 · 打包与分发：只在离线安装版暴露的问题
+
+离线安装版的目标机器不装 Python、Node 与 uv，程序目录只读，可写数据在另一个盘。这个前提让
+源码版里被掩盖的问题集中暴露，下面按现象与处理记录。
+
+### 现象一：exe 启动即崩或页面空白
+
+- **根因**：PyInstaller 只能静态分析导入，uvicorn 的 loop、protocol、lifespan 实现与
+  `anyio`、`h11`、`psutil` 都是运行时按名字导入的，没有显式收进去。
+- **处理**：`vrstudio/packaging/vrstudio.spec` 用 `collect_submodules("uvicorn")` 加上
+  一份显式列表；前端产物、`roles.json`、`config/default.toml` 用 `--add-data` 收进 `_internal`。
+- **预防**：打包后先跑 `vrstudio.exe --version` 与 `serve`，再跑一次
+  `scripts/verify-package.ps1`；只验证 exe 能启动会漏掉隐藏导入。
+
+### 现象二：冻结后找不到 bin、config 或前端产物
+
+- **根因**：PyInstaller 6 的目录式包里 `__file__` 落在 `<程序目录>\_internal\`，
+  源码里按仓库根推算的 `parents[2]`/`parents[3]` 在冻结后语义变了。
+- **处理**：新增 `vrstudio/src/vrstudio/paths.py` 作为唯一解析点：`app_dir()` 取
+  `sys.executable` 的父目录，`resource_dir()` 冻结时取 `sys._MEIPASS`，`data_root()`
+  读 `[paths] data_root`。`bin\` 放在程序目录，资源放 `_internal`，两边各按对应函数找。
+- **预防**：新增资源路径时只允许经过 `paths.py`；升级 PyInstaller 大版本后重新验证
+  `_MEIPASS` 指向。
+
+### 现象三：程序目录里堆出了 cases、logs 与 vrstudio.toml
+
+- **根因**：源码版的可写数据默认落在仓库根，冻结后这个根就是程序目录；安装到
+  `Program Files` 或 `%LOCALAPPDATA%` 时既没有写权限，升级也会把数据一起覆盖。
+- **处理**：决策 102 增加 `[paths] data_root`，安装器在向导里让用户选非系统盘目录，
+  卸载只删程序目录；升级时从 `%APPDATA%\vrstudio\default.toml` 读回已有数据目录并预填。
+- **预防**：打包目录组装完要检查 `cases`、`sources`、`logs`、`vrgen_runs`、
+  `vrstudio.toml` 是否被 exe 试运行带进 `dist`，`build-installer.ps1` 会主动删掉它们。
+
+### 现象四：中文素材名让合成结果静默缺失，rife 随后访问空目录崩溃
+
+- **根因**：OpenCV 的 `cv2.imwrite` 对非 ASCII 路径返回 False 而不抛异常；rife 拿到空目录
+  后越界访问。源码版同样存在，只是验收素材多为英文名没有触发。
+- **处理**：写图改走带编码处理的封装，rife 调用前检查输入目录非空并给出可读报错。
+- **预防**：验收 case 必须带一个中文素材名的路径；`verify-package.ps1` 的 patch 合成用例
+  专门覆盖这一条。
+
+### 现象五：安装包与便携版对外分发时的固定动作
+
+- **根因**：没有代码签名，SmartScreen 会拦；mglc 是平台工具，不能随包分发；
+  发布目录里放校验文件与维护说明会让非技术使用者多面对一堆文件。
+- **处理**：安装器与便携版都只在首次运行时提示“更多信息 → 仍要运行”；mglc 由使用者
+  自行放到 `%LOCALAPPDATA%\Programs\mglc\bin`，安装器只做检测与提示；对外发布目录只放
+  两个产物加一页 `先看这里.txt`，校验值在构建机上现算。
+- **预防**：分发说明写进 `docs/deployment-packaged.md`，发布说明模板放在
+  `packaging/release/` 下，不靠口头交接。
+
+### 现象六：打运行时数据包时日志被截断
+
+- **根因**：`serve` 正在运行，`logs/serve/service-<日期>.jsonl` 被进程占用，7z 读到的是
+  打开时刻的副本。
+- **处理**：打包前停掉服务，或按 MANIFEST 里的说明对正在写入的文件做复制后再追加。
+- **预防**：数据包生成时记录打包时间与截断位置；`.web-lock.json`、`derived/`、
+  `out/samples/` 与旧 `extracts/` 打包前就裁掉，缩减体积也减少变动文件。
+
+### 现象七：测试在仓库内落临时目录，让与代码无关的断言失败
+
+- **根因**：Windows 上 `TEMP` 不可用时 `tempfile` 回退到仓库根，`pytest-of-*` 落在
+  `vrstudio/` 内；有的测试断言“case 在仓库外时相对路径为 None”，于是失败。
+- **处理**：把 `pytest-of-*` 与 `vrgen-*.json` 写进 `.gitignore`，测试失败时先看临时目录
+  落在哪；这不属于代码缺陷。
+- **预防**：跑全量门禁前确认 `TEMP` 可用，或直接接受这类环境失败并在记录里注明。
+
+### 相关文件/命令
+
+- `vrstudio/packaging/vrstudio.spec`、`vrgen/packaging/vrgen.spec`
+- `vrstudio/src/vrstudio/paths.py`、`vrgen/src/vrgen/paths.py`
+- `scripts/build-installer.ps1`、`scripts/verify-package.ps1`
+- `packaging/vraigc.iss`、`packaging/setup-config.ps1`、`packaging/release/`
+- `docs/deployment-packaged.md`、`docs/plan/exe-packaging-plan.md`
+
+## 8. 记录模板
 
 以后新增经验时按以下结构追加，不覆盖旧记录：
 

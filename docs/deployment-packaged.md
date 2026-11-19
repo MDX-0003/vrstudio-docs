@@ -12,8 +12,10 @@ Python、Node、uv。
 
 对外发布时，目录里只放两个产物加一页 `先看这里.txt`（谁该点哪个、装完怎么启动、
 怎么改数据目录与端口）。维护用的 `README-install.txt` 与本文留在仓库里，
-不放进发布目录，避免非技术使用者面对多余的说明与校验文件。
-需要校验值时在构建机上用 `Get-FileHash` 现算，不随包分发。
+不放进发布目录，避免非技术使用者面对多余的说明与校验文件。需要校验值时在构建机上用
+`Get-FileHash` 现算，不随包分发。两页发布说明的模板在 `packaging/release/` 下：
+发布时把 `VRAIGC-发布说明.txt` 改名为 `先看这里.txt` 并替换版本号占位，
+把 `mglc-登录说明.txt` 原样拷过去。
 
 两者装出来的程序目录相同：
 
@@ -24,6 +26,9 @@ VRAIGC\
   vrgen\             vrgen.exe 与它的 _internal、templates
   bin\               ffmpeg.exe、ffprobe.exe、rife-ncnn-vulkan-*
   tools\             mglc 放置说明（mglc 不随包分发）
+  启动-本机.cmd      双击入口：只监听 127.0.0.1，自动开浏览器
+  启动-局域网.cmd    双击入口：监听 0.0.0.0，控制台打印局域网地址
+  设置端口.cmd       双击入口：查看并改写端口
   README-install.txt 给使用者的安装说明
 ```
 

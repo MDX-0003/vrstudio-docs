@@ -4,12 +4,18 @@
 旧仓库已冻结归档，只读参考；一切新工作在这里进行。
 
 ```
-E:\VRAIGC\              ← 根 git 仓库：只追踪 AGENTS.md 与 docs\（规划文档）
+E:\VRAIGC\              ← 根 git 仓库：AGENTS.md、docs\（规划文档）、packaging\ 与 scripts\（分发与部署）
   AGENTS.md        ← 本文件：跨仓库硬规则
   docs\            ← 规划与决策的权威位置（改架构先改文档，再动代码）
+  packaging\       ← 离线安装版与便携版的安装器脚本、配置脚本与发布说明模板
+  scripts\         ← 新 host 自举 bootstrap.ps1、安装包构建与打包前验收
   vrgen\           ← 生成服务仓库（独立 git，根仓库已 ignore）
   vrstudio\        ← 流程仓库（独立 git，根仓库已 ignore）
 ```
+
+可写数据（`cases/`、`sources/`、`vrgen_runs/`、`logs/`）在运行时由配置 `[paths] data_root`
+决定位置（决策 102）：源码检出时数据根等于工作区根，安装版由安装器写成非系统盘目录。
+`case.toml` 的 `[source] path` 相对数据根，`[[assets]] path` 相对 case 目录（决策 101）。
 
 ## 两仓库的关系（一句话）
 
@@ -36,12 +42,14 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 6. **开发与提交门禁**：开工前先确认根仓库与相关子仓库 `git status` 干净；
    有未提交改动就先把它们处理掉，或在开工前向用户说明。
    开发顺序固定为「先改 `docs/` 的决策与计划 → 再改代码 → 最后补字节一致性与测试」。
-   提交前 `uv run pytest` 全绿 + `uv run ruff check .` 干净。
+   提交前 `uv run pytest` 全绿 + `uv run ruff check .` 干净；vrstudio 另需前端
+   `npm run lint`、`npm run format:check`、`npm run test`、`npm run build` 通过。
    开发完成后单独提交 git：根仓库的文档提交与子仓库的代码提交各自独立，
    不把文档改动和代码改动混进同一笔；提交信息中文、动词开头
    （沿用旧仓库风格，如 `aigc: 修掉…`）。
 7. **数据不进 git**：`cases/`、`sources/`、`runs/`、`logs/`、`bin/` 全部 gitignore；
-   仓库里只进代码、配置模板、文档、测试。
+   仓库里只进代码、配置模板、文档、测试。可写数据的位置由 `[paths] data_root` 决定
+   （决策 102），源码检出时等于工作区根；整仓搬迁时三个仓库目录要一起搬（决策 101）。
 8. **只维护 main 分支**：根仓库、vrgen、vrstudio 的长期进度只写在 `main`；
    不创建长期功能分支，也不为阶段性工作保留旁支。临时实验分支在验收后必须
    合并或删除；提交、文档与验收记录都落在 `main`。当前没有远程分支，后续也不
@@ -63,6 +71,13 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 - Python 3.11，uv 管理：`uv sync --extra dev` 装环境，`uv run <cmd>` 执行。
 - CI：GitHub Actions（`.github/workflows/ci.yml`），本地门禁等价于 CI 的 test job。
 - 本地工具是 Windows 优先（bin\ffmpeg.exe、mglc），CI 上只跑不依赖外部二进制的单测。
+- 打包分发：安装版用 PyInstaller 目录式打出 `vrstudio.exe` 与 `vrgen.exe`，Inno Setup 6
+  生成安装器（没装时只出便携版 zip）；PyInstaller 由 `uv run --with pyinstaller` 临时提供，
+  不写进依赖。构建、安装与排错见 `docs/deployment-packaged.md`，打包前验收由
+  `scripts/verify-package.ps1` 用真实 case 跑一遍。
+- 新 host 部署与离线交接：`scripts/bootstrap.ps1` 负责装依赖、还原运行时数据与生成本机配置；
+  离线交接包不带运行时数据时用 `-SkipRepos` 跳过 git 操作，把它与 `vrstudio-runtime-*.7z`
+  组合成一个可运行工程。用法见 `docs/deployment-new-host.md`。
 
 ## 文档索引
 
@@ -88,6 +103,8 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 | `docs/generate-page-plan.md` | 生成页可读性优化方案：主题折叠、模板内别名、提示词自适应、底部提交条（待批） |
 | `docs/keyframe-workbench-plan.md` | 首尾帧重绘工作台方案：两帧展示、图片步提示词框架、两批手动生成与到视频步的交接（patch 已实施） |
 | `docs/plan/keyframe-page-layout-plan.md` | 首尾帧页排布重做（A2 通栏）与抽取页产物条：四格输入、三视图抽屉、候选与提示词通栏（已实施，验收见 `docs/test-runs/20261026-keyframe-extract-layout.md`） |
+| `docs/plan/pad-upload-export-plan.md` | fullredraw 上传件提前到扩充步导出：`vrgen prep` 与 `vrstudio export-upload`、页面直接下载上传件（决策 87） |
+| `docs/plan/fullredraw-style-first-plan.md` | fullRedrawImg 提示词按场景取值的历史方案，后续由 `docs/plan/fullredraw-img-prompt-vars.md` 细化 |
 | `docs/plan/asset-library-separation-plan.md` | 素材库独立页面与步骤内引用清单：文件库、视频提交集、图片参考集三层分离，选择器、旧版兼容与迁移（审查稿，待原型确认） |
 | `docs/plan/keyframe-input-cap-plan.md` | 首尾帧图片输入重排与 10 张上限：图1 进清单、0 张放行、三类角色、首帧9/尾帧8、结构条件计算键与提示词刷新（已实施，验收见 `docs/test-runs/20261112-keyframe-input-cap.md`） |
 | `docs/plan/unified-file-view-plan.md` | 统一文件视图方案：/file 按根寻址的白名单直开路由 + FileRow 组件，所有展示资产可查名查路径可单独打开（已实施，验收见 `docs/test-runs/20261026-unified-file-view.md`） |

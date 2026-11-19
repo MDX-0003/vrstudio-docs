@@ -1,0 +1,109 @@
+﻿mglc 登录说明
+==============
+
+VRAIGC 的生成功能通过 mglc 调用灵创平台。这份文档讲清三件事：
+AK/SK 从哪里拿、怎么登录、登录后怎么确认与排错。
+
+一、先准备什么
+--------------
+- 一个灵创平台账号（aigc.mgtv.com），并且已经加入目标企业空间。
+- 一对 Access Key / Secret Key（下称 AK/SK）。AK 是身份标识，SK 是密码，
+  两个都要有，缺一个登不进去。
+
+二、AK/SK 从哪里拿
+------------------
+优先自助申请：
+  浏览器打开 https://aigc.mgtv.com/develop/media/api-keys
+  用平台账号登录后，在该页面查看或新建 API 密钥。一个账号最多保留 3 组，
+  页面会列出每组的创建时间与状态，可禁用或删除。
+
+看不到这个页面、或者没有新建权限：
+  找平台管理员（企业空间管理员）代建，或直接向管理员索取一对 AK/SK。
+  这不是 VRAIGC 能生成的东西，必须由平台侧签发。
+
+另一种登录方式（不需要 AK/SK）：
+  mglc auth --source workbuddy
+  执行后会给出一个浏览器授权地址，用平台账号在浏览器里批准即可。
+  当前支持的授权来源是 workbuddy、mangoagent、easyclaw；你的企业空间
+  如果没开通对应来源，就以 AK/SK 方式登录。
+
+关于密钥的注意事项：
+- Secret Key 通常在创建时只完整显示一次，页面之后再看到的是掩码。拿到就当场存好。
+- AK/SK 等同账号密码，不要贴到群里、写进文档或提交到代码仓库。
+- 一组密钥泄露时，立即到上面的页面禁用该组，再新建一组重新登录。
+
+三、确认 mglc 已经装好
+----------------------
+安装版 VRAIGC 会在固定位置自动找 mglc，不需要你配 PATH：
+  1) <程序目录>\tools\mglc.exe
+  2) %LOCALAPPDATA%\Programs\mglc\bin\mglc.exe
+  3) 环境变量 VRGEN_MGLC_BIN 指向的位置
+  4) PATH
+
+如果还没装：向管理员索取 mglc 的 Windows 版本（mglc-windows-amd64.zip），
+解压到 %LOCALAPPDATA%\Programs\mglc\bin，确认目录里有 mglc.exe。
+手动在命令行里执行时，如果提示找不到 mglc，可以写完整路径：
+  "%LOCALAPPDATA%\Programs\mglc\bin\mglc.exe" status
+
+四、登录
+--------
+打开一个新的命令行窗口（让新装的 mglc 进入 PATH），执行：
+
+  mglc login --access-key <你的AK> --secret-key <你的SK>
+
+需要指定其它平台地址时加 --endpoint，默认是 https://aigc.mgtv.com：
+
+  mglc login --access-key <AK> --secret-key <SK> --endpoint https://aigc.mgtv.com
+
+不想把密钥留在命令历史里，可以先用环境变量：
+
+  set MGLC_ACCESS_KEY=<AK>
+  set MGLC_SECRET_KEY=<SK>
+  mglc login
+
+登录成功后，密钥与地址保存在 %USERPROFILE%\.mglc\config.yaml。
+这个文件里是明文密钥，注意机器本身的访问权限，不要把它拷给别人或放进共享目录。
+
+五、验证登录
+------------
+  mglc status
+
+正常时返回 code 0，msg 为“OK 登录状态正常”，并列出当前账号的昵称、
+企业空间名称与脱敏手机号。用它确认三件事：
+  1) 确实登录成功；
+  2) 登录的是哪个企业空间（enterpriseName 要和团队一致）；
+  3) 当前账号是不是你要用的那个。
+
+只读诊断命令，不消耗额度，也可以用来复查：
+  mglc virtual-ip list
+
+六、换账号或退出
+----------------
+  mglc logout
+  mglc login --access-key <新AK> --secret-key <新SK>
+
+七、常见问题
+------------
+- 报 10002（未登录）或 -401（AK 无效）
+  密钥填错、已被禁用或已过期。到密钥页面确认该组状态，必要时新建一组再登录。
+
+- 报“请求过于频繁”或 429
+  平台限流，等几十秒到几分钟再试，不要连续重试。
+
+- 登录成功但企业空间不对
+  AK 属于签发它的那个空间。让管理员确认这把密钥属于哪个企业，或换一把。
+
+- 提示 CLI 有新版本
+  按提示执行更新命令（本机实测 0.2.3 → 0.2.11 时给出的就是官方安装脚本）。
+  更新后执行 mglc status 复查；一般不需要重新登录。
+
+- 在 VRAIGC 里提交生成仍报找不到 mglc
+  先确认 mglc.exe 在 %LOCALAPPDATA%\Programs\mglc\bin，或在 VRAIGC 程序目录的
+  tools\ 下放一份；再重启 VRAIGC。两种位置它都会自动找到。
+
+八、和 VRAIGC 的关系
+--------------------
+- VRAIGC 只负责调用 mglc，登录态属于当前 Windows 用户，放在 %USERPROFILE%\.mglc。
+- 换一台机器要重新登录一次；安装包不携带登录态，也不应该携带。
+- 登录一次即可，除非退出、换账号或密钥被禁用。
+

@@ -1,0 +1,39 @@
+﻿VRAIGC <版本>
+=============
+
+这个文件夹里有两份安装包，按机器情况二选一，不用都装：
+
+1. VRAIGC-<版本>-setup.exe（安装版，推荐）
+   双击安装。装到当前用户目录，不需要管理员权限。
+   安装时会让你选一个「数据目录」放 cases、sources、台账和日志；
+   默认沿用上次装过的目录，第一次装建议放非系统盘的英文路径，例如 D:\VRAIGC-data。
+   首次运行会被 Windows 拦一次，点「更多信息 → 仍要运行」。
+   装完开始菜单有两条：VRAIGC（本机）、VRAIGC（局域网）。
+
+2. VRAIGC-<版本>-portable.zip（便携版，不想安装时用）
+   解压到英文路径，先运行 setup-config.ps1 写配置（会问数据目录），
+   之后双击 VRAIGC\启动-本机.cmd 启动。
+
+启动与常用操作
+--------------
+程序目录里有三个双击入口：
+  启动-本机.cmd      只给本机用，自动打开浏览器
+  启动-局域网.cmd    给别人访问，窗口里会显示本机地址；需要放行防火墙端口
+  设置端口.cmd       查看并修改端口
+
+命令行方式：
+  vrstudio.exe config show                       看数据目录、监听地址、端口
+  vrstudio.exe config set web.port 8860          长期改端口
+  vrstudio.exe config set paths.data_root D:\VRAIGC-data   数据目录放错了改这里
+
+还需要做的
+----------
+- 安装 mglc 并登录（生成功能需要，安装包不带；详细步骤见同目录 mglc-登录说明.txt）：
+  解压到 %LOCALAPPDATA%\Programs\mglc\bin，然后执行
+    mglc login --access-key <AK> --secret-key <SK>
+  AK/SK 找平台管理员申请。
+- 局域网访问要放行端口（默认 8760）：
+  New-NetFirewallRule -DisplayName 'VRAIGC 8760' -Direction Inbound -Protocol TCP -LocalPort 8760 -Action Allow
+
+注意：程序没有登录认证，只在你信得过的网络里对外开放。
+
