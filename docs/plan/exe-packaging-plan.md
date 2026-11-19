@@ -111,3 +111,4 @@
 - 已修：中文素材名导致 `cv2.imwrite` 静默失败、rife 收到空目录后访问冲突崩溃（源码版同样存在）。
 - WP6 剩余：安装器在另一台干净机器上装一次并跑同一套打包前验收。
 - 分发说明见 `docs/deployment-packaged.md`。
+- 2026-11-19 补配置隔离（决策 103）：源码形态不再读取安装器写的 `%APPDATA%\vrstudio\default.toml`，只读仓库根 `vrstudio.toml`；`config set/show` 的写入口按运行形态区分。安装版行为不变，已构建的安装包不需要重装。

@@ -216,6 +216,10 @@ Register-ScheduledTask -TaskName "vrstudio-serve" -Action $action -Trigger (New-
 - 服务日志：`<根>\vrstudio\logs\serve\service-YYYYMMDD.jsonl`、`client-YYYYMMDD.jsonl`；
   任务日志：`<根>\vrstudio\logs\tasks\YYYYMMDD\`。
 - 本机配置：`<根>\vrstudio\vrstudio.toml`（`[generate] vrgen` 指向 vrgen 的 exe），不进 git。
+  源码形态只读这一份与当前目录的 `vrstudio.toml`，不读 `%APPDATA%` 的安装版配置；
+  同一台机器装了安装版也不会污染源码运行（决策 103）。
+  改数据根或端口的写法是 `<根>\vrstudio> uv run vrstudio config set paths.data_root <目录>`，
+  写入的就是这份仓库根配置。
 - 前端产物：`<根>\vrstudio\src\vrstudio\web\static\next\`，由 `npm run build` 生成，不进 git。
 
 ## 7. 追加与重建

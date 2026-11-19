@@ -78,6 +78,9 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 - 新 host 部署与离线交接：`scripts/bootstrap.ps1` 负责装依赖、还原运行时数据与生成本机配置；
   离线交接包不带运行时数据时用 `-SkipRepos` 跳过 git 操作，把它与 `vrstudio-runtime-*.7z`
   组合成一个可运行工程。用法见 `docs/deployment-new-host.md`。
+- 配置作用域按运行形态区分（决策 103）：安装版读写 `%APPDATA%\vrstudio\default.toml`，
+  源码检出只读写仓库根与当前目录的 `vrstudio.toml`，同一台机器上安装器的数据根、`bin.dir`
+  不会漏进源码运行；`config set` 与 `config show` 的写入口随形态变化。
 
 ## 文档索引
 

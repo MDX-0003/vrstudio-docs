@@ -213,6 +213,7 @@ vrpatch 的 ai-clip 注册端点改为调 `vrgen register`；extract/merge 仍 s
   `parents[2]`/`parents[3]` 仍指向程序目录，所以 `bin\`、`config\`、`templates\` 的
   解析代码不变；数据根、自举与配置搜索顺序是这条分发形态唯一多出来的约定。
   详见 `docs/plan/exe-packaging-plan.md` 与决策 102。
+- **配置作用域**：安装版读用户级配置（`%APPDATA%\vrstudio\default.toml` 与旧的 `~/.config/vrstudio/default.toml`），源码检出只读仓库根与当前目录的 `vrstudio.toml`；`config set` 的写入口随之区分。两种形态在同一台机器上并存时互不继承配置（决策 103）。
 - **旧数据迁移**：`vrstudio` 的 `scripts/migrate_source_paths.py` 把 `case.toml`
   里落在数据根内的绝对路径改写成数据根相对写法；默认 dry-run，`--apply` 写回文件，
   重复执行报 0 个。历史产物 JSON（`extracts/*/report.json`、`derived/*.json`）

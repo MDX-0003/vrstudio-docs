@@ -185,6 +185,21 @@ vrstudio.exe --port 8860                     # 只对本次启动生效
 安装器在升级时会**沿用已有数据目录**（从 `%APPDATA%\vrstudio\default.toml` 读回并预填）；
 如果选中的目录落在程序目录里面，安装器会弹窗确认，避免升级或卸载连带影响数据。
 
+### 6.0.1 源码检出与安装版共存时的配置边界
+
+同一台机器上同时有源码检出和安装版时，两个形态各读各的配置，互不继承（决策 103）。
+
+- 安装版（冻结运行）读 `%APPDATA%\vrstudio\default.toml` 与旧的 `~/.config/vrstudio/default.toml`。
+- 源码检出只读 `<仓库根>\vrstudio.toml` 与当前目录的 `vrstudio.toml`，不读 `%APPDATA%`。
+- `vrstudio config set` 按同一判断写入：安装版写用户配置，源码写仓库根的 `vrstudio.toml`；
+  `vrstudio config show` 多打印一行 `scope = installed` 或 `scope = source`，后面才是写入口路径。
+- `--config`、`--set` 与 `VRSTUDIO_DATA_ROOT` 三条显式覆盖在两种形态下都有效。
+
+因此安装器写下的 `data_root`、`bin.dir` 与 `generate.vrgen` 不会漏进源码运行。反过来，
+如果开发者确实想让源码操作安装版的数据目录，在仓库根的 `vrstudio.toml` 里显式写
+`[paths] data_root = "..."` 即可。升级前用源码 `config set` 写进用户配置的旧设置不会自动迁移；
+源码侧需要重新在仓库 `vrstudio.toml` 里设置一次，安装版不受影响。
+
 ## 6.1 外部依赖怎么被找到（不需要改 PATH）
 
 安装包不会修改系统或用户 PATH。各依赖按固定位置查找，PATH 只是最后兜底：
