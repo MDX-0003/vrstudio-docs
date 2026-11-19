@@ -105,7 +105,7 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 | `docs/plan/keyframe-page-layout-plan.md` | 首尾帧页排布重做（A2 通栏）与抽取页产物条：四格输入、三视图抽屉、候选与提示词通栏（已实施，验收见 `docs/test-runs/20261026-keyframe-extract-layout.md`） |
 | `docs/plan/pad-upload-export-plan.md` | fullredraw 上传件提前到扩充步导出：`vrgen prep` 与 `vrstudio export-upload`、页面直接下载上传件（决策 87） |
 | `docs/plan/fullredraw-style-first-plan.md` | fullRedrawImg 提示词按场景取值的历史方案，后续由 `docs/plan/fullredraw-img-prompt-vars.md` 细化 |
-| `docs/plan/asset-library-separation-plan.md` | 素材库独立页面与步骤内引用清单：文件库、视频提交集、图片参考集三层分离，选择器、旧版兼容与迁移（审查稿，待原型确认） |
+| `docs/plan/asset-library-separation-plan.md` | 素材库独立页面与步骤内引用清单：文件库、视频提交集、图片参考集三层分离，选择器、旧版兼容与迁移（已实施，验收见 `docs/test-runs/20261026-asset-library-refs.md`） |
 | `docs/plan/keyframe-input-cap-plan.md` | 首尾帧图片输入重排与 10 张上限：图1 进清单、0 张放行、三类角色、首帧9/尾帧8、结构条件计算键与提示词刷新（已实施，验收见 `docs/test-runs/20261112-keyframe-input-cap.md`） |
 | `docs/plan/unified-file-view-plan.md` | 统一文件视图方案：/file 按根寻址的白名单直开路由 + FileRow 组件，所有展示资产可查名查路径可单独打开（已实施，验收见 `docs/test-runs/20261026-unified-file-view.md`） |
 | `docs/plan/frontend-perf-compare-playback.md` | 对比页 360 视频播放卡顿排查与修复：B 路从未播放只靠 seek 挪进度（Playwright 实测实锤）、隐藏视频元素失去 GPU 上传快路径、每帧强制布局、播放画质下拉框（代理/原始分辨率，已实施，待真实浏览器验证） |
@@ -121,7 +121,7 @@ vrgen 负责对平台的一切交互并写台账，结果被"采用"（adopt）�
 | `docs/plan/relight-video-plan.md` | 视频重打光最小方案：固定机位下一张氛围图打一段 GT 视频，对齐与光照场只估一次整段复用、参考帧来源、适用边界与验收（决策 56；已实施，验收见 `docs/test-runs/20261030-relight-video.md`；后续优化见 `relight-decode-cache-plan.md`） |
 | `docs/plan/relight-frontend-plan.md` | 重打光前端接入：一条 `relight` flow 按 GT 媒体派发、建 case 不绑源、素材库多候选 + 两把槽位指针、视频 N 帧小样预览、CLI 合并与 `--sample`/`--case`、三个子页与 WP0–WP5（已实施，验收见 `docs/test-runs/20261030-relight-frontend.md`） |
 | `docs/plan/relight-decode-cache-plan.md` | 视频重打光消除重复解码与固定光照缓存：删除同位检查、单遍取参考帧、按 GT/氛围图/参考帧缓存全精度相似变换、运行时间与分段计时（决策 64/65；代码已实施，8K 冷/热验收待补） |
-| `docs/plan/relight-atmo-video-plan.md` | 视频氛围重打光：氛围源从单张图扩成图或视频，固定相似变换 + 逐帧光场、按归一化进度对齐、允许分辨率/帧率不同、1080p 氛围与 fullredraw 成片交接、WP0–WP5（审查稿，四项关键选择已确认） |
+| `docs/plan/relight-atmo-video-plan.md` | 视频氛围重打光：氛围源从单张图扩成图或视频，固定相似变换 + 逐帧光场、按归一化进度对齐、允许分辨率/帧率不同、1080p 氛围与 fullredraw 成片交接（WP0–WP3 已实施，WP4 待真实素材） |
 | `docs/plan/recompose-perf-plan.md` | 视频 recompose 性能：4K/8K 的逐阶段实测与瓶颈根因、R 区直通、缓冲复用、闸门最多分析 48 帧三项改动、预期收益与字节一致性验收（决策 77） |
 | `docs/plan/video-merge-input-plan.md` | 视频拼接输入：复用图片流的 `[merge] input` 指针与 `merge_input` 角色，视频「裁回原尺寸」可用采用结果或上传的 21:9 画布视频；前端抽共用控件，只留上传入口与条件式“改用采用结果”（决策 78，2026-11-09 简化） |
 | `docs/plan/follow-input-resolution-plan.md` | 输出跟随输入分辨率：视频 recompose 与图片 merge 共用 `--follow-input` 的缩放规则、两条流程的输出命名、web `output_options` 与前端下拉框，含对比页识别与缩放闭合恒等式验收（决策 79；§3 的缩放规则已由决策 90 取代） |
